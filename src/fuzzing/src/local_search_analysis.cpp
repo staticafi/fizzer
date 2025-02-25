@@ -5,6 +5,7 @@
 #include <utility/development.hpp>
 #include <utility/timeprof.hpp>
 #include <map>
+#include <set>
 #include <algorithm>
 
 namespace  fuzzing {
@@ -85,6 +86,41 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
     std::map<natural_32_bit, std::pair<type_of_input_bits, std::unordered_set<natural_8_bit> > >  start_bits_to_bit_indices;
     std::vector<std::size_t>  path_node_indices;
     {
+        std::set<natural_32_bit>  included{};
+        {
+            auto const&  intersect = [](std::unordered_set<natural_32_bit> const&  a, std::unordered_set<natural_32_bit> const&  b) {
+                for (natural_32_bit idx : b)
+                    if (a.contains(idx))
+                        return true;
+                return false;
+            };
+
+            std::unordered_set<natural_32_bit>  sensitive_bits{ node->get_sensitive_stdin_bits() };
+            std::unordered_set<natural_32_bit>  work_set{};
+            for (std::size_t  i = 1UL, i_end = full_path_nodes.size(); i != i_end; ++i)
+                work_set.insert(i_end - (i + 1UL));
+            while (true)
+            {
+                bool changed{ false };
+                for (auto it = work_set.begin(); it != work_set.end(); )
+                {
+                    std::size_t const  node_idx{ *it };
+                    branching_node const* const  node_ptr = full_path_nodes.at(node_idx);
+                    if (intersect(sensitive_bits, node_ptr->get_sensitive_stdin_bits()))
+                    {
+                        sensitive_bits.insert(node_ptr->get_sensitive_stdin_bits().begin(), node_ptr->get_sensitive_stdin_bits().end());
+                        included.insert(node_idx);
+                        changed = true;
+                        it = work_set.erase(it);
+                    }
+                    else
+                        ++it;
+                }
+                if (changed == false)
+                    break;
+            }
+        }
+
         auto const&  collect_sensitive_bits = [&start_bits_to_bit_indices, this](std::unordered_set<natural_32_bit> const&  sensitive_bits) {
             for (stdin_bit_index  idx : sensitive_bits)
             {
@@ -102,31 +138,17 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
                 it_and_state.first->second.second.insert(idx - start_bit_idx);
             }            
         };
-        auto const&  intersect = [](std::unordered_set<natural_32_bit> const&  a, std::unordered_set<natural_32_bit> const&  b) {
-            for (natural_32_bit idx : b)
-                if (a.contains(idx))
-                    return true;
-            return false;
-        };
 
+        for (auto it = included.begin(); it != included.end(); ++it)
+        {
+            std::size_t const  node_idx{ *it };
+            branching_node const* const  node_ptr = full_path_nodes.at(node_idx);
+            collect_sensitive_bits(node_ptr->get_sensitive_stdin_bits());
+            path_node_indices.push_back(node_idx);
+
+        }
         collect_sensitive_bits(node->get_sensitive_stdin_bits());
         path_node_indices.push_back(full_path_nodes.size() - 1UL);
-
-        std::unordered_set<natural_32_bit>  sensitive_bits{ node->get_sensitive_stdin_bits() };
-        for (std::size_t  i = 1UL, i_end = full_path_nodes.size(); i != i_end; ++i)
-        {
-            std::size_t const  node_idx{ i_end - (i + 1UL) };
-            branching_node const* const  node_ptr = full_path_nodes.at(node_idx);
-            if (intersect(sensitive_bits, node_ptr->get_sensitive_stdin_bits()))
-            {
-                collect_sensitive_bits(node_ptr->get_sensitive_stdin_bits());
-                path_node_indices.push_back(node_idx);
-
-                sensitive_bits.insert(node_ptr->get_sensitive_stdin_bits().begin(), node_ptr->get_sensitive_stdin_bits().end());
-            }
-        }
-
-        std::reverse(path_node_indices.begin(), path_node_indices.end());
     }
 
     std::unordered_map<natural_32_bit, natural_32_bit>  start_bits_to_variable_indices;
