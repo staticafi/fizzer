@@ -115,6 +115,7 @@ struct iid_vector_analysis_statistics_per_node {
 struct iid_vector_analysis_statistics {
     std::map< location_id::id_type, iid_vector_analysis_statistics_per_node > iid_nodes_stats;
     std::vector< location_id::id_type > ignored_node_ids;
+    int processed_nodes;
 };
 
 
@@ -335,7 +336,9 @@ private:
 struct iid_dependencies {
     void update_ignored_nodes( sensitivity_analysis& sensitivity );
     void process_node_dependence( branching_node* node );
+    void process_node_dependence_from_full_path( branching_node* node );
     void remove_node_dependence( location_id::id_type id );
+    void remove_all_covered( const std::unordered_set<location_id>& covered_branchings );
     iid_node_dependence_props& get_props( location_id::id_type id );
     std::vector< location_id::id_type > get_iid_nodes();
     std::optional< location_id::id_type > get_next_iid_node();
@@ -344,6 +347,7 @@ struct iid_dependencies {
 private:
     std::map< location_id::id_type, iid_node_dependence_props > node_id_to_equation_map;
     std::set< location_id::id_type > ignored_node_ids;
+    int processed_nodes = 0;
 
 public:
     // Configurations
@@ -355,8 +359,9 @@ public:
     inline static int minimal_max_generation_for_other_node = 10;
     inline static int minimal_max_generation_artificial_data = 5;
     inline static float percentage_to_add_to_path = 0.4;
-    inline static bool create_artificial_data = true;
+    inline static bool create_artificial_data = false;
 };
+
 
 std::vector< node_id_with_direction > get_path( branching_node* node );
 bool should_generate_more_data( const generation_state& state );

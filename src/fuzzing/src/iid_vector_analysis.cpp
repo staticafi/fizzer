@@ -742,6 +742,7 @@ generated_path iid_node_dependence_props::generate_probabilities()
         // print_dependencies();
         // matrix.print_matrix();
         // submatrix.print_matrix();
+
     }
 
     std::optional< std::vector< equation > > best_vectors = get_best_vectors( submatrix, 1 );
@@ -1235,6 +1236,7 @@ void iid_node_dependence_props::compute_node_counts_for_loading_loops( nodes_to_
 
         for ( const auto& body : loop_props.bodies ) {
             auto& [ left_count, right_count ] = path_counts[ body.node_id ];
+            // loop_count = std::max( loop_count, left_count + right_count );
 
             if ( loop_heads.contains( body.node_id ) ) {
                 child_loop_counts[ body.node_id ] = std::max( left_count, right_count );
@@ -1587,7 +1589,6 @@ void fuzzing::iid_node_dependence_props::compute_loading_loops( branching_node* 
                 if ( loop_head.id == prev_node->get_location_id().id && it->second == node_direction ) {
                     auto& props = loading_loops[ loop_head.id ];
                     props.loop_count--;
-
                 }
             }
         }
@@ -1662,11 +1663,17 @@ void iid_node_dependence_props::compute_dependencies_by_loading( branching_node*
 
     for ( const auto& [ loop_head_id, body ] : loop_to_props ) {
         auto loading_props = loading_loops.at( loop_head_id );
-        loop_properties& dependencies = loop_to_properties.get_props_by_loop_head_id( loop_head_id );
-        dependencies.is_loading_loop = true;
 
         natural_32_bit loaded_bits = loading_props.max - loading_props.min;
+
+        if ( loading_props.loop_count == 0 || loaded_bits == 0 ) {
+            continue;
+        }
+
         double per_loop = double( loaded_bits ) / double( loading_props.loop_count );
+
+        loop_properties& dependencies = loop_to_properties.get_props_by_loop_head_id( loop_head_id );
+        dependencies.is_loading_loop = true;
         dependencies.loaded_bits_per_loop.add( per_loop );
 
         bool loop_head_end_direction = loop_heads_ending.at( loop_head_id );
@@ -1809,6 +1816,7 @@ void iid_dependencies::process_node_dependence( branching_node* node )
 
     iid_node_dependence_props& props = node_id_to_equation_map[ node->get_location_id().id ];
     props.process_node( node );
+    processed_nodes++;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -1830,6 +1838,24 @@ void iid_dependencies::remove_node_dependence( location_id::id_type id )
             int max_generation_after_covered = std::max( iid_dependencies::minimal_max_generation_after_covered,
                                                          stats.successful_generations / 2 );
             stats.generated_after_covered_max = max_generation_after_covered;
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+void fuzzing::iid_dependencies::remove_all_covered( const std::unordered_set< location_id >& covered_branchings )
+{
+    std::set< location_id::id_type > covered_ids;
+    for ( const auto& branching : covered_branchings ) {
+        covered_ids.insert( branching.id );
+    }
+
+    for ( auto it = node_id_to_equation_map.begin(); it != node_id_to_equation_map.end(); ) {
+        if ( covered_ids.contains( it->first ) && it->second.get_generations_stats().state == generation_state::STATE_NOT_COVERED ) {
+            ignored_node_ids.insert( it->first );
+            it = node_id_to_equation_map.erase( it );
+        } else {
+            ++it;
         }
     }
 }
@@ -1904,6 +1930,7 @@ iid_vector_analysis_statistics fuzzing::iid_dependencies::get_stats() const
     stats.ignored_node_ids = std::vector< location_id::id_type >( ignored_node_ids.begin(),
                                                                   ignored_node_ids.end() );
 
+    stats.processed_nodes = processed_nodes;
     return stats;
 }
 
