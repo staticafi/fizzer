@@ -434,6 +434,7 @@ void  fuzzer::detect_loops_along_path_to_node(
         std::vector<loop_boundary_props>* const  loops
         )
 {
+    TMPROF_BLOCK();
     struct  loop_exit_props
     {
         branching_node*  exit;
@@ -1114,8 +1115,6 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                     );
             construction_props.diverging_node = entry_branching;
 
-            iid_dependences.process_node_dependence(entry_branching);
-
             ++statistics.nodes_created;
         }
 
@@ -1227,8 +1226,6 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                     new_node
                 });
 
-                iid_dependences.process_node_dependence(new_node);
-
                 ++statistics.nodes_created;
 
                 if (construction_props.diverging_node == nullptr)
@@ -1247,6 +1244,9 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                 ),
             construction_props.leaf->successor(trace->back().direction).pointer
         });
+
+        if ( use_vector_analysis )
+            iid_dependences.process_node_dependence_from_full_path( construction_props.leaf );
 
         if (construction_props.diverging_node != nullptr)
         {
@@ -1429,7 +1429,9 @@ void  fuzzer::do_cleanup()
     for (auto  it = iid_pivots.begin(); it != iid_pivots.end(); )
         if (covered_branchings.contains(it->first))
         {
-            iid_dependences.remove_node_dependence(it->first.id);
+            if ( use_vector_analysis )
+                iid_dependences.remove_node_dependence(it->first.id);
+
             it = iid_pivots.erase(it);
         }
         else
@@ -1440,6 +1442,9 @@ void  fuzzer::do_cleanup()
             it = coverage_failures_with_hope.erase(it);
         else
             ++it;
+
+    if ( use_vector_analysis )
+        iid_dependences.remove_all_covered( covered_branchings );
 }
 
 
@@ -1688,12 +1693,9 @@ branching_node*  fuzzer::select_iid_coverage_target()
     it_pivot->second.histogram_ptr->merge(hit_counts);
 
     generated_path path;
-    std::optional< location_id::id_type > iid_location = iid_dependences.get_next_iid_node();
 
-    if ( use_vector_analysis && iid_location.has_value() ) {
-        iid_node_dependence_props& node_props = iid_dependences.get_props( *iid_location );
-        // std::cout << "Computing probabilities for location " << ( *iid_location ) << std::endl;
-        path = node_props.generate_probabilities();
+    if ( use_vector_analysis ) {
+        path = iid_dependences.generate_probabilities();
 
         for ( const auto& path_props : path.get_path() ) {
             auto it = histogram.find( path_props.first );

@@ -83,7 +83,6 @@ struct loop_head_properties {
 struct loop_properties {
     std::optional< node_id_with_direction > chosen_loop_head;
     std::map< node_id_with_direction, loop_head_properties > heads;
-
     std::set< node_id_with_direction > bodies;
 
     bool is_loading_loop;
@@ -91,20 +90,31 @@ struct loop_properties {
     mean_counter< float > loaded_bits_per_loop;
     std::map< location_id::id_type, loaded_bits_props > bits_read_by_node;
 
-    bool is_same( const std::set< location_id::id_type >& other_ids ) const;
-    std::set< location_id::id_type > get_all_ids() const;
-    std::set< location_id::id_type > get_loop_head_ids() const;
-    std::set< location_id::id_type > get_body_ids() const;
+    bool is_same( const std::unordered_set< location_id::id_type >& other_ids ) const;
+    const std::unordered_set< location_id::id_type >& get_all_ids() const;
+    const std::unordered_set< location_id::id_type >& get_loop_head_ids() const;
     location_id::id_type get_smallest_loop_head_id() const;
+    location_id::id_type get_smallest_id() const;
     void set_chosen_loop_head();
+    void update_stored_ids();
+
+private:
+    std::unordered_set< location_id::id_type > all_ids = {};
+    std::unordered_set< location_id::id_type > loop_head_ids = {};
 };
 
 struct loop_dependencies {
     std::vector< loop_properties > loops;
 
-    loop_properties& get_props( const std::set< location_id::id_type >& ids, location_id::id_type loop_head_id );
+    loop_properties& get_props( const std::unordered_set< location_id::id_type >& ids,
+                                location_id::id_type loop_head_id );
     void merge_properties();
+    const loop_properties& get_props_by_loop_head_id( location_id::id_type loop_head_id ) const;
     loop_properties& get_props_by_loop_head_id( location_id::id_type loop_head_id );
+    std::set< location_id::id_type > get_loop_heads( bool include_loading_loops ) const;
+    std::set< node_id_with_direction >
+    get_node_subsets_for_computation( const std::unordered_set< location_id::id_type >& matrix_ids ) const;
+    void print_dependencies() const;
 };
 
 struct iid_vector_analysis_statistics_per_node {
@@ -232,14 +242,18 @@ struct loaded_bits_counter {
 
 
 using loop_head_to_loaded_bits_counter = std::unordered_map< location_id::id_type, loaded_bits_counter >;
-using loop_endings = std::map< location_id::id_type, bool >;
+using loop_endings = std::unordered_map< location_id::id_type, bool >;
 using loop_head_to_bodies_t = std::unordered_map< location_id, std::unordered_set< location_id > >;
 using nodes_to_counts = std::map< location_id::id_type, node_counts >;
 
 struct equation_matrix {
     equation_matrix get_submatrix( std::set< node_id_with_direction > const& subset, bool unique ) const;
-    void process_node( branching_node* end_node );
-    void add_equation( branching_node* end_node );
+    void process_node( branching_node* end_node, const std::vector< node_id_with_direction >& path );
+    void process_node_effective( branching_node* end_node,
+                                 bool compute_matrix,
+                                 const std::unordered_map< node_id_with_direction, int >& directions_in_path );
+    void start_compute_matrix();
+    void add_equation( branching_node* end_node, const std::vector< node_id_with_direction >& path );
     bool contains( node_id_with_direction const& node ) const;
     std::pair< std::size_t, std::size_t > get_dimensions() const;
     std::map< equation, int > compute_vectors_with_hits();
@@ -249,25 +263,33 @@ struct equation_matrix {
                                                                   const iid_node_generations_stats& state );
     int get_desired_vector_direction() const;
     float get_biggest_branching_value() const;
+    const std::unordered_set< location_id::id_type >& get_node_ids() const;
 
     void print_matrix();
 
     BRANCHING_PREDICATE get_branching_predicate() const;
 
 private:
-    void recompute_matrix();
+    void add_path( branching_node* end_node,
+                   const std::unordered_map< node_id_with_direction, int >& directions_in_path );
 
     std::vector< equation > matrix;
     std::vector< branching_node* > all_paths;
-    std::set< node_id_with_direction > nodes;
+    std::vector< node_id_with_direction > nodes;
+    std::unordered_set< location_id::id_type > node_ids;
 };
 
 struct iid_node_dependence_props {
-    generated_path generate_probabilities();
+    generated_path generate_probabilities( const loop_dependencies& loop_to_properties );
     void process_node( branching_node* end_node );
+    void process_path( branching_node* end_node,
+                       const std::set< location_id::id_type >& seen_ids,
+                       const std::vector< node_id_with_direction >& path );
+    void process_path_effective( branching_node* end_node,
+                                 const std::unordered_map< node_id_with_direction, int >& directions_in_path );
     iid_node_generations_stats& get_generations_stats() { return stats; }
     const iid_node_generations_stats& get_generations_stats() const { return stats; }
-    const loop_dependencies& get_dependencies_by_loops() const { return loop_to_properties; }
+    // const loop_dependencies& get_dependencies_by_loops() const { return loop_to_properties; }
 
     bool should_generate() const;
     bool too_much_failed_in_row( int max_failed_generations_in_row ) const;
@@ -275,9 +297,7 @@ struct iid_node_dependence_props {
     void set_as_generating_artificial_data( int minimal_max_generation_artificial_data );
     failed_generation_method get_method_for_failed_generation( bool is_first );
     bool is_equal_branching_predicate() const;
-    void combine_props( const iid_node_dependence_props& other );
 
-    void print_dependencies() const;
     void print_stats( bool only_state = false ) const;
 
 
@@ -290,20 +310,26 @@ private:
                                                std::map< location_id::id_type, int >& child_loop_counts,
                                                location_id::id_type loop_head_id,
                                                int minimum_count,
+                                               const loop_dependencies& loop_to_properties,
                                                bool use_random = false );
     int compute_loading_loop_interation( nodes_to_counts& path_counts,
                                          location_id::id_type id,
                                          const std::set< location_id::id_type >& loop_heads,
                                          const loop_properties& props,
-                                         float loaded_bits_per_loop );
+                                         const loop_dependencies& loop_to_properties );
     void compute_node_counts_for_loading_loops( nodes_to_counts& path_counts,
                                                 const equation& path,
-                                                const std::set< location_id::id_type >& loop_heads );
+                                                const std::set< location_id::id_type >& loop_heads,
+                                                const loop_dependencies& loop_to_properties );
     void compute_node_counts_for_loops( nodes_to_counts& path_counts,
                                         const equation& path,
-                                        const std::set< location_id::id_type >& loop_heads );
+                                        const std::set< location_id::id_type >& loop_heads,
+                                        const loop_dependencies& loop_to_properties,
+                                        const std::unordered_set< location_id::id_type >& subset_ids );
     nodes_to_counts compute_node_counts( const equation& path,
-                                         std::set< node_id_with_direction > const& all_leafs );
+                                         std::set< node_id_with_direction > const& all_leafs,
+                                         const loop_dependencies& loop_to_properties,
+                                         const std::unordered_set< location_id::id_type >& subset_ids );
     std::vector< equation > compute_best_vectors( const std::map< equation, int >& vectors_with_hits,
                                                   int number_of_vectors,
                                                   bool use_random,
@@ -313,40 +339,49 @@ private:
                                                            equation& best_vector );
     std::vector< equation > get_random_vector( const std::map< equation, int >& vectors_with_hits,
                                                int number_of_vectors );
-    std::set< node_id_with_direction > get_node_subsets_for_computation();
-    loop_endings get_loop_heads_ending( branching_node* end_node, loop_head_to_bodies_t& loop_heads_to_bodies );
     void compute_loading_loops( branching_node* end_node,
                                 const loop_head_to_bodies_t& loop_heads_to_bodies,
                                 loop_head_to_loaded_bits_counter& loading_loops,
                                 const loop_endings& loop_heads_ending );
-    void compute_dependencies_by_loading( branching_node* end_node,
-                                          const loop_head_to_bodies_t& loop_heads_to_bodies,
-                                          const loop_endings& loop_heads_ending );
-    void compute_dependencies_by_loops( const loop_head_to_bodies_t& loop_heads_to_bodies,
-                                        const loop_endings& loop_heads_ending );
-    generated_path generate_path_from_node_counts( const nodes_to_counts& path_counts );
-    std::set< location_id::id_type > get_loop_heads( bool include_loading_loops = true );
+    generated_path generate_path_from_node_counts( const nodes_to_counts& path_counts,
+                                                   const loop_dependencies& loop_to_properties );
 
     equation_matrix matrix;
-    loop_dependencies loop_to_properties;
-
     iid_node_generations_stats stats;
+
+    bool continuously_gathering_data = false;
 };
 
 struct iid_dependencies {
     void update_ignored_nodes( sensitivity_analysis& sensitivity );
     void process_node_dependence( branching_node* node );
-    void process_node_dependence_from_full_path( branching_node* node );
+    void process_node_dependence_from_full_path( branching_node* end_node );
     void remove_node_dependence( location_id::id_type id );
-    void remove_all_covered( const std::unordered_set<location_id>& covered_branchings );
+    void remove_all_covered( const std::unordered_set< location_id >& covered_branchings );
     iid_node_dependence_props& get_props( location_id::id_type id );
     std::vector< location_id::id_type > get_iid_nodes();
     std::optional< location_id::id_type > get_next_iid_node();
+
+    generated_path generate_probabilities();
+
     iid_vector_analysis_statistics get_stats() const;
 
 private:
+    loop_endings get_loop_heads_ending( branching_node* end_node, loop_head_to_bodies_t& loop_heads_to_bodies );
+    void compute_dependencies_by_loading( branching_node* end_node,
+                                          const loop_head_to_bodies_t& loop_heads_to_bodies,
+                                          const loop_endings& loop_heads_ending );
+    void compute_dependencies_by_loops( const loop_head_to_bodies_t& loop_heads_to_bodies,
+                                        const loop_endings& loop_heads_ending );
+    void compute_loading_loops( branching_node* end_node,
+                                const loop_head_to_bodies_t& loop_heads_to_bodies,
+                                loop_head_to_loaded_bits_counter& loading_loops,
+                                const loop_endings& loop_heads_ending );
+    void compute_paths( branching_node* end_node );
+
     std::map< location_id::id_type, iid_node_dependence_props > node_id_to_equation_map;
-    std::set< location_id::id_type > ignored_node_ids;
+    std::unordered_set< location_id::id_type > ignored_node_ids;
+    loop_dependencies loop_to_properties;
     int processed_nodes = 0;
 
 public:
@@ -359,10 +394,26 @@ public:
     inline static int minimal_max_generation_for_other_node = 10;
     inline static int minimal_max_generation_artificial_data = 5;
     inline static float percentage_to_add_to_path = 0.4;
-    inline static bool create_artificial_data = false;
+    inline static bool create_artificial_data = true;
+
+    inline static bool verbose = false;
 };
 
 
 std::vector< node_id_with_direction > get_path( branching_node* node );
+std::unordered_map< node_id_with_direction, int > get_directions_in_path( branching_node* node );
 bool should_generate_more_data( const generation_state& state );
 } // namespace fuzzing
+
+namespace std
+{
+template <>
+struct hash< fuzzing::node_id_with_direction > {
+    std::size_t operator()( const fuzzing::node_id_with_direction& key ) const noexcept
+    {
+        std::size_t h1 = std::hash< location_id::id_type >{}( key.node_id );
+        std::size_t h2 = std::hash< bool >{}( key.branching_direction );
+        return h1 ^ ( h2 << 1 );
+    }
+};
+} // namespace std
