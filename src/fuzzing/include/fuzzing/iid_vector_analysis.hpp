@@ -119,12 +119,13 @@ struct loop_dependencies {
 
 struct iid_vector_analysis_statistics_per_node {
     iid_node_generations_stats generation_stats;
-    loop_dependencies loop_to_properties;
+    std::vector< location_id::id_type > node_ids;
 };
 
 struct iid_vector_analysis_statistics {
     std::map< location_id::id_type, iid_vector_analysis_statistics_per_node > iid_nodes_stats;
     std::vector< location_id::id_type > ignored_node_ids;
+    loop_dependencies loop_to_properties;
     int processed_nodes;
 };
 
@@ -248,12 +249,10 @@ using nodes_to_counts = std::map< location_id::id_type, node_counts >;
 
 struct equation_matrix {
     equation_matrix get_submatrix( std::set< node_id_with_direction > const& subset, bool unique ) const;
-    void process_node( branching_node* end_node, const std::vector< node_id_with_direction >& path );
     void process_node_effective( branching_node* end_node,
                                  bool compute_matrix,
                                  const std::unordered_map< node_id_with_direction, int >& directions_in_path );
     void start_compute_matrix();
-    void add_equation( branching_node* end_node, const std::vector< node_id_with_direction >& path );
     bool contains( node_id_with_direction const& node ) const;
     std::pair< std::size_t, std::size_t > get_dimensions() const;
     std::map< equation, int > compute_vectors_with_hits();
@@ -281,15 +280,11 @@ private:
 
 struct iid_node_dependence_props {
     generated_path generate_probabilities( const loop_dependencies& loop_to_properties );
-    void process_node( branching_node* end_node );
-    void process_path( branching_node* end_node,
-                       const std::set< location_id::id_type >& seen_ids,
-                       const std::vector< node_id_with_direction >& path );
     void process_path_effective( branching_node* end_node,
                                  const std::unordered_map< node_id_with_direction, int >& directions_in_path );
     iid_node_generations_stats& get_generations_stats() { return stats; }
+    const equation_matrix& get_matrix() const { return matrix; }
     const iid_node_generations_stats& get_generations_stats() const { return stats; }
-    // const loop_dependencies& get_dependencies_by_loops() const { return loop_to_properties; }
 
     bool should_generate() const;
     bool too_much_failed_in_row( int max_failed_generations_in_row ) const;
