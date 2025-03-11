@@ -249,7 +249,7 @@ using nodes_to_counts = std::map< location_id::id_type, node_counts >;
 
 struct equation_matrix {
     equation_matrix get_submatrix( std::set< node_id_with_direction > const& subset, bool unique ) const;
-    void process_node_effective( branching_node* end_node,
+    void process_node( branching_node* end_node,
                                  bool compute_matrix,
                                  const std::unordered_map< node_id_with_direction, int >& directions_in_path );
     void start_compute_matrix();
@@ -258,7 +258,6 @@ struct equation_matrix {
     std::map< equation, int > compute_vectors_with_hits();
     std::vector< equation >& get_matrix();
     std::optional< equation > get_new_subset_counts_from_vectors( const std::vector< equation >& vector,
-                                                                  int generated_after_covered,
                                                                   const iid_node_generations_stats& state );
     int get_desired_vector_direction() const;
     float get_biggest_branching_value() const;
@@ -344,7 +343,7 @@ private:
     equation_matrix matrix;
     iid_node_generations_stats stats;
 
-    bool continuously_gathering_data = false;
+    bool matrix_generated = false;
 };
 
 struct iid_dependencies {
@@ -379,6 +378,9 @@ private:
     loop_dependencies loop_to_properties;
     int processed_nodes = 0;
 
+    bool compute_data = false;
+    std::vector< branching_node* > end_nodes;
+
 public:
     // Configurations
     inline static bool random_nested_loop_counts = false;
@@ -391,7 +393,7 @@ public:
     inline static float percentage_to_add_to_path = 0.4;
     inline static bool create_artificial_data = true;
 
-    inline static bool verbose = false;
+    inline static bool verbose = true;
 };
 
 

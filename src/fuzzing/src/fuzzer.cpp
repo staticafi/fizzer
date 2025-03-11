@@ -11,7 +11,6 @@
 #include <fuzzing/gradient_descent.hpp>
 
 constexpr bool use_vector_analysis = true;
-constexpr bool use_only_probabilities = false;
 
 namespace  fuzzing {
 
@@ -745,7 +744,7 @@ branching_node*  fuzzer::monte_carlo_search(
     branching_node* successor;
     while (true)
     {
-        if ( use_vector_analysis && !use_only_probabilities ) {
+        if ( use_vector_analysis ) {
             successor = monte_carlo_step_with_path( pivot, histogram, generators, location_miss_generator, path );
         } else {
             successor = monte_carlo_step( pivot, histogram, generators, location_miss_generator );
@@ -1394,7 +1393,8 @@ void  fuzzer::do_cleanup()
                     update_close_flags_from(node);
                     break;
                 }
-            iid_dependences.update_ignored_nodes(sensitivity);
+            if ( use_vector_analysis )
+                iid_dependences.update_ignored_nodes( sensitivity );
             collect_iid_pivots_from_sensitivity_results();
             break;
         case BITSHARE:
@@ -1745,7 +1745,7 @@ branching_node*  fuzzer::select_iid_coverage_target()
                 entry_branching
                 );
 
-        if ( use_vector_analysis && !use_only_probabilities && !path.get_path().empty() ) {
+        if ( use_vector_analysis && !path.get_path().empty() ) {
             start_node = select_start_node_for_monte_carlo_search_with_vector(
                 path,
                 it_pivot->second.loop_boundaries,
