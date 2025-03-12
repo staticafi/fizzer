@@ -123,8 +123,9 @@ struct iid_vector_analysis_statistics_per_node {
 };
 
 struct iid_vector_analysis_statistics {
-    std::map< location_id::id_type, iid_vector_analysis_statistics_per_node > iid_nodes_stats;
+    std::map< location_id, iid_vector_analysis_statistics_per_node > iid_nodes_stats;
     std::vector< location_id::id_type > ignored_node_ids;
+    std::vector< location_id > covered_node_ids;
     loop_dependencies loop_to_properties;
     int processed_nodes;
 };
@@ -333,10 +334,6 @@ private:
                                                            equation& best_vector );
     std::vector< equation > get_random_vector( const std::map< equation, int >& vectors_with_hits,
                                                int number_of_vectors );
-    void compute_loading_loops( branching_node* end_node,
-                                const loop_head_to_bodies_t& loop_heads_to_bodies,
-                                loop_head_to_loaded_bits_counter& loading_loops,
-                                const loop_endings& loop_heads_ending );
     generated_path generate_path_from_node_counts( const nodes_to_counts& path_counts,
                                                    const loop_dependencies& loop_to_properties );
 
@@ -350,11 +347,12 @@ struct iid_dependencies {
     void update_ignored_nodes( sensitivity_analysis& sensitivity );
     void process_node_dependence( branching_node* node );
     void process_node_dependence_from_full_path( branching_node* end_node );
-    void remove_node_dependence( location_id::id_type id );
+    void remove_node_dependence( location_id id );
     void remove_all_covered( const std::unordered_set< location_id >& covered_branchings );
-    iid_node_dependence_props& get_props( location_id::id_type id );
-    std::vector< location_id::id_type > get_iid_nodes();
-    std::optional< location_id::id_type > get_next_iid_node();
+    iid_node_dependence_props& get_props( location_id id );
+    std::vector< location_id > get_iid_nodes();
+    std::optional< location_id > get_next_iid_node();
+    void start_gathering_data();
 
     generated_path generate_probabilities();
 
@@ -373,8 +371,9 @@ private:
                                 const loop_endings& loop_heads_ending );
     void compute_paths( branching_node* end_node );
 
-    std::map< location_id::id_type, iid_node_dependence_props > node_id_to_equation_map;
+    std::map< location_id, iid_node_dependence_props > node_id_to_equation_map;
     std::unordered_set< location_id::id_type > ignored_node_ids;
+    std::unordered_set< location_id > covered_node_ids;
     loop_dependencies loop_to_properties;
     int processed_nodes = 0;
 
@@ -393,7 +392,7 @@ public:
     inline static float percentage_to_add_to_path = 0.4;
     inline static bool create_artificial_data = true;
 
-    inline static bool verbose = true;
+    inline static bool verbose = false;
 };
 
 

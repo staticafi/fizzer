@@ -1623,13 +1623,13 @@ void iid_dependencies::process_node_dependence_from_full_path( branching_node* e
 }
 
 // ------------------------------------------------------------------------------------------------
-void iid_dependencies::remove_node_dependence( location_id::id_type id )
+void iid_dependencies::remove_node_dependence( location_id id )
 {
     auto it = node_id_to_equation_map.find( id );
     if ( it != node_id_to_equation_map.end() ) {
         iid_node_generations_stats& stats = it->second.get_generations_stats();
         stats.state = generation_state::STATE_COVERED;
-        ignored_node_ids.insert( id );
+        covered_node_ids.insert( id );
 
         if ( iid_dependencies::generate_more_data_after_coverage && !it->second.is_equal_branching_predicate() ) {
             stats.state = generation_state::STATE_GENERATION_MORE;
@@ -1643,7 +1643,7 @@ void iid_dependencies::remove_node_dependence( location_id::id_type id )
 // ------------------------------------------------------------------------------------------------
 void fuzzing::iid_dependencies::remove_all_covered( const std::unordered_set< location_id >& covered_branchings )
 {
-    std::set< location_id::id_type > covered_ids;
+    std::set< location_id > covered_ids;
     for ( const auto& branching : covered_branchings ) {
         covered_ids.insert( branching.id );
     }
@@ -1651,7 +1651,7 @@ void fuzzing::iid_dependencies::remove_all_covered( const std::unordered_set< lo
     for ( auto it = node_id_to_equation_map.begin(); it != node_id_to_equation_map.end(); ) {
         if ( covered_ids.contains( it->first ) &&
              it->second.get_generations_stats().state == generation_state::STATE_NOT_COVERED ) {
-            ignored_node_ids.insert( it->first );
+            covered_node_ids.insert( it->first );
             it = node_id_to_equation_map.erase( it );
         } else {
             ++it;
@@ -1660,15 +1660,15 @@ void fuzzing::iid_dependencies::remove_all_covered( const std::unordered_set< lo
 }
 
 // ------------------------------------------------------------------------------------------------
-iid_node_dependence_props& iid_dependencies::get_props( location_id::id_type id )
+iid_node_dependence_props& iid_dependencies::get_props( location_id id )
 {
     return node_id_to_equation_map.at( id );
 }
 
 // ------------------------------------------------------------------------------------------------
-std::vector< location_id::id_type > iid_dependencies::get_iid_nodes()
+std::vector< location_id > iid_dependencies::get_iid_nodes()
 {
-    std::vector< location_id::id_type > result;
+    std::vector< location_id > result;
     for ( const auto& [ key, _ ] : node_id_to_equation_map ) {
         result.push_back( key );
     }
@@ -1678,7 +1678,7 @@ std::vector< location_id::id_type > iid_dependencies::get_iid_nodes()
 }
 
 // ------------------------------------------------------------------------------------------------
-std::optional< location_id::id_type > iid_dependencies::get_next_iid_node()
+std::optional< location_id > iid_dependencies::get_next_iid_node()
 {
     bool previous_needs_more_data = false;
     for ( auto it = node_id_to_equation_map.rbegin(); it != node_id_to_equation_map.rend(); ++it ) {
@@ -1711,18 +1711,19 @@ std::optional< location_id::id_type > iid_dependencies::get_next_iid_node()
 }
 
 // ------------------------------------------------------------------------------------------------
+void fuzzing::iid_dependencies::start_gathering_data() 
+{
+    compute_data = true;
+
+    for ( branching_node* end_node : end_nodes ) {
+        process_node_dependence_from_full_path( end_node );
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
 generated_path fuzzing::iid_dependencies::generate_probabilities()
 {
-    if ( !compute_data ) {
-        compute_data = true;
-
-        for ( branching_node* end_node : end_nodes ) {
-            process_node_dependence_from_full_path( end_node );
-        }
-        end_nodes.clear();
-    }
-
-    std::optional< location_id::id_type > id = get_next_iid_node();
+    std::optional< location_id > id = get_next_iid_node();
     if ( !id.has_value() ) {
         return {};
     }
@@ -1754,6 +1755,11 @@ iid_vector_analysis_statistics fuzzing::iid_dependencies::get_stats() const
     stats.ignored_node_ids = std::vector< location_id::id_type >( ignored_node_ids.begin(),
                                                                   ignored_node_ids.end() );
     std::sort( stats.ignored_node_ids.begin(), stats.ignored_node_ids.end() );
+
+    stats.covered_node_ids = std::vector< location_id >( covered_node_ids.begin(),
+                                                                  covered_node_ids.end() );
+    std::sort( stats.covered_node_ids.begin(), stats.covered_node_ids.end() );
+
     stats.loop_to_properties = loop_to_properties;
     stats.processed_nodes = processed_nodes;
     return stats;
@@ -2040,16 +2046,16 @@ void fuzzing::iid_dependencies::compute_paths( branching_node* end_node )
     for ( auto it = full_path.rbegin(); it != full_path.rend(); ++it ) {
         processed_nodes++;
         const auto& path_node = *it;
-        location_id::id_type node_id = path_node.node_id;
 
         directions_in_path[ path_node ]++;
         current_node = current_node->successor( path_node.branching_direction ).pointer;
+        location_id current_node_id = current_node->get_location_id();
 
-        if ( ignored_node_ids.contains( current_node->get_location_id().id ) ) {
+        if ( ignored_node_ids.contains( current_node_id.id ) || covered_node_ids.contains( current_node_id ) ) {
             continue;
         }
 
-        iid_node_dependence_props& props = node_id_to_equation_map[ current_node->get_location_id().id ];
+        iid_node_dependence_props& props = node_id_to_equation_map[ current_node_id ];
         props.process_path_effective( current_node, directions_in_path );
     }
 }
