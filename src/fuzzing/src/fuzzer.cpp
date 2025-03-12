@@ -1430,7 +1430,7 @@ void  fuzzer::do_cleanup()
         if (covered_branchings.contains(it->first))
         {
             if ( use_vector_analysis )
-                iid_dependences.remove_node_dependence(it->first.id);
+                iid_dependences.remove_node_dependence( it->first );
 
             it = iid_pivots.erase(it);
         }
@@ -1670,10 +1670,27 @@ branching_node*  fuzzer::select_iid_coverage_target()
     if (iid_pivots.empty() || entry_branching->is_closed())
         return nullptr;
 
-    auto const  it_loc = std::next(
-            iid_pivots.begin(),
-            get_random_natural_32_bit_in_range(0, (natural_32_bit)iid_pivots.size() - 1, generator_for_iid_location_selection)
-            );
+    if ( use_vector_analysis ) {
+        iid_dependences.start_gathering_data();
+    }
+
+    generated_path path;
+    if ( use_vector_analysis ) {
+        path = iid_dependences.generate_probabilities();
+    }
+
+    auto it_loc = std::next(
+        iid_pivots.begin(),
+        get_random_natural_32_bit_in_range(0, (natural_32_bit)iid_pivots.size() - 1, generator_for_iid_location_selection)
+    );
+
+    if ( use_vector_analysis && path.get_iid_node_id().has_value() ) {
+        auto it_loc_new = iid_pivots.find( path.get_iid_node_id().value() );
+        if ( it_loc_new != iid_pivots.end() ) {
+            it_loc = it_loc_new;
+        }
+    }
+
     auto const  it_pivot = select_best_iid_pivot(
             it_loc->second.pivots,
             max_input_width,
@@ -1692,16 +1709,9 @@ branching_node*  fuzzer::select_iid_coverage_target()
     histogram_of_hit_counts_per_direction::hit_counts_map  hit_counts;
     it_pivot->second.histogram_ptr->merge(hit_counts);
 
-    generated_path path;
-
     if ( use_vector_analysis ) {
-        path = iid_dependences.generate_probabilities();
-
         for ( const auto& path_props : path.get_path() ) {
-            auto it = histogram.find( path_props.first );
-            if ( it != histogram.end() ) {
-                it->second = path_props.second.get_false_direction_probability();
-            }
+            histogram[path_props.first] = path_props.second.get_false_direction_probability();
         }
     }
 

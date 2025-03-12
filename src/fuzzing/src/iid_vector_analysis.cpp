@@ -1734,6 +1734,7 @@ generated_path fuzzing::iid_dependencies::generate_probabilities()
 
     iid_node_dependence_props& props = get_props( id.value() );
     generated_path path = props.generate_probabilities( loop_to_properties );
+    path.set_iid_node_id( id.value() );
     return path;
 }
 

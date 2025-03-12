@@ -178,6 +178,7 @@ private:
 struct generated_path {
     generated_path( std::map< location_id::id_type, node_props_in_path > path )
         : path( std::move( path ) )
+        , iid_node_id( std::nullopt )
     {}
 
     generated_path() = default;
@@ -185,6 +186,8 @@ struct generated_path {
     bool contains( location_id::id_type id ) const;
     std::map< location_id::id_type, node_props_in_path > get_path() const;
     node_props_in_path& get_props( location_id::id_type id ) { return path.at( id ); }
+    std::optional< location_id > get_iid_node_id() const { return iid_node_id; }
+    void set_iid_node_id( location_id iid_node_id ) { this->iid_node_id = iid_node_id; }
 
     friend std::ostream& operator<<( std::ostream& os, const generated_path& eq )
     {
@@ -197,6 +200,7 @@ struct generated_path {
 
 private:
     std::map< location_id::id_type, node_props_in_path > path;
+    std::optional< location_id > iid_node_id;
 };
 
 struct equation {
