@@ -1711,7 +1711,7 @@ std::optional< location_id > iid_dependencies::get_next_iid_node()
 }
 
 // ------------------------------------------------------------------------------------------------
-void fuzzing::iid_dependencies::start_gathering_data() 
+void fuzzing::iid_dependencies::start_gathering_data()
 {
     compute_data = true;
 
@@ -1756,8 +1756,7 @@ iid_vector_analysis_statistics fuzzing::iid_dependencies::get_stats() const
                                                                   ignored_node_ids.end() );
     std::sort( stats.ignored_node_ids.begin(), stats.ignored_node_ids.end() );
 
-    stats.covered_node_ids = std::vector< location_id >( covered_node_ids.begin(),
-                                                                  covered_node_ids.end() );
+    stats.covered_node_ids = std::vector< location_id >( covered_node_ids.begin(), covered_node_ids.end() );
     std::sort( stats.covered_node_ids.begin(), stats.covered_node_ids.end() );
 
     stats.loop_to_properties = loop_to_properties;
@@ -2051,7 +2050,7 @@ void fuzzing::iid_dependencies::compute_paths( branching_node* end_node )
         current_node = current_node->successor( path_node.branching_direction ).pointer;
         location_id current_node_id = current_node->get_location_id();
 
-        if ( ignored_node_ids.contains( current_node_id.id ) || covered_node_ids.contains( current_node_id ) ) {
+        if ( !is_tracked( current_node_id ) ) {
             continue;
         }
 
@@ -2060,28 +2059,39 @@ void fuzzing::iid_dependencies::compute_paths( branching_node* end_node )
     }
 }
 
-//                               non member functions
 // ------------------------------------------------------------------------------------------------
-std::vector< node_id_with_direction > get_path( branching_node* node )
+std::vector< node_id_with_direction > fuzzing::iid_dependencies::get_path( branching_node* node )
 {
     // TMPROF_BLOCK();
 
     std::vector< node_id_with_direction > result;
 
+    bool iid_seen = false;
     branching_node* current = node;
+
     while ( current != nullptr ) {
         branching_node* predecessor = current->predecessor;
-        if ( predecessor != nullptr ) {
+        iid_seen = iid_seen || is_tracked( current->get_location_id() );
+
+        if ( iid_seen && predecessor != nullptr ) {
             node_id_with_direction nav = { predecessor->get_location_id().id,
                                            predecessor->successor_direction( current ) };
             result.push_back( nav );
         }
+
         current = predecessor;
     }
 
     return result;
 }
 
+// ------------------------------------------------------------------------------------------------
+bool fuzzing::iid_dependencies::is_tracked( location_id id ) const
+{
+    return !ignored_node_ids.contains( id.id ) && !covered_node_ids.contains( id );
+}
+
+//                               non member functions
 // ------------------------------------------------------------------------------------------------
 std::unordered_map< node_id_with_direction, int > get_directions_in_path( branching_node* node )
 {

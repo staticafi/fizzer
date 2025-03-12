@@ -370,6 +370,8 @@ private:
                                 loop_head_to_loaded_bits_counter& loading_loops,
                                 const loop_endings& loop_heads_ending );
     void compute_paths( branching_node* end_node );
+    std::vector< node_id_with_direction > get_path( branching_node* node );
+    bool is_tracked( location_id id ) const;
 
     std::map< location_id, iid_node_dependence_props > node_id_to_equation_map;
     std::unordered_set< location_id::id_type > ignored_node_ids;
@@ -396,7 +398,6 @@ public:
 };
 
 
-std::vector< node_id_with_direction > get_path( branching_node* node );
 std::unordered_map< node_id_with_direction, int > get_directions_in_path( branching_node* node );
 bool should_generate_more_data( const generation_state& state );
 } // namespace fuzzing
