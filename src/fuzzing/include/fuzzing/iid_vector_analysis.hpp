@@ -48,6 +48,7 @@ struct iid_node_generations_stats {
     int method_calls = 0;
     int generation_starts = 0;
     int successful_generations = 0;
+    int successful_generations_artificial_data = 0;
     int failed_generations = 0;
 
     int generated_for_other_node_count = 0;
@@ -119,7 +120,9 @@ struct loop_dependencies {
 
 struct iid_vector_analysis_statistics_per_node {
     iid_node_generations_stats generation_stats;
+    std::pair< std::size_t, std::size_t > vector_dimensions;
     std::vector< location_id::id_type > node_ids;
+    bool matrix_generated;
 };
 
 struct iid_vector_analysis_statistics {
@@ -128,6 +131,7 @@ struct iid_vector_analysis_statistics {
     std::vector< location_id > covered_node_ids;
     loop_dependencies loop_to_properties;
     int processed_nodes;
+    int dependencies_computed;
 };
 
 
@@ -188,6 +192,7 @@ struct generated_path {
     node_props_in_path& get_props( location_id::id_type id ) { return path.at( id ); }
     std::optional< location_id > get_iid_node_id() const { return iid_node_id; }
     void set_iid_node_id( location_id iid_node_id ) { this->iid_node_id = iid_node_id; }
+    bool empty() const { return path.empty(); }
 
     friend std::ostream& operator<<( std::ostream& os, const generated_path& eq )
     {
@@ -267,6 +272,7 @@ struct equation_matrix {
     int get_desired_vector_direction() const;
     float get_biggest_branching_value() const;
     const std::unordered_set< location_id::id_type >& get_node_ids() const;
+    bool empty() const { return matrix.empty(); }
 
     void print_matrix();
 
@@ -290,12 +296,13 @@ struct iid_node_dependence_props {
     const equation_matrix& get_matrix() const { return matrix; }
     const iid_node_generations_stats& get_generations_stats() const { return stats; }
 
-    bool should_generate() const;
+    bool should_generate( const loop_dependencies& loop_to_properties ) const;
     bool too_much_failed_in_row( int max_failed_generations_in_row ) const;
     void set_as_generating_for_other_node( int minimal_max_generation_for_other_node );
     void set_as_generating_artificial_data( int minimal_max_generation_artificial_data );
     failed_generation_method get_method_for_failed_generation( bool is_first );
     bool is_equal_branching_predicate() const;
+    bool is_matrix_generated() const { return matrix_generated; }
 
     void print_stats( bool only_state = false ) const;
 
@@ -350,13 +357,13 @@ private:
 struct iid_dependencies {
     void update_ignored_nodes( sensitivity_analysis& sensitivity );
     void process_node_dependence( branching_node* node );
-    void process_node_dependence_from_full_path( branching_node* end_node );
+    void process_node( branching_node* end_node );
     void remove_node_dependence( location_id id );
     void remove_all_covered( const std::unordered_set< location_id >& covered_branchings );
     iid_node_dependence_props& get_props( location_id id );
     std::vector< location_id > get_iid_nodes();
     std::optional< location_id > get_next_iid_node();
-    void start_gathering_data();
+    void compute_dependencies();
 
     generated_path generate_probabilities();
 
@@ -382,8 +389,8 @@ private:
     std::unordered_set< location_id > covered_node_ids;
     loop_dependencies loop_to_properties;
     int processed_nodes = 0;
+    int dependencies_computed = 0;
 
-    bool compute_data = false;
     std::vector< branching_node* > end_nodes;
 
 public:
@@ -397,6 +404,7 @@ public:
     inline static int minimal_max_generation_artificial_data = 5;
     inline static float percentage_to_add_to_path = 0.4;
     inline static bool create_artificial_data = true;
+    inline static bool regenerate_all_data = true;
 
     inline static bool verbose = false;
 };

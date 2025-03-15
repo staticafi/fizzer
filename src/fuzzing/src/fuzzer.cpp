@@ -1245,7 +1245,7 @@ execution_record::execution_flags  fuzzer::process_execution_results()
         });
 
         if ( use_vector_analysis )
-            iid_dependences.process_node_dependence_from_full_path( construction_props.leaf );
+            iid_dependences.process_node( construction_props.leaf );
 
         if (construction_props.diverging_node != nullptr)
         {
@@ -1671,7 +1671,7 @@ branching_node*  fuzzer::select_iid_coverage_target()
         return nullptr;
 
     if ( use_vector_analysis ) {
-        iid_dependences.start_gathering_data();
+        iid_dependences.compute_dependencies();
     }
 
     generated_path path;

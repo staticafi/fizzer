@@ -509,6 +509,8 @@ std::set< location_id::id_type > fuzzing::loop_dependencies::get_loop_heads( boo
 std::set< node_id_with_direction > fuzzing::loop_dependencies::get_node_subsets_for_computation(
     const std::unordered_set< location_id::id_type >& matrix_ids ) const
 {
+    // TMPROF_BLOCK();
+
     std::set< node_id_with_direction > computation_subset;
 
     for ( const auto& loop : loops ) {
@@ -887,14 +889,30 @@ generated_path iid_node_dependence_props::generate_probabilities( const loop_dep
 
     stats.method_calls++;
 
+    if ( iid_dependencies::verbose ) {
+        // print_stats( true );
+        loop_to_properties.print_dependencies();
+        matrix.print_matrix();
+    }
+
     if ( !matrix_generated ) {
         matrix_generated = true;
         matrix.start_compute_matrix();
     }
 
+    if ( loop_to_properties.loops.empty() ) {
+        if ( iid_dependencies::verbose )
+            std::cout << "No loops" << std::endl;
+
+        return {};
+    }
+
     std::set< node_id_with_direction > computation_subset =
         loop_to_properties.get_node_subsets_for_computation( matrix.get_node_ids() );
-    if ( computation_subset.empty() || loop_to_properties.loops.empty() ) {
+    if ( computation_subset.empty() ) {
+        if ( iid_dependencies::verbose )
+            std::cout << "No nodes in subset" << std::endl;
+
         return {};
     }
 
@@ -905,12 +923,15 @@ generated_path iid_node_dependence_props::generate_probabilities( const loop_dep
 
     stats.generation_starts++;
     equation_matrix submatrix = matrix.get_submatrix( computation_subset, true );
+    if ( submatrix.empty() ) {
+        if ( iid_dependencies::verbose )
+            std::cout << "Empty submatrix" << std::endl;
 
-    {
-        // print_stats( true );
-        // loop_to_properties.print_dependencies();
-        // matrix.print_matrix();
-        // submatrix.print_matrix();
+        return return_empty_path();
+    }
+
+    if ( iid_dependencies::verbose ) {
+        submatrix.print_matrix();
     }
 
     std::optional< std::vector< equation > > best_vectors = get_best_vectors( submatrix, 1 );
@@ -953,8 +974,16 @@ void fuzzing::iid_node_dependence_props::process_path_effective(
 }
 
 // ------------------------------------------------------------------------------------------------
-bool iid_node_dependence_props::should_generate() const
+bool iid_node_dependence_props::should_generate( const loop_dependencies& loop_to_properties ) const
 {
+    if ( !matrix_generated ) {
+        return true;
+    }
+
+    // if ( !loop_to_properties.get_node_subsets_for_computation( get_matrix().get_node_ids() ).empty() ) {
+    //     return true;
+    // }
+
     return stats.state != generation_state::STATE_COVERED;
 }
 
@@ -1137,7 +1166,11 @@ generated_path iid_node_dependence_props::return_empty_path()
 generated_path iid_node_dependence_props::return_path( const generated_path& path )
 {
     stats.failed_generations_in_row = 0;
-    stats.successful_generations++;
+    if ( stats.state == generation_state::STATE_GENERATING_ARTIFICIAL_DATA ) {
+        stats.successful_generations_artificial_data++;
+    } else {
+        stats.successful_generations++;
+    }
 
     if ( stats.state == generation_state::STATE_GENERATION_MORE ) {
         stats.generated_after_covered++;
@@ -1600,26 +1633,11 @@ void iid_dependencies::update_ignored_nodes( sensitivity_analysis& sensitivity )
 }
 
 // ------------------------------------------------------------------------------------------------
-void iid_dependencies::process_node_dependence_from_full_path( branching_node* end_node )
+void iid_dependencies::process_node( branching_node* end_node )
 {
-    TMPROF_BLOCK();
+    // TMPROF_BLOCK();
 
-    if ( !compute_data ) {
-        end_nodes.push_back( end_node );
-        return;
-    }
-
-    loop_head_to_bodies_t loop_heads_to_bodies;
-    loop_endings loop_heads_ending = get_loop_heads_ending( end_node, loop_heads_to_bodies );
-
-    compute_dependencies_by_loops( loop_heads_to_bodies, loop_heads_ending );
-    compute_dependencies_by_loading( end_node, loop_heads_to_bodies, loop_heads_ending );
-
-    for ( auto& loop : loop_to_properties.loops ) {
-        loop.set_chosen_loop_head();
-    }
-
-    compute_paths( end_node );
+    end_nodes.push_back( end_node );
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -1680,6 +1698,8 @@ std::vector< location_id > iid_dependencies::get_iid_nodes()
 // ------------------------------------------------------------------------------------------------
 std::optional< location_id > iid_dependencies::get_next_iid_node()
 {
+    // TMPROF_BLOCK();
+
     bool previous_needs_more_data = false;
     for ( auto it = node_id_to_equation_map.rbegin(); it != node_id_to_equation_map.rend(); ++it ) {
         iid_node_dependence_props& props = it->second;
@@ -1702,7 +1722,7 @@ std::optional< location_id > iid_dependencies::get_next_iid_node()
     }
 
     for ( const auto& [ id, props ] : node_id_to_equation_map ) {
-        if ( props.should_generate() ) {
+        if ( props.should_generate( loop_to_properties ) ) {
             return id;
         }
     }
@@ -1711,18 +1731,35 @@ std::optional< location_id > iid_dependencies::get_next_iid_node()
 }
 
 // ------------------------------------------------------------------------------------------------
-void fuzzing::iid_dependencies::start_gathering_data()
+void fuzzing::iid_dependencies::compute_dependencies()
 {
-    compute_data = true;
+    // TMPROF_BLOCK();
+
+    dependencies_computed++;
 
     for ( branching_node* end_node : end_nodes ) {
-        process_node_dependence_from_full_path( end_node );
+        // TMPROF_BLOCK();
+
+        loop_head_to_bodies_t loop_heads_to_bodies;
+        loop_endings loop_heads_ending = get_loop_heads_ending( end_node, loop_heads_to_bodies );
+
+        compute_dependencies_by_loops( loop_heads_to_bodies, loop_heads_ending );
+        compute_dependencies_by_loading( end_node, loop_heads_to_bodies, loop_heads_ending );
+
+        for ( auto& loop : loop_to_properties.loops ) {
+            loop.set_chosen_loop_head();
+        }
+
+        compute_paths( end_node );
     }
+
+    end_nodes.clear();
 }
 
 // ------------------------------------------------------------------------------------------------
 generated_path fuzzing::iid_dependencies::generate_probabilities()
 {
+    // TMPROF_BLOCK();
     std::optional< location_id > id = get_next_iid_node();
     if ( !id.has_value() ) {
         return {};
@@ -1734,7 +1771,11 @@ generated_path fuzzing::iid_dependencies::generate_probabilities()
 
     iid_node_dependence_props& props = get_props( id.value() );
     generated_path path = props.generate_probabilities( loop_to_properties );
-    path.set_iid_node_id( id.value() );
+    
+    if ( !path.empty() ) {
+        path.set_iid_node_id( id.value() );
+    }
+
     return path;
 }
 
@@ -1749,7 +1790,8 @@ iid_vector_analysis_statistics fuzzing::iid_dependencies::get_stats() const
         node_stats.node_ids = std::vector< location_id::id_type >( props.get_matrix().get_node_ids().begin(),
                                                                    props.get_matrix().get_node_ids().end() );
         std::sort( node_stats.node_ids.begin(), node_stats.node_ids.end() );
-
+        node_stats.vector_dimensions = props.get_matrix().get_dimensions();
+        node_stats.matrix_generated = props.is_matrix_generated();
         stats.iid_nodes_stats[ id ] = node_stats;
     }
 
@@ -1762,6 +1804,7 @@ iid_vector_analysis_statistics fuzzing::iid_dependencies::get_stats() const
 
     stats.loop_to_properties = loop_to_properties;
     stats.processed_nodes = processed_nodes;
+    stats.dependencies_computed = dependencies_computed;
     return stats;
 }
 
@@ -1769,14 +1812,10 @@ iid_vector_analysis_statistics fuzzing::iid_dependencies::get_stats() const
 loop_endings fuzzing::iid_dependencies::get_loop_heads_ending( branching_node* end_node,
                                                                loop_head_to_bodies_t& loop_heads_to_bodies )
 {
-    TMPROF_BLOCK();
+    // TMPROF_BLOCK();
 
     std::vector< fuzzer::loop_boundary_props > loops;
-    {
-        TMPROF_BLOCK();
-        // This is slow
-        fuzzer::detect_loops_along_path_to_node( end_node, loop_heads_to_bodies, &loops );
-    }
+    fuzzer::detect_loops_along_path_to_node( end_node, loop_heads_to_bodies, &loops );
 
     loop_endings loop_heads_ending;
 
@@ -1817,7 +1856,7 @@ void fuzzing::iid_dependencies::compute_dependencies_by_loading( branching_node*
                                                                  const loop_head_to_bodies_t& loop_heads_to_bodies,
                                                                  const loop_endings& loop_heads_ending )
 {
-    TMPROF_BLOCK();
+    // TMPROF_BLOCK();
 
     loop_head_to_loaded_bits_counter loading_loops;
     compute_loading_loops( end_node, loop_heads_to_bodies, loading_loops, loop_heads_ending );
@@ -1915,7 +1954,7 @@ void fuzzing::iid_dependencies::compute_dependencies_by_loading( branching_node*
 void fuzzing::iid_dependencies::compute_dependencies_by_loops( const loop_head_to_bodies_t& loop_heads_to_bodies,
                                                                const loop_endings& loop_heads_ending )
 {
-    TMPROF_BLOCK();
+    // TMPROF_BLOCK();
 
     bool changed = false;
 
@@ -1981,7 +2020,7 @@ void fuzzing::iid_dependencies::compute_loading_loops( branching_node* end_node,
                                                        loop_head_to_loaded_bits_counter& loading_loops,
                                                        const loop_endings& loop_heads_ending )
 {
-    TMPROF_BLOCK();
+    // TMPROF_BLOCK();
 
     for ( const auto& [ loop_head, loop_bodies ] : loop_heads_to_bodies ) {
         loading_loops[ loop_head.id ] = { std::numeric_limits< natural_32_bit >::max(),
@@ -2031,7 +2070,7 @@ void fuzzing::iid_dependencies::compute_loading_loops( branching_node* end_node,
 // ------------------------------------------------------------------------------------------------
 void fuzzing::iid_dependencies::compute_paths( branching_node* end_node )
 {
-    TMPROF_BLOCK();
+    // TMPROF_BLOCK();
 
     INVARIANT( end_node != nullptr );
 
