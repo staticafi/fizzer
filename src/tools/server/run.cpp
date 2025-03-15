@@ -244,6 +244,8 @@ void run(int argc, char* argv[])
     {
         std::cout << "\"fuzzing_results\": ";
         fuzzing::print_analysis_outcomes(std::cout, results);
+        std::cout << ", \"IID_analysis_info\": ";
+        fuzzing::save_iid_vector_analysis(std::cout, results);
     }
     fuzzing::log_analysis_outcomes(results);
     fuzzing::save_analysis_outcomes(output_dir, target_name, results);
