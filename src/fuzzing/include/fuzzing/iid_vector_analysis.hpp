@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <iostream>
 #include <map>
 #include <optional>
@@ -113,8 +114,8 @@ struct loop_dependencies {
     const loop_properties& get_props_by_loop_head_id( location_id::id_type loop_head_id ) const;
     loop_properties& get_props_by_loop_head_id( location_id::id_type loop_head_id );
     std::set< location_id::id_type > get_loop_heads( bool include_loading_loops ) const;
-    std::set< node_id_with_direction >
-    get_node_subsets_for_computation( const std::unordered_set< location_id::id_type >& matrix_ids ) const;
+    bool compute_node_subsets_for_computation( std::set< node_id_with_direction >& computation_subset,
+                                               const std::unordered_set< location_id::id_type >& matrix_ids ) const;
     void print_dependencies() const;
 };
 
@@ -244,28 +245,58 @@ struct equation {
         return os << " -> " << eq.best_value;
     }
 };
+} // namespace fuzzing
 
+namespace std
+{
+template <>
+struct hash< fuzzing::node_id_with_direction > {
+    std::size_t operator()( const fuzzing::node_id_with_direction& key ) const noexcept
+    {
+        std::size_t h1 = std::hash< location_id::id_type >{}( key.node_id );
+        std::size_t h2 = std::hash< bool >{}( key.branching_direction );
+        return h1 ^ ( h2 << 1 );
+    }
+};
+
+template <>
+struct hash< fuzzing::equation > {
+    std::size_t operator()( const fuzzing::equation& eq ) const noexcept
+    {
+        std::size_t h1 = std::hash< double >{}( eq.best_value );
+        for ( int val : eq.values ) {
+            h1 ^= std::hash< int >{}( val ) + 0x9e3779b9 + ( h1 << 6 ) + ( h1 >> 2 );
+        }
+        return h1;
+    }
+};
+} // namespace std
+
+
+namespace fuzzing
+{
 struct loaded_bits_counter {
     natural_32_bit min;
     natural_32_bit max;
     int loop_count;
 };
 
-
+using path_id_direction_count = std::array< location_id::id_type, 20000 >;
 using loop_head_to_loaded_bits_counter = std::unordered_map< location_id::id_type, loaded_bits_counter >;
 using loop_endings = std::unordered_map< location_id::id_type, bool >;
 using loop_head_to_bodies_t = std::unordered_map< location_id, std::unordered_set< location_id > >;
 using nodes_to_counts = std::map< location_id::id_type, node_counts >;
 
 struct equation_matrix {
-    equation_matrix get_submatrix( std::set< node_id_with_direction > const& subset, bool unique ) const;
+    equation_matrix get_submatrix( std::set< node_id_with_direction > const& subset ) const;
     void process_node( branching_node* end_node,
-                                 bool compute_matrix,
-                                 const std::unordered_map< node_id_with_direction, int >& directions_in_path );
+                       bool compute_matrix,
+                       const path_id_direction_count& directions_in_path,
+                       bool add_columns );
     void start_compute_matrix();
     bool contains( node_id_with_direction const& node ) const;
     std::pair< std::size_t, std::size_t > get_dimensions() const;
-    std::map< equation, int > compute_vectors_with_hits();
+    const std::unordered_map< equation, int >& compute_vectors_with_hits();
     std::vector< equation >& get_matrix();
     std::optional< equation > get_new_subset_counts_from_vectors( const std::vector< equation >& vector,
                                                                   const iid_node_generations_stats& state );
@@ -279,19 +310,21 @@ struct equation_matrix {
     BRANCHING_PREDICATE get_branching_predicate() const;
 
 private:
-    void add_path( branching_node* end_node,
-                   const std::unordered_map< node_id_with_direction, int >& directions_in_path );
+    void add_path( branching_node* end_node, const path_id_direction_count& directions_in_path, bool add_columns );
 
     std::vector< equation > matrix;
+    std::unordered_set< equation > unique_rows;
     std::vector< branching_node* > all_paths;
     std::vector< node_id_with_direction > nodes;
     std::unordered_set< location_id::id_type > node_ids;
+
+    std::unordered_map< equation, int > vectors_with_hits;
+    int computed_vectors = 0;
 };
 
 struct iid_node_dependence_props {
     generated_path generate_probabilities( const loop_dependencies& loop_to_properties );
-    void process_path_effective( branching_node* end_node,
-                                 const std::unordered_map< node_id_with_direction, int >& directions_in_path );
+    void process_path_effective( branching_node* end_node, const path_id_direction_count& directions_in_path );
     iid_node_generations_stats& get_generations_stats() { return stats; }
     const equation_matrix& get_matrix() const { return matrix; }
     const iid_node_generations_stats& get_generations_stats() const { return stats; }
@@ -333,23 +366,24 @@ private:
                                         const loop_dependencies& loop_to_properties,
                                         const std::unordered_set< location_id::id_type >& subset_ids );
     nodes_to_counts compute_node_counts( const equation& path,
-                                         std::set< node_id_with_direction > const& all_leafs,
+                                         const std::set< node_id_with_direction >& all_leafs,
                                          const loop_dependencies& loop_to_properties,
                                          const std::unordered_set< location_id::id_type >& subset_ids );
-    std::vector< equation > compute_best_vectors( const std::map< equation, int >& vectors_with_hits,
+    std::vector< equation > compute_best_vectors( const std::unordered_map< equation, int >& vectors_with_hits,
                                                   int number_of_vectors,
-                                                  bool use_random,
                                                   int desired_direction,
                                                   float biggest_branching_value );
-    std::map< equation, int > get_linear_dependent_vector( const std::map< equation, int >& vectors_with_hits,
-                                                           equation& best_vector );
-    std::vector< equation > get_random_vector( const std::map< equation, int >& vectors_with_hits,
-                                               int number_of_vectors );
+    std::unordered_map< equation, int >
+    get_linear_dependent_vector( const std::unordered_map< equation, int >& vectors_with_hits,
+                                 equation& best_vector );
     generated_path generate_path_from_node_counts( const nodes_to_counts& path_counts,
                                                    const loop_dependencies& loop_to_properties );
 
     equation_matrix matrix;
     iid_node_generations_stats stats;
+
+    std::set< node_id_with_direction > computation_subset;
+    equation_matrix computation_submatrix;
 
     bool matrix_generated = false;
 };
@@ -404,25 +438,11 @@ public:
     inline static int minimal_max_generation_artificial_data = 5;
     inline static float percentage_to_add_to_path = 0.4;
     inline static bool create_artificial_data = true;
-    inline static bool regenerate_all_data = true;
 
     inline static bool verbose = false;
 };
 
 
-std::unordered_map< node_id_with_direction, int > get_directions_in_path( branching_node* node );
+path_id_direction_count get_directions_in_path( branching_node* node );
 bool should_generate_more_data( const generation_state& state );
 } // namespace fuzzing
-
-namespace std
-{
-template <>
-struct hash< fuzzing::node_id_with_direction > {
-    std::size_t operator()( const fuzzing::node_id_with_direction& key ) const noexcept
-    {
-        std::size_t h1 = std::hash< location_id::id_type >{}( key.node_id );
-        std::size_t h2 = std::hash< bool >{}( key.branching_direction );
-        return h1 ^ ( h2 << 1 );
-    }
-};
-} // namespace std
