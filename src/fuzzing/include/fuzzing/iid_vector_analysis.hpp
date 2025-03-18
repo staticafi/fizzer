@@ -281,7 +281,7 @@ struct loaded_bits_counter {
     int loop_count;
 };
 
-using path_id_direction_count = std::array< location_id::id_type, 20000 >;
+using path_id_direction_count = std::vector< location_id::id_type >;
 using loop_head_to_loaded_bits_counter = std::unordered_map< location_id::id_type, loaded_bits_counter >;
 using loop_endings = std::unordered_map< location_id::id_type, bool >;
 using loop_head_to_bodies_t = std::unordered_map< location_id, std::unordered_set< location_id > >;
@@ -292,7 +292,8 @@ struct equation_matrix {
     void process_node( branching_node* end_node,
                        bool compute_matrix,
                        const path_id_direction_count& directions_in_path,
-                       bool add_columns );
+                       bool add_columns,
+                       std::size_t max_directions_in_path_index );
     void start_compute_matrix();
     bool contains( node_id_with_direction const& node ) const;
     std::pair< std::size_t, std::size_t > get_dimensions() const;
@@ -310,7 +311,10 @@ struct equation_matrix {
     BRANCHING_PREDICATE get_branching_predicate() const;
 
 private:
-    void add_path( branching_node* end_node, const path_id_direction_count& directions_in_path, bool add_columns );
+    void add_path( branching_node* end_node,
+                   const path_id_direction_count& directions_in_path,
+                   bool add_columns,
+                   std::size_t max_directions_in_path_index );
 
     std::vector< equation > matrix;
     std::unordered_set< equation > unique_rows;
@@ -324,7 +328,9 @@ private:
 
 struct iid_node_dependence_props {
     generated_path generate_probabilities( const loop_dependencies& loop_to_properties );
-    void process_path_effective( branching_node* end_node, const path_id_direction_count& directions_in_path );
+    void process_path_effective( branching_node* end_node,
+                                 const path_id_direction_count& directions_in_path,
+                                 std::size_t max_directions_in_path_index );
     iid_node_generations_stats& get_generations_stats() { return stats; }
     const equation_matrix& get_matrix() const { return matrix; }
     const iid_node_generations_stats& get_generations_stats() const { return stats; }
@@ -428,6 +434,8 @@ private:
     std::vector< branching_node* > end_nodes;
 
 public:
+    inline static std::size_t biggest_node_id = 0;
+
     // Configurations
     inline static bool random_nested_loop_counts = false;
     inline static bool random_direction_in_path = true;
@@ -443,6 +451,6 @@ public:
 };
 
 
-path_id_direction_count get_directions_in_path( branching_node* node );
+std::pair< path_id_direction_count, std::size_t > get_directions_in_path( branching_node* node );
 bool should_generate_more_data( const generation_state& state );
 } // namespace fuzzing

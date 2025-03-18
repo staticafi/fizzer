@@ -642,7 +642,8 @@ equation_matrix equation_matrix::get_submatrix( std::set< node_id_with_direction
 void fuzzing::equation_matrix::process_node( branching_node* end_node,
                                              bool compute_matrix,
                                              const path_id_direction_count& directions_in_path,
-                                             bool add_columns )
+                                             bool add_columns,
+                                             std::size_t max_directions_in_path_index )
 {
     TMPROF_BLOCK();
 
@@ -652,7 +653,7 @@ void fuzzing::equation_matrix::process_node( branching_node* end_node,
         return;
     }
 
-    add_path( end_node, directions_in_path, add_columns );
+    add_path( end_node, directions_in_path, add_columns, max_directions_in_path_index );
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -661,8 +662,8 @@ void fuzzing::equation_matrix::start_compute_matrix()
     TMPROF_BLOCK();
 
     for ( branching_node* node : all_paths ) {
-        path_id_direction_count directions_in_path = get_directions_in_path( node );
-        add_path( node, directions_in_path, true );
+        auto [ directions_in_path, max_directions_in_path_index ] = get_directions_in_path( node );
+        add_path( node, directions_in_path, true, max_directions_in_path_index );
     }
 }
 
@@ -689,7 +690,6 @@ const std::unordered_map< equation, int >& equation_matrix::compute_vectors_with
     if ( computed_vectors == matrix.size() ) {
         return vectors_with_hits;
     }
-
 
     for ( int i = computed_vectors; i < matrix.size(); ++i ) {
         for ( int j = 0; j < matrix.size(); ++j ) {
@@ -855,14 +855,16 @@ BRANCHING_PREDICATE equation_matrix::get_branching_predicate() const
 // ------------------------------------------------------------------------------------------------
 void fuzzing::equation_matrix::add_path( branching_node* end_node,
                                          const path_id_direction_count& directions_in_path,
-                                         bool add_columns )
+                                         bool add_columns,
+                                         std::size_t max_directions_in_path_index )
 {
     TMPROF_BLOCK();
 
     if ( add_columns ) {
         int added_nodes = 0;
+        INVARIANT( max_directions_in_path_index < directions_in_path.size() );
 
-        for ( size_t i = 0; i < directions_in_path.size(); ++i ) {
+        for ( size_t i = 0; i < max_directions_in_path_index + 1; ++i ) {
             if ( directions_in_path[ i ] == 0 ) {
                 continue;
             }
@@ -888,10 +890,10 @@ void fuzzing::equation_matrix::add_path( branching_node* end_node,
         }
     }
 
-    std::vector< int > values_in_path;
-    for ( const auto& node : nodes ) {
-        int index = 2 * node.node_id + ( node.branching_direction ? 1 : 0 );
-        values_in_path.push_back( directions_in_path[ index ] );
+    std::vector< int > values_in_path( nodes.size() );
+    for ( size_t i = 0; i < nodes.size(); ++i ) {
+        int index = 2 * nodes[ i ].node_id + ( nodes[ i ].branching_direction ? 1 : 0 );
+        values_in_path[ i ] = directions_in_path[ index ];
     }
 
     equation row = { values_in_path, end_node->best_coverage_value };
@@ -938,15 +940,13 @@ generated_path iid_node_dependence_props::generate_probabilities( const loop_dep
     }
 
     if ( computation_submatrix.empty() ) {
-        if ( iid_dependencies::verbose )
-            std::cout << "Empty submatrix" << std::endl;
-
         return return_empty_path();
     }
 
     if ( iid_dependencies::verbose ) {
+        print_stats( true );
         loop_to_properties.print_dependencies();
-        computation_submatrix.print_matrix();
+        // computation_submatrix.print_matrix();
     }
 
     std::optional< std::vector< equation > > best_vectors = get_best_vectors( computation_submatrix, 1 );
@@ -981,13 +981,14 @@ generated_path iid_node_dependence_props::generate_probabilities( const loop_dep
 
 // ------------------------------------------------------------------------------------------------
 void fuzzing::iid_node_dependence_props::process_path_effective( branching_node* end_node,
-                                                                 const path_id_direction_count& directions_in_path )
+                                                                 const path_id_direction_count& directions_in_path,
+                                                                 std::size_t max_directions_in_path_index )
 {
     TMPROF_BLOCK();
-    matrix.process_node( end_node, matrix_generated, directions_in_path, true );
+    matrix.process_node( end_node, matrix_generated, directions_in_path, true, max_directions_in_path_index );
 
     if ( !computation_submatrix.empty() ) {
-        computation_submatrix.process_node( end_node, true, directions_in_path, false );
+        computation_submatrix.process_node( end_node, true, directions_in_path, false, max_directions_in_path_index );
     }
 }
 
@@ -2058,14 +2059,17 @@ void fuzzing::iid_dependencies::compute_paths( branching_node* end_node )
     }
 
     std::vector< node_id_with_direction > full_path = get_path( end_node );
-    path_id_direction_count directions_in_path = {};
+    path_id_direction_count directions_in_path( iid_dependencies::biggest_node_id * 2 + 2 );
+    std::size_t max_directions_in_path_index = 0;
 
     for ( auto it = full_path.rbegin(); it != full_path.rend(); ++it ) {
         processed_nodes++;
         const auto& path_node = *it;
 
-        int index = 2 * path_node.node_id + ( path_node.branching_direction ? 1 : 0 );
+        std::size_t index = 2 * path_node.node_id + ( path_node.branching_direction ? 1 : 0 );
         directions_in_path[ index ]++;
+
+        max_directions_in_path_index = std::max( max_directions_in_path_index, index );
 
         current_node = current_node->successor( path_node.branching_direction ).pointer;
         location_id current_node_id = current_node->get_location_id();
@@ -2075,19 +2079,19 @@ void fuzzing::iid_dependencies::compute_paths( branching_node* end_node )
         }
 
         iid_node_dependence_props& props = node_id_to_equation_map[ current_node_id ];
-        props.process_path_effective( current_node, directions_in_path );
+        props.process_path_effective( current_node, directions_in_path, max_directions_in_path_index );
     }
 }
 
 // ------------------------------------------------------------------------------------------------
-std::vector< node_id_with_direction > fuzzing::iid_dependencies::get_path( branching_node* node )
+std::vector< node_id_with_direction > fuzzing::iid_dependencies::get_path( branching_node* end_node )
 {
     TMPROF_BLOCK();
 
     std::vector< node_id_with_direction > result;
 
     bool iid_seen = false;
-    branching_node* current = node;
+    branching_node* current = end_node;
 
     while ( current != nullptr ) {
         branching_node* predecessor = current->predecessor;
@@ -2108,16 +2112,19 @@ std::vector< node_id_with_direction > fuzzing::iid_dependencies::get_path( branc
 // ------------------------------------------------------------------------------------------------
 bool fuzzing::iid_dependencies::is_tracked( location_id id ) const
 {
+    TMPROF_BLOCK();
+
     return !ignored_node_ids.contains( id.id ) && !covered_node_ids.contains( id );
 }
 
 //                               non member functions
 // ------------------------------------------------------------------------------------------------
-path_id_direction_count get_directions_in_path( branching_node* node )
+std::pair< path_id_direction_count, std::size_t > get_directions_in_path( branching_node* node )
 {
     TMPROF_BLOCK();
 
-    path_id_direction_count result = {};
+    path_id_direction_count result( iid_dependencies::biggest_node_id * 2 + 2 );
+    std::size_t max_directions_in_path_index = 0;
 
     branching_node* current = node;
     while ( current != nullptr ) {
@@ -2125,15 +2132,16 @@ path_id_direction_count get_directions_in_path( branching_node* node )
         if ( predecessor != nullptr ) {
             int id = predecessor->get_location_id().id;
             bool direction = predecessor->successor_direction( current );
-            int index = 2 * id + ( direction ? 1 : 0 );
+            std::size_t index = 2 * id + ( direction ? 1 : 0 );
 
             result[ index ]++;
+            max_directions_in_path_index = std::max( max_directions_in_path_index, index );
         }
 
         current = predecessor;
     }
 
-    return result;
+    return { result, max_directions_in_path_index };
 }
 
 // ------------------------------------------------------------------------------------------------

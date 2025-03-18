@@ -10,6 +10,7 @@
 #include <iterator>
 #include <fuzzing/gradient_descent.hpp>
 
+// constexpr bool use_vector_analysis = false;
 constexpr bool use_vector_analysis = true;
 
 namespace  fuzzing {
@@ -1219,6 +1220,11 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                         succ_info.xor_like_branching_function,
                         succ_info.predicate
                 );
+
+                if ( use_vector_analysis ) {
+                    iid_dependencies::biggest_node_id = std::max( iid_dependencies::biggest_node_id,
+                                                                    std::size_t( new_node->id.id ) );
+                }
 
                 construction_props.leaf->set_successor(info.direction, {
                     branching_node::successor_pointer::VISITED,
