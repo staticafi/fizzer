@@ -40,7 +40,9 @@ enum generation_state {
     STATE_GENERATING_ARTIFICIAL_DATA,
     STATE_GENERATION_MORE,
     STATE_COVERED,
-    STATE_GENERATION_DATA_FOR_NEXT_NODE
+    STATE_GENERATION_DATA_FOR_NEXT_NODE,
+
+    STATE_COVERED_BY_OTHER
 };
 
 enum failed_generation_method { METHOD_GENERATE_FROM_OTHER_NODE, METHOD_GENERATE_ARTIFICIAL_DATA };
@@ -281,6 +283,15 @@ struct loaded_bits_counter {
     int loop_count;
 };
 
+struct FloatComparator {
+    bool operator()( const float& a, const float& b ) const
+    {
+        const float epsilon = 1e-6f;
+        return std::abs( a - b ) > epsilon && std::abs( a ) < std::abs( b );
+    }
+};
+
+
 using path_id_direction_count = std::vector< location_id::id_type >;
 using loop_head_to_loaded_bits_counter = std::unordered_map< location_id::id_type, loaded_bits_counter >;
 using loop_endings = std::unordered_map< location_id::id_type, bool >;
@@ -316,6 +327,7 @@ private:
                    bool add_columns,
                    std::size_t max_directions_in_path_index );
 
+    std::map< double, int, FloatComparator > branching_values;
     std::vector< equation > matrix;
     std::unordered_set< equation > unique_rows;
     std::vector< branching_node* > all_paths;
@@ -444,6 +456,7 @@ public:
     inline static int minimal_max_generation_after_covered = 10;
     inline static int minimal_max_generation_for_other_node = 10;
     inline static int minimal_max_generation_artificial_data = 5;
+    inline static int maximal_number_of_equations_with_same_branching_value = 2000;
     inline static float percentage_to_add_to_path = 0.4;
     inline static bool create_artificial_data = true;
 

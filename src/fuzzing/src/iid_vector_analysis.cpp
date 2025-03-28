@@ -527,6 +527,12 @@ bool fuzzing::loop_dependencies::compute_node_subsets_for_computation(
         for ( const auto& [ head, _ ] : loop.heads ) {
             auto [ it, inserted ] = computation_subset.insert( { head.node_id, !head.branching_direction } );
             changed |= inserted;
+
+            auto it_head = computation_subset.find( head );
+            if ( it_head != computation_subset.end() ) {
+                computation_subset.erase( it_head );
+                changed = true;
+            }
         }
     }
 
@@ -647,6 +653,12 @@ void fuzzing::equation_matrix::process_node( branching_node* end_node,
 {
     TMPROF_BLOCK();
 
+    int& branching_value_count = branching_values[ end_node->best_coverage_value ];
+    if ( branching_value_count >= iid_dependencies::maximal_number_of_equations_with_same_branching_value )
+        return;
+
+    branching_value_count++;
+
     all_paths.push_back( end_node );
 
     if ( !compute_matrix ) {
@@ -706,9 +718,11 @@ const std::unordered_map< equation, int >& equation_matrix::compute_vectors_with
 
         computed_vectors++;
     }
+
     for ( auto& [ vector, hits ] : vectors_with_hits ) {
         hits = 0;
     }
+
     for ( const auto& [ vector, hits ] : vectors_with_hits ) {
         for ( const auto& row : matrix ) {
             equation new_possible_equation = row + vector;
@@ -918,6 +932,9 @@ generated_path iid_node_dependence_props::generate_probabilities( const loop_dep
     }
 
     if ( loop_to_properties.loops.empty() ) {
+        if ( iid_dependencies::verbose )
+            std::cout << "No loops" << std::endl;
+
         return {};
     }
 
@@ -925,6 +942,9 @@ generated_path iid_node_dependence_props::generate_probabilities( const loop_dep
                                                                                    matrix.get_node_ids() );
 
     if ( computation_subset.empty() ) {
+        if ( iid_dependencies::verbose )
+            std::cout << "No nodes to compute" << std::endl;
+
         return {};
     }
 
@@ -940,11 +960,14 @@ generated_path iid_node_dependence_props::generate_probabilities( const loop_dep
     }
 
     if ( computation_submatrix.empty() ) {
+        if ( iid_dependencies::verbose )
+            std::cout << "Empty submatrix" << std::endl;
+
         return return_empty_path();
     }
 
     if ( iid_dependencies::verbose ) {
-        print_stats( true );
+        print_stats( false );
         loop_to_properties.print_dependencies();
         // computation_submatrix.print_matrix();
     }
@@ -953,6 +976,9 @@ generated_path iid_node_dependence_props::generate_probabilities( const loop_dep
 
     if ( !best_vectors.has_value() ) {
         if ( stats.state != generation_state::STATE_GENERATING_ARTIFICIAL_DATA ) {
+            if ( iid_dependencies::verbose )
+                std::cout << "No vectors" << std::endl;
+
             return return_empty_path();
         }
 
@@ -964,6 +990,9 @@ generated_path iid_node_dependence_props::generate_probabilities( const loop_dep
         computation_submatrix.get_new_subset_counts_from_vectors( *best_vectors, stats );
 
     if ( !new_subset_counts.has_value() ) {
+        if ( iid_dependencies::verbose )
+            std::cout << "No new subset counts" << std::endl;
+    
         return return_empty_path();
     }
 
@@ -1023,7 +1052,9 @@ bool iid_node_dependence_props::too_much_failed_in_row( int max_failed_generatio
 // ------------------------------------------------------------------------------------------------
 void iid_node_dependence_props::set_as_generating_for_other_node( int minimal_max_generation_for_other_node )
 {
-    INVARIANT( stats.state == generation_state::STATE_COVERED );
+    if ( stats.state != generation_state::STATE_COVERED ) {
+        return;
+    }
 
     stats.state = generation_state::STATE_GENERATION_DATA_FOR_NEXT_NODE;
     stats.generated_for_other_node_max = minimal_max_generation_for_other_node;
@@ -1109,6 +1140,9 @@ void iid_node_dependence_props::print_stats( bool only_state ) const
                 std::cout << "Generated artificial data: " << stats.generate_artificial_data << "/"
                           << stats.generate_artificial_data_max << std::endl;
             }
+            break;
+        case generation_state::STATE_COVERED_BY_OTHER:
+            std::cout << "Status: STATE_COVERED_BY_OTHER" << std::endl;
             break;
     }
 }
@@ -1651,10 +1685,11 @@ void fuzzing::iid_dependencies::remove_all_covered( const std::unordered_set< lo
         if ( covered_ids.contains( it->first ) &&
              it->second.get_generations_stats().state == generation_state::STATE_NOT_COVERED ) {
             covered_node_ids.insert( it->first );
-            it = node_id_to_equation_map.erase( it );
-        } else {
-            ++it;
+            iid_node_generations_stats& stats = it->second.get_generations_stats();
+            stats.state = generation_state::STATE_COVERED_BY_OTHER;
         }
+
+        ++it;
     }
 }
 
@@ -1741,6 +1776,9 @@ generated_path fuzzing::iid_dependencies::generate_probabilities()
     TMPROF_BLOCK();
     std::optional< location_id > id = get_next_iid_node();
     if ( !id.has_value() ) {
+        if ( verbose )
+            std::cout << "No more nodes to generate probabilities for." << std::endl;
+
         return {};
     }
 
@@ -1914,6 +1952,10 @@ void fuzzing::iid_dependencies::compute_dependencies_by_loading( branching_node*
         for ( const auto& [ body_id, props ] : body ) {
             auto& body_props = dependencies.bits_read_by_node[ body_id ];
             natural_32_bit minimal_offset = props.min - loading_props.min;
+            if ( props.min < loading_props.min ) {
+                minimal_offset = 0;
+            }
+
             INVARIANT( minimal_offset >= 0 );
             body_props.minimal_bit_offset = std::min( body_props.minimal_bit_offset, minimal_offset );
 
@@ -1971,7 +2013,7 @@ void fuzzing::iid_dependencies::compute_dependencies_by_loops( const loop_head_t
         const std::unordered_set< location_id::id_type >& all_props_ids = props.get_all_ids();
 
         for ( const auto& body : loop_bodies ) {
-            if ( all_props_ids.contains( body.id ) ) {
+            if ( all_props_ids.contains( body.id ) || loop_head.context_hash != body.context_hash ) {
                 continue;
             }
 
