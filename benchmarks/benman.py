@@ -299,7 +299,7 @@ class Benman:
                             pass
             return benchmarks
 
-        kinds = ["fast", "iid_testing", "medium", "slow", "pending"]
+        kinds = ["fast", "iid_testing", "testcomp-selection-selection", "medium", "slow", "pending"]
         benchmarks = []
         if name == "all":
             for kind in kinds:

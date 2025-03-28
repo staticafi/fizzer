@@ -1125,6 +1125,10 @@ execution_record::execution_flags  fuzzer::process_execution_results()
         for (; true; ++trace_index)
         {
             branching_coverage_info const&  info = trace->at(trace_index);
+            
+            if ( use_vector_analysis ) {
+                iid_dependencies::biggest_node_id = std::max( iid_dependencies::biggest_node_id, std::size_t( info.id.id ) );
+            }
 
             INVARIANT(construction_props.leaf->id == info.id);
 
@@ -1220,11 +1224,6 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                         succ_info.xor_like_branching_function,
                         succ_info.predicate
                 );
-
-                if ( use_vector_analysis ) {
-                    iid_dependencies::biggest_node_id = std::max( iid_dependencies::biggest_node_id,
-                                                                    std::size_t( new_node->id.id ) );
-                }
 
                 construction_props.leaf->set_successor(info.direction, {
                     branching_node::successor_pointer::VISITED,
@@ -1615,6 +1614,13 @@ void  fuzzer::select_next_state()
     winner = primary_coverage_targets.get_best(max_input_width);
     if (winner == nullptr && !entry_branching->is_closed())
         winner = select_iid_coverage_target();
+
+    
+    // else if (winner != nullptr && get_random_natural_32_bit_in_range(1, 10, generator_for_iid_approach_selection) == 10)
+    // {
+    //     winner = select_iid_coverage_target();
+    // }
+
 
     if (winner == nullptr)
     {

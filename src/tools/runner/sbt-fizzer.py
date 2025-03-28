@@ -78,7 +78,7 @@ def build(self_dir, input_file, output_dir, options, use_m32, silent_mode):
             None).returncode:
         raise Exception("Linking has failed: " + input_file)
     t1 = time.time()
-    if silent_mode is False: print("%.2f," % (t1 - t0), flush=True)
+    if silent_mode is False: print("%.2f" % (t1 - t0), flush=True)
     if silent_mode is False: print("},", flush=True)
 
 

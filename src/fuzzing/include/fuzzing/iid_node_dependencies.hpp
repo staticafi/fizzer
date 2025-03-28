@@ -220,7 +220,7 @@ struct iid_dependencies {
     std::unordered_map< location_id, iid_node_dependence_props > id_to_equation_map;
     std::set< location_id > non_iid_nodes;
 
-    void update_non_iid_nodes( sensitivity_analysis& sensitivity );
+    void update_ignored_nodes( sensitivity_analysis& sensitivity );
     void process_node_dependence( branching_node* node );
 };
 

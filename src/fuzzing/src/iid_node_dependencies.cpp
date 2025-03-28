@@ -920,7 +920,7 @@ int fuzzing::iid_node_dependence_props::get_possible_depth() const
  * @param sensitivity A reference to the sensitivity analysis object that
  *                    provides the changed nodes.
  */
-void fuzzing::iid_dependencies::update_non_iid_nodes( sensitivity_analysis& sensitivity )
+void fuzzing::iid_dependencies::update_ignored_nodes( sensitivity_analysis& sensitivity )
 {
     for ( branching_node* node : sensitivity.get_changed_nodes() ) {
         if ( node->is_did_branching() ) {

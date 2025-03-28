@@ -360,6 +360,7 @@ void save_iid_vector_analysis( std::ostream& ostr, analysis_outcomes const& resu
             case generation_state::STATE_GENERATION_DATA_FOR_NEXT_NODE:
                 ostr << "STATE_GENERATION_DATA_FOR_NEXT_NODE";
                 break;
+            case generation_state::STATE_COVERED_BY_OTHER: ostr << "STATE_COVERED_BY_OTHER"; break;
             default: ostr << "UNKNOWN"; break;
         }
         ostr << "\",\n";
