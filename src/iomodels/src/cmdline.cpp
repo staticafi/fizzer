@@ -123,6 +123,7 @@ bool  cmdline::parse_record(com::execution_results&  dst, connection::medium&  s
     natural_16_bit  argc;
     src >> argc;
     push_back(*dst.get_bytes(), argc);
+    dst.get_types()->push_back(com::data_type::UINT16);
     push_back(*dst.get_metadata(), argc);
     for (natural_16_bit  i = 0U; i < argc; ++i)
     {
@@ -135,9 +136,10 @@ bool  cmdline::parse_record(com::execution_results&  dst, connection::medium&  s
             return false;
         for (natural_16_bit  j = 0U; j < count; ++j)
         {
-            natural_16_bit  chr;
+            natural_8_bit  chr;
             src >> chr;
-            push_back(*dst.get_bytes(), argc);
+            push_back(*dst.get_bytes(), chr);
+            dst.get_types()->push_back(com::data_type::UINT8);
         }
     }
     return true;
