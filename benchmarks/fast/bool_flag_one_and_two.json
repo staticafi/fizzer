@@ -20,7 +20,7 @@
             1, 2, 3, 4
         ],
         "output_statistics": {
-            "bitshare_analysis": {
+            "bitshare": {
                 "num_generated_tests": 1,
                 "num_crashes": 0,
                 "num_boundary_violations": 0

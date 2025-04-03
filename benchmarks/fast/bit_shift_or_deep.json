@@ -25,7 +25,7 @@
                 "num_crashes": 0,
                 "num_boundary_violations": 0
             },
-            "bitflip_analysis": {
+            "bitflip": {
                 "num_generated_tests": 1,
                 "num_crashes": 0,
                 "num_boundary_violations": 0
