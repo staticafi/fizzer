@@ -25,7 +25,7 @@ optimization_outcomes  optimizer::run(
         std::vector<vecu8> const&  inputs_leading_to_boundary_violation,
         std::vector<location_id> const&  already_covered_branchings,
         std::vector<branching_location_and_direction> const&  already_uncovered_branchings,
-        connection::benchmark_executor&  benchmark_executor,
+        connection::benchmark_executor_via_shared_memory&  benchmark_executor,
         execution_record_writer&  save_execution_record
         )
 {

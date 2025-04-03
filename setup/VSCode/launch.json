@@ -15,7 +15,6 @@
                 "--jsonc",
                 // "--skip_building",
                 // "--skip_fuzzing",
-                // "--use_network",
                 // "--silent_build",
                 // "--m32",
 
@@ -43,14 +42,13 @@
                 "--test_type",
                     "native",
                     // "testcomp",
-                "--port", "45654",
 
                 "--input_file",
                     "fast/_.c"
                ]
         },
         {
-            "name": "run server",
+            "name": "run fuzzer",
             "type": "cppdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
@@ -79,7 +77,6 @@
                 "--test_type",
                     "native",
                     // "testcomp",
-                "--port", "45654",
                 "--output_dir", "${workspaceFolder}/dist/output"
             ],
             "stopAtEntry": false,
@@ -90,9 +87,7 @@
                     "text": "-enable-pretty-printing",
                     "ignoreFailures": true
                 }
-            ],
-            "preLaunchTask": "kill clients",
-            //"postDebugTask": "kill clients"
+            ]
         },
         {
             "name": "Benman @ dbg",
@@ -157,9 +152,7 @@
                     "text": "-enable-pretty-printing",
                     "ignoreFailures": true
                 }
-            ],
-            "preLaunchTask": "kill clients",
-            //"postDebugTask": "kill clients"
+            ]
         },
         {
             "name": "salac.py",

@@ -4,50 +4,8 @@
 namespace connection {
 
 
-benchmark_executor_via_network::benchmark_executor_via_network(
-        std::string const&  path_to_client,
-        std::string const&  path_to_target,
-        int const  port
-        )
-    : benchmark_executor{}
-    , serv{ nullptr }
-    , executor{ nullptr }
-{
-    serv = std::make_unique<server>(port);
-    serv->start();
-    executor = std::make_unique<client_executor>(
-        5,
-        path_to_client + " --path_to_target " + path_to_target + " --port " + std::to_string(port),
-        *serv
-        );
-    executor->start();
-}
-
-
-benchmark_executor_via_network::~benchmark_executor_via_network()
-{
-    if (executor != nullptr)
-    {
-        executor->stop();
-        executor = nullptr;
-    }
-    if (serv != nullptr)
-    {
-        serv->stop();
-        serv = nullptr;
-    }
-}
-
-
-void benchmark_executor_via_network::operator()()
-{
-    serv->send_input_to_client_and_receive_result();
-}
-
-
 benchmark_executor_via_shared_memory::benchmark_executor_via_shared_memory(std::string const&  path_to_target)
-    : benchmark_executor{}
-    , executor{ nullptr }
+    : executor{ nullptr }
 {
     executor = std::make_unique<target_executor>(path_to_target);
     executor->set_timeout(iomodels::iomanager::instance().get_config().max_exec_milliseconds);

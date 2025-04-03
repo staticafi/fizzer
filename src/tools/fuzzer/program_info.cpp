@@ -1,8 +1,8 @@
-#include <client/program_info.hpp>
+#include <fuzzer/program_info.hpp>
 
 std::string  get_program_name()
 {
-    return "SBT-Fizzer client";
+    return "SBT-Fizzer server";
 }
 
 std::string  get_program_version()

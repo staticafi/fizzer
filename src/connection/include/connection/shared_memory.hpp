@@ -7,7 +7,6 @@
 #   include <utility/endian.hpp>
 #   include <utility/assumptions.hpp>
 #   include <instrumentation/target_termination.hpp>
-#   include <connection/message.hpp>
 #   include <optional>
 #   include <stdexcept>
 
@@ -40,9 +39,6 @@ public:
 
     void accept_bytes(const void* src, std::size_t n) override;
     void deliver_bytes(void* dest, std::size_t n) override;
-
-    void accept_bytes(message& src);
-    void deliver_bytes(message& dest);
 
     bool exhausted() const;
 

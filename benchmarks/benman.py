@@ -17,13 +17,6 @@ def quote(path : str) -> str:
     return '"' + path + '"'
 
 
-def kill_clients():
-    if platform.system() == "Windows":
-        pass # TODO!
-    else:
-        os.system("pgrep --full \".sbt-fizzer_client\" | xargs -r kill")
-
-
 class Benchmark:
     def __init__(self, pathname : str, runner_script : str, verbose : bool) -> None:
         self.runner_script = runner_script
@@ -209,7 +202,6 @@ class Benchmark:
 
         self.log("makedirs " + output_dir)
         os.makedirs(output_dir, exist_ok=True)
-        kill_clients()
         self._execute(
             [
                 self.python_binary,
@@ -326,7 +318,6 @@ class Benman:
             benchmark = Benchmark(pathname, self.runner_script, self.args.verbose)
             if not benchmark.fuzz(self.benchmarks_dir, self.output_dir):
                 num_failures += 1
-        kill_clients()
         if num_failures > 0:
             print("FAILURE[" + str(num_failures) + "/" + str(len(benchmark_paths)) + "]")
             return False

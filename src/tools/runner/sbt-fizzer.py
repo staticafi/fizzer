@@ -56,7 +56,7 @@ def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, si
     if silent_mode is False: print("    \"Instrumenting\": ", end='', flush=True)
     t0 = time.time()
     if _execute(
-            [ os.path.join(self_dir, "tools", "@FIZZER_INSTRUMENTER_FILE@") ] +
+            [ os.path.join(self_dir, "tools", "@INSTRUMENTER_FILE@") ] +
                 options +
                 ["--input", ll_file, "--output", instrumented_ll_file],
             None).returncode:
@@ -174,7 +174,7 @@ def fuzz(self_dir, input_file, output_dir, options, start_time, silent_mode):
             sala_program = None
 
     if _execute(
-            [ os.path.join(self_dir, "tools", "@SERVER_FILE@"),
+            [ os.path.join(self_dir, "tools", "@FUZZER_FILE@"),
                 "--path_to_target", target ] +
                 ([ "--path_to_sala", sala_program ] if sala_program is not None else []) +
                 [ "--output_dir", output_dir] +
@@ -192,10 +192,6 @@ def help(self_dir):
     print("                     If not specified, then the current directory is used.")
     print("skip_building        Skip building of the source C file.")
     print("skip_fuzzing         Skip fuzzing of the built source C file.")
-    print("use_network          When specified, the fuzzer will use network communication")
-    print("                     instead of shared memory. This option is introduced so that")
-    print("                     you do not have to use options 'path_to_target' and")
-    print("                     'path_to_client' listed below.")
     print("silent_mode          When specified, no messages will be printed.")
     print("m32                  When specified, the source C file will be compiled for")
     print("                     32-bit machine (cpu). Otherwise, 64-bit machine is assumed.")
@@ -205,9 +201,9 @@ def help(self_dir):
     print("passed to the script they will automatically be propagated to the corresponding tool.")
 
     print("\nThe options of the LLVM 'instrumenter' tool:")
-    _execute([ os.path.join(self_dir, "tools", "@FIZZER_INSTRUMENTER_FILE@"), "--help"], None)
-    print("\nThe options of the 'fuzzer' tool (a.k.a. the server):")
-    _execute([ os.path.join(self_dir, "tools", "@SERVER_FILE@"), "--help"], None)
+    _execute([ os.path.join(self_dir, "tools", "@INSTRUMENTER_FILE@"), "--help"], None)
+    print("\nThe options of the 'fuzzer' tool:")
+    _execute([ os.path.join(self_dir, "tools", "@FUZZER_FILE@"), "--help"], None)
 
     print("\n!!! WARNING !!!!")
     print("An analyzed program is currently *NOT* executed in an isolated environment. It is thus")
@@ -216,7 +212,7 @@ def help(self_dir):
 
 
 def version(self_dir):
-    _execute([ os.path.join(self_dir, "tools", "@SERVER_FILE@"), "--version"], None)
+    _execute([ os.path.join(self_dir, "tools", "@FUZZER_FILE@"), "--version"], None)
 
 
 def main():
@@ -261,9 +257,6 @@ def main():
             i += 1
         elif arg == "--clear_output_dir":
             clear_output_dir = True
-        elif arg == "--use_network":
-            options.append("--path_to_client")
-            options.append(os.path.join(self_dir, "tools", "@CLIENT_FILE@"))
         elif arg == "--skip_building":
             skip_building = True
         elif arg == "--skip_fuzzing":

@@ -66,7 +66,7 @@ progress_recorder::progress_recorder()
 {}
 
 
-void  progress_recorder::start(std::filesystem::path const&  path_to_client_, std::filesystem::path const&  output_dir_)
+void  progress_recorder::start(std::filesystem::path const&  path_to_target_, std::filesystem::path const&  output_dir_)
 {
     ASSUMPTION(!is_started());
 
@@ -76,8 +76,8 @@ void  progress_recorder::start(std::filesystem::path const&  path_to_client_, st
     if (!std::filesystem::is_directory(output_dir))
         throw std::runtime_error("Cannot create directory: " + output_dir.string());
 
-    std::filesystem::path const  input_dir{ path_to_client_.parent_path() };
-    std::string const  executable_name{ path_to_client_.filename().string() };
+    std::filesystem::path const  input_dir{ path_to_target_.parent_path() };
+    std::string const  executable_name{ path_to_target_.filename().string() };
 
     program_name = executable_name.substr(0, executable_name.find("_sbt-fizzer_target"));
 

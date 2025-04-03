@@ -30,12 +30,9 @@ endif()
 
 list(JOIN FUZZ_TARGET_NEEDED_COMPILATION_FLAGS " " FUZZ_TARGET_NEEDED_COMPILATION_FLAGS)
 
-set(SERVER_FILE "$<TARGET_FILE_NAME:sbt-fizzer_server>")
+set(FUZZER_FILE "$<TARGET_FILE_NAME:fuzzer>")
 
-set(CLIENT_FILE "$<TARGET_FILE_NAME:sbt-fizzer_client>")
-
-set(FIZZER_INSTRUMENTER_FILE "$<TARGET_FILE_NAME:instrumenter>")
-
+set(INSTRUMENTER_FILE "$<TARGET_FILE_NAME:instrumenter>")
 
 set(FIZZER_TARGET_NAME sbt-fizzer.py)
 

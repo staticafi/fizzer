@@ -2,7 +2,6 @@
 #   define IOMODELS_STDIN_BASE_HPP_INCLUDED
 
 #   include <instrumentation/instrumentation_types.hpp>
-#   include <connection/message.hpp>
 #   include <connection/shared_memory.hpp>
 #   include <utility/math.hpp>
 #   include <memory>
@@ -19,11 +18,8 @@ struct  stdin_base
     virtual ~stdin_base() = default;
 
     virtual void  clear() = 0;
-    virtual void  save(connection::message&  dest) const = 0;
     virtual void  save(connection::shared_memory&  dest) const = 0;
-    virtual void  load(connection::message&  src) = 0;
     virtual void  load(connection::shared_memory&  src) = 0;
-    virtual bool  load_record(connection::message&  src) = 0;
     virtual bool  load_record(connection::shared_memory&  src) = 0;
     virtual std::size_t min_flattened_size() const = 0;
     void  read(natural_8_bit*  ptr, type_of_input_bits  type, connection::medium&  dest) { if (!read_bytes(ptr, type, dest)) exit(0); }

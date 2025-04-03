@@ -95,20 +95,6 @@ void shared_memory::set_termination(target_termination termination) {
     *(memory + 1) = static_cast<natural_8_bit>(termination);
 }
 
-
-void shared_memory::accept_bytes(message& src) {
-    std::size_t src_size = src.size();
-    src.deliver_bytes(memory, src_size);
-    *saved += (natural_32_bit)src_size;
-}
-
-
-void shared_memory::deliver_bytes(message& dest) {
-    dest.accept_bytes(memory, *saved);
-    cursor += *saved;
-}
-
-
 bool shared_memory::exhausted() const {
     return cursor >= *saved;
 }

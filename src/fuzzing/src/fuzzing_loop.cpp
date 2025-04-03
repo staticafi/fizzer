@@ -2,7 +2,6 @@
 #include <fuzzing/fuzzer.hpp>
 #include <fuzzing/execution_record.hpp>
 #include <iomodels/iomanager.hpp>
-#include <connection/client_crash_exception.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <utility/development.hpp>
@@ -15,7 +14,7 @@ namespace  fuzzing {
 
 
 analysis_outcomes  run(
-        connection::benchmark_executor&  benchmark_executor,
+        connection::benchmark_executor_via_shared_memory&  benchmark_executor,
         sala::Program const* const sala_program_ptr,
         execution_record_writer&  save_execution_record,
         std::function<void(execution_record const&)> const&  collector_of_boundary_violations,
@@ -104,11 +103,6 @@ analysis_outcomes  run(
                 }
             }
         }
-    }
-    catch (connection::client_crash_exception const&  e)
-    {
-        results.termination_type = analysis_outcomes::TERMINATION_TYPE::CLIENT_COMMUNICATION_ERROR;
-        results.error_message = e.what();
     }
     catch (std::exception const&  e)
     {

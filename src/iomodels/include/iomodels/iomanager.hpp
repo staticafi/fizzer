@@ -5,7 +5,6 @@
 #   include <instrumentation/target_termination.hpp>
 #   include <iomodels/stdin_base.hpp>
 #   include <iomodels/stdout_base.hpp>
-#   include <connection/message.hpp>
 #   include <instrumentation/instrumentation_types.hpp>
 #   include <utility/basic_numeric_types.hpp>
 #   include <vector>
@@ -26,11 +25,8 @@ struct  iomanager
 
     instrumentation::target_termination  get_termination() const { return termination; }
 
-    template <typename Medium>
-    void  load_results(Medium& src);
-
-    template <typename Medium>
-    bool  load_trace_record(Medium& src);
+    void  load_results(connection::shared_memory& src);
+    bool  load_trace_record(connection::shared_memory& src);
 
     std::vector<instrumentation::branching_coverage_info> const&  get_trace() const { return trace; }
     void  clear_trace();

@@ -1,5 +1,5 @@
-#include <server/program_options.hpp>
-#include <server/program_info.hpp>
+#include <fuzzer/program_options.hpp>
+#include <fuzzer/program_info.hpp>
 #include <iomodels/iomanager.hpp>
 #include <fuzzing/termination_info.hpp>
 #include <fuzzing/optimizer.hpp>
@@ -66,12 +66,6 @@ program_options::program_options(int argc, char* argv[])
 
     add_option("optimizer_max_exec_megabytes", "Max number of mega bytes which can be allocated during benchmark execution.", "1");
     add_value("optimizer_max_exec_megabytes", std::to_string(optimizer_config.max_exec_megabytes));
-
-    add_option(
-        "path_to_client",
-        "Path to client executable. When not specified, the server will "
-        "execute only the fuzzing targets, skipping network communication.",
-        "1");
 
     add_option("path_to_target", "Path to target executable.", "1");
 

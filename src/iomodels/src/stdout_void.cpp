@@ -9,19 +9,7 @@ void  stdout_void::clear()
 }
 
 
-void  stdout_void::save(connection::message&  dest) const
-{
-    // Nothing to do.
-}
-
-
 void  stdout_void::save(connection::shared_memory&  dest) const
-{
-    // Nothing to do.
-}
-
-
-void  stdout_void::load(connection::message&  src)
 {
     // Nothing to do.
 }

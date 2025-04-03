@@ -28,11 +28,8 @@ to `LLVM` bit-code. In `lib32` there are 32-bit versions of the libraries in
 it built as 32-bit application, then add the option `--m32` to the command line.
 
 The directory `tools` contains three 64-bit binaries. The binary starting with 
-`sbt-fizzer_instrumenter_*` is used for injection of execution monitoring 
-instruction into the analyzed binary program, The binary`sbt-fizzer_server_*`
-is the actual analyzer. The binary `sbt-fizzer_client_*` provides an alternative
-type of communication between the server and the binary of the analyzed program,
-which is the network communication. The default type of communication is via
-shared memory.
+`instrumenter_*` is used for injection of execution monitoring 
+instruction into the analyzed binary program, The binary`fuzzer_*`
+is the actual analyzer.
 
-The source code of the tool is available here: https://github.com/staticafi/sbt-fizzer
+The source code of the tool is available here: https://github.com/staticafi/fizzer

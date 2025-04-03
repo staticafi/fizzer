@@ -1,5 +1,5 @@
-#include <server/program_info.hpp>
-#include <server/program_options.hpp>
+#include <fuzzer/program_info.hpp>
+#include <fuzzer/program_options.hpp>
 #include <connection/benchmark_executor.hpp>
 #include <iomodels/iomanager.hpp>
 #include <iomodels/models_map.hpp>
@@ -101,23 +101,6 @@ void run(int argc, char* argv[])
                     << "' references a file which is NOT executable.\n";
         return;
     }
-    if (get_program_options()->has("path_to_client")) {
-        if (!std::filesystem::is_regular_file(get_program_options()->value("path_to_client")))
-        {
-            std::cerr << "ERROR: The passed client path '"
-                        << get_program_options()->value("path_to_client")
-                        << "' does not reference a regular file.\n";
-            return;
-        }
-        std::filesystem::perms const perms = std::filesystem::status(get_program_options()->value("path_to_client")).permissions();
-        if ((perms & std::filesystem::perms::owner_exec) == std::filesystem::perms::none)
-        {
-            std::cerr << "ERROR: The passed client path '"
-                        << get_program_options()->value("path_to_client")
-                        << "' references a file which is NOT executable.\n";
-            return;
-        }
-    }
 
     fuzzing::termination_info  terminator{
             .max_executions = (natural_32_bit)std::max(0, std::stoi(get_program_options()->value("max_executions"))),
@@ -166,27 +149,11 @@ void run(int argc, char* argv[])
         }
     }
 
-    std::shared_ptr<connection::benchmark_executor>  benchmark_executor;
-    if (get_program_options()->has("path_to_client"))
-    {
-        if (!get_program_options()->has("silent_mode"))
-            std::cout << "\"communication_type\": \"network\"," << std::endl;
-
-        benchmark_executor = std::make_shared<connection::benchmark_executor_via_network>(
-                get_program_options()->value("path_to_client"),
-                get_program_options()->value("path_to_target"),
-                get_program_options()->value_as_int("port")
-                );
-    }
-    else
-    {
-        if (!get_program_options()->has("silent_mode"))
-            std::cout << "\"communication_type\": \"shared_memory\"," << std::endl;
-
-        benchmark_executor = std::make_shared<connection::benchmark_executor_via_shared_memory>(
+    std::shared_ptr<connection::benchmark_executor_via_shared_memory>  benchmark_executor{
+        std::make_shared<connection::benchmark_executor_via_shared_memory>(
                 get_program_options()->value("path_to_target")
-                );
-    }
+                )
+        };
 
     std::shared_ptr<sala::Program> sala_program_ptr;
     {

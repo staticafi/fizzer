@@ -1,5 +1,4 @@
 #include <fuzzing/dump.hpp>
-#include <connection/client.hpp>
 #include <iomodels/iomanager.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
@@ -76,9 +75,6 @@ void  print_analysis_outcomes(std::ostream&  ostr, analysis_outcomes const&  res
         break;
     case analysis_outcomes::TERMINATION_TYPE::SERVER_INTERNAL_ERROR:
         ostr << "SERVER_INTERNAL_ERROR";
-        break;
-    case analysis_outcomes::TERMINATION_TYPE::CLIENT_COMMUNICATION_ERROR:
-        ostr << "CLIENT_COMMUNICATION_ERROR";
         break;
     case analysis_outcomes::TERMINATION_TYPE::UNCLASSIFIED_ERROR:
         ostr << "UNCLASSIFIED_ERROR";
@@ -332,9 +328,6 @@ void  print_optimization_outcomes(std::ostream&  ostr, optimization_outcomes con
         break;
     case optimization_outcomes::TERMINATION_TYPE::SERVER_INTERNAL_ERROR:
         ostr << "SERVER_INTERNAL_ERROR";
-        break;
-    case optimization_outcomes::TERMINATION_TYPE::CLIENT_COMMUNICATION_ERROR:
-        ostr << "CLIENT_COMMUNICATION_ERROR";
         break;
     case optimization_outcomes::TERMINATION_TYPE::UNCLASSIFIED_ERROR:
         ostr << "UNCLASSIFIED_ERROR";

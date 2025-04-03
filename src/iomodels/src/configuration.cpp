@@ -71,8 +71,7 @@ std::size_t configuration::flattened_size() {
 }
 
 
-template <typename Medium>
-void configuration::save_target_config(Medium& dest) const {
+void configuration::save_target_config(connection::shared_memory& dest) const {
     dest << max_trace_length;
     dest << max_stack_size;
     dest << max_stdin_bytes;
@@ -81,11 +80,7 @@ void configuration::save_target_config(Medium& dest) const {
     dest << stdout_model_name;
 }
 
-template void configuration::save_target_config(connection::shared_memory&) const;
-template void configuration::save_target_config(connection::message&) const;
-
-template <typename Medium>
-void configuration::load_target_config(Medium& src) {
+void configuration::load_target_config(connection::shared_memory& src) {
     src >> max_trace_length;
     src >> max_stack_size;
     src >> max_stdin_bytes;
@@ -94,16 +89,10 @@ void configuration::load_target_config(Medium& src) {
     src >> stdout_model_name;
 }
 
-template void configuration::load_target_config(connection::shared_memory&);
-template void configuration::load_target_config(connection::message&);
-
-template <typename Medium>
-void configuration::save_client_config(Medium& dest) const {
+void configuration::save_client_config(connection::shared_memory& dest) const {
     dest << required_shared_memory_size();
     dest << max_exec_milliseconds;
 }
 
-template void configuration::save_client_config(connection::shared_memory&) const;
-template void configuration::save_client_config(connection::message&) const;
 
 }

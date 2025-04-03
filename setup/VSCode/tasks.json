@@ -40,7 +40,7 @@
             ]
         },
         {
-            "label": "kill clients",
+            "label": "kill targets",
             "type": "shell",
             "linux": {
                 "command": "pgrep --full \"_sbt-fizzer_target\" | xargs -r kill"

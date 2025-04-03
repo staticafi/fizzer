@@ -46,8 +46,7 @@ void  iomanager::clear_trace()
 }
 
 
-template <typename Medium>
-bool  iomanager::load_trace_record(Medium& src) {
+bool  iomanager::load_trace_record(connection::shared_memory& src) {
     if (!src.can_deliver_bytes(branching_coverage_info::flattened_size()))
         return false;
     branching_coverage_info  info { invalid_location_id() };
@@ -62,12 +61,7 @@ bool  iomanager::load_trace_record(Medium& src) {
     return true;
 }
 
-template bool iomanager::load_trace_record(shared_memory&);
-template bool iomanager::load_trace_record(message&);
-
-
-template <typename Medium>
-void  iomanager::load_results(Medium& src) {
+void  iomanager::load_results(connection::shared_memory& src) {
     TMPROF_BLOCK();
 
     ASSUMPTION(src.can_deliver_bytes(2UL));
@@ -94,10 +88,6 @@ void  iomanager::load_results(Medium& src) {
         }
     }
 }
-
-
-template void iomanager::load_results(shared_memory&);
-template void iomanager::load_results(message&);
 
 
 stdin_base*  iomanager::get_stdin() const

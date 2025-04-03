@@ -26,8 +26,7 @@ void  stdin_replay_bytes_then_repeat_byte::clear()
     types.clear();
 }
 
-template <typename Medium>
-void  stdin_replay_bytes_then_repeat_byte::save_(Medium& dest) const
+void  stdin_replay_bytes_then_repeat_byte::save(connection::shared_memory& dest) const
 {
     INVARIANT(bytes.size() <= max_bytes());
 
@@ -38,22 +37,7 @@ void  stdin_replay_bytes_then_repeat_byte::save_(Medium& dest) const
     dest.accept_bytes(types.data(), (byte_count_type)types.size());
 }
 
-template void stdin_replay_bytes_then_repeat_byte::save_(shared_memory&) const;
-template void stdin_replay_bytes_then_repeat_byte::save_(message&) const;
-
-
-void  stdin_replay_bytes_then_repeat_byte::save(message& dest) const
-{
-    save_(dest);
-}
-
-void  stdin_replay_bytes_then_repeat_byte::save(shared_memory& dest) const
-{
-    save_(dest);    
-}
-
-template <typename Medium>
-void  stdin_replay_bytes_then_repeat_byte::load_(Medium&  src)
+void  stdin_replay_bytes_then_repeat_byte::load(connection::shared_memory&  src)
 {
     byte_count_type  num_bytes;
     src >> num_bytes;
@@ -68,23 +52,7 @@ void  stdin_replay_bytes_then_repeat_byte::load_(Medium&  src)
     src.deliver_bytes(types.data(), num_types);
 }
 
-template void stdin_replay_bytes_then_repeat_byte::load_(shared_memory&);
-template void stdin_replay_bytes_then_repeat_byte::load_(message&);
-
-
-void  stdin_replay_bytes_then_repeat_byte::load(message&  src)
-{
-    load_(src);
-}
-
-void  stdin_replay_bytes_then_repeat_byte::load(shared_memory&  src)
-{
-    load_(src);
-}
-
-
-template <typename Medium>
-bool  stdin_replay_bytes_then_repeat_byte::load_record_(Medium& src) {
+bool  stdin_replay_bytes_then_repeat_byte::load_record(connection::shared_memory& src) {
     if (!src.can_deliver_bytes(1))
         return false;
     natural_8_bit type_id;
@@ -98,19 +66,6 @@ bool  stdin_replay_bytes_then_repeat_byte::load_record_(Medium& src) {
     bytes.resize(old_size + count);
     src.deliver_bytes(bytes.data() + old_size, count);
     return true;
-}
-
-
-template bool stdin_replay_bytes_then_repeat_byte::load_record_(shared_memory&);
-template bool stdin_replay_bytes_then_repeat_byte::load_record_(message&);
-
-
-bool  stdin_replay_bytes_then_repeat_byte::load_record(message&  src) {
-    return load_record_(src);
-}
-
-bool  stdin_replay_bytes_then_repeat_byte::load_record(shared_memory&  src) {
-    return load_record_(src);
 }
 
 

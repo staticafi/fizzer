@@ -11,12 +11,9 @@ struct  configuration
     natural_32_bit required_shared_memory_size() const;
     void invalidate_shared_memory_size_cache() const;
 
-    template <typename Medium>
-    void save_target_config(Medium& dest) const;
-    template <typename Medium>
-    void load_target_config(Medium& src);
-    template <typename Medium>
-    void save_client_config(Medium& dest) const;
+    void save_target_config(connection::shared_memory& dest) const;
+    void load_target_config(connection::shared_memory& src);
+    void save_client_config(connection::shared_memory& dest) const;
 
     bool operator==(configuration const&  other) const;
     bool operator!=(configuration const&  other) const { return !(*this == other);}

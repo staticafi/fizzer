@@ -16,7 +16,6 @@ struct optimization_outcomes
     {
         NORMAL,
         SERVER_INTERNAL_ERROR,
-        CLIENT_COMMUNICATION_ERROR,
         UNCLASSIFIED_ERROR
     };
 
