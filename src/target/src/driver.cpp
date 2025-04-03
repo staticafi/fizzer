@@ -26,7 +26,7 @@ driver::driver()
     // Read data from the medium.
 
     natural_8_bit uchr;
-    std::size_t  num_bytes;
+    natural_64_bit  num_bytes;
 
     if (!m_shared_memory.can_deliver_bytes(sizeof(m_max_trace_length) + sizeof(m_max_exec_megabytes) + 1UL)) { set_invalid(); return; }
     m_shared_memory >> m_max_trace_length >> m_max_exec_megabytes;
@@ -38,21 +38,21 @@ driver::driver()
     if (m_io_simple == nullptr) { set_invalid(); return; }
 
     com::input_bytes  bytes;
-    if (!m_shared_memory.can_deliver_bytes(sizeof(std::size_t))) { set_invalid(); return; }
+    if (!m_shared_memory.can_deliver_bytes(sizeof(natural_64_bit))) { set_invalid(); return; }
     m_shared_memory >> num_bytes;
     if (!m_shared_memory.can_deliver_bytes(num_bytes)) { set_invalid(); return; }
     bytes.resize(num_bytes, 0U);
     m_shared_memory.deliver_bytes(bytes.data(), num_bytes);
 
     com::input_types  types;
-    if (!m_shared_memory.can_deliver_bytes(sizeof(std::size_t))) { set_invalid(); return; }
+    if (!m_shared_memory.can_deliver_bytes(sizeof(natural_64_bit))) { set_invalid(); return; }
     m_shared_memory >> num_bytes;
     if (!m_shared_memory.can_deliver_bytes(num_bytes)) { set_invalid(); return; }
     types.resize(num_bytes, com::data_type::UNTYPED8);
     m_shared_memory.deliver_bytes(types.data(), num_bytes);
 
     com::input_metadata  metadata;
-    if (!m_shared_memory.can_deliver_bytes(sizeof(std::size_t))) { set_invalid(); return; }
+    if (!m_shared_memory.can_deliver_bytes(sizeof(natural_64_bit))) { set_invalid(); return; }
     m_shared_memory >> num_bytes;
     if (!m_shared_memory.can_deliver_bytes(num_bytes)) { set_invalid(); return; }
     metadata.resize(num_bytes, 0U);

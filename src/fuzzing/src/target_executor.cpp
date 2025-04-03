@@ -105,7 +105,7 @@ execution_results_ptr  target_executor::run(input_bytes const&  bytes, com::inpu
     if (!m_io_cmdline->save_construction_data(get_medium())) return error_result();
     if (!m_io_simple->save_construction_data(get_medium())) return error_result();
 
-    if (!get_medium().can_accept_bytes(3ULL * sizeof(std::size_t) + bytes.size() + types.size() + metadata.size())) return error_result();
+    if (!get_medium().can_accept_bytes(3ULL * sizeof(natural_64_bit) + bytes.size() + types.size() + metadata.size())) return error_result();
     get_medium() << bytes.size();
     get_medium().accept_bytes(bytes.data(), bytes.size());
     get_medium() << types.size();
