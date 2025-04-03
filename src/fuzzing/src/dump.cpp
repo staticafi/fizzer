@@ -184,7 +184,6 @@ void  print_fuzzing_outcomes(std::ostream&  ostr, fuzzing_outcomes const&  resul
          << shift << "},\n"
          << shift << "\"local_search_analysis\": {\n"
          << shift << shift << "\"generated_inputs\": " << results.local_search_statistics.generated_inputs << ",\n"
-         << shift << shift << "\"cache_hits\": " << results.local_search_statistics.cache_hits << ",\n"
          << shift << shift << "\"start_calls\": " << results.local_search_statistics.start_calls << ",\n"
          << shift << shift << "\"stop_calls_regular\": " << results.local_search_statistics.stop_calls_regular << ",\n"
          << shift << shift << "\"stop_calls_early\": " << results.local_search_statistics.stop_calls_early << ",\n"
