@@ -51,7 +51,7 @@ _Bool __VERIFIER_nondet_bool(void)
     std::lock_guard<std::mutex> const lock(mutex());
     char n;
     check(io_simple().on_bytes_requested((natural_8_bit*) &n, com::data_type::BOOLEAN, medium()));
-    if (n > 0) {
+    if (n != 0) {
         return true;
     }
     return false;
