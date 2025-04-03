@@ -74,9 +74,6 @@ void  print_fuzzing_outcomes(std::ostream&  ostr, fuzzing_outcomes const&  resul
     case fuzzing_outcomes::TERMINATION_TYPE::SERVER_INTERNAL_ERROR:
         ostr << "SERVER_INTERNAL_ERROR";
         break;
-    case fuzzing_outcomes::TERMINATION_TYPE::UNCLASSIFIED_ERROR:
-        ostr << "UNCLASSIFIED_ERROR";
-        break;
     default: { UNREACHABLE(); break; }
     }
     ostr << "\",\n";
@@ -339,9 +336,6 @@ void  print_optimization_outcomes(std::ostream&  ostr, optimization_outcomes con
         break;
     case optimization_outcomes::TERMINATION_TYPE::SERVER_INTERNAL_ERROR:
         ostr << "SERVER_INTERNAL_ERROR";
-        break;
-    case optimization_outcomes::TERMINATION_TYPE::UNCLASSIFIED_ERROR:
-        ostr << "UNCLASSIFIED_ERROR";
         break;
     default: { UNREACHABLE(); break; }
     }

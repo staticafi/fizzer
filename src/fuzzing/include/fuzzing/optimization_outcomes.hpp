@@ -15,8 +15,7 @@ struct optimization_outcomes
     enum struct TERMINATION_TYPE
     {
         NORMAL,
-        SERVER_INTERNAL_ERROR,
-        UNCLASSIFIED_ERROR
+        SERVER_INTERNAL_ERROR
     };
 
     TERMINATION_TYPE  termination_type;

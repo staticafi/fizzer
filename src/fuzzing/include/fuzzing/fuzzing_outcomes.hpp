@@ -17,8 +17,7 @@ struct fuzzing_outcomes
     enum struct TERMINATION_TYPE
     {
         NORMAL,
-        SERVER_INTERNAL_ERROR,
-        UNCLASSIFIED_ERROR
+        SERVER_INTERNAL_ERROR
     };
 
     struct output_statistics
