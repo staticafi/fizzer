@@ -404,7 +404,8 @@ bool  local_search_analysis::generate_next_input(vecb&  bits_ref)
 
             ++statistics.cache_hits;
 
-            execution_props = it->second;
+            execution_props.bits_and_types_ptr = it->second.bits_and_types_ptr;
+            execution_props.values = it->second.values;
             process_execution_results();
         }
     }
@@ -442,9 +443,7 @@ void  local_search_analysis::process_execution_results(
             break;
     }
 
-    tested_origins.insert(execution_props.sample_overlay, execution_props);
-
-    ++statistics.cached_inputs;
+    tested_origins.insert(execution_props.sample_overlay, { execution_props.bits_and_types_ptr, execution_props.values });
 
     process_execution_results();
 }

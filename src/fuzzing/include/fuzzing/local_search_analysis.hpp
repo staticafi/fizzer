@@ -109,7 +109,14 @@ struct  local_search_analysis
 
     struct  tested_origins_cache
     {
-        using map_type = std::unordered_map<vector_overlay, sample_execution_props, vector_overlay_hash, vector_overlay_equal>;
+        struct cached_value
+        {
+            cached_value() : bits_and_types_ptr{ nullptr }, values{} {}
+            cached_value(stdin_bits_and_types_pointer const p, vecf64 const& v) : bits_and_types_ptr{ p }, values{ v } {}
+            stdin_bits_and_types_pointer  bits_and_types_ptr;
+            vecf64  values;
+        };
+        using map_type = std::unordered_map<vector_overlay, cached_value, vector_overlay_hash, vector_overlay_equal>;
         using map_iterator_type = map_type::const_iterator;
 
         tested_origins_cache(type_vector const*  types)
@@ -121,7 +128,7 @@ struct  local_search_analysis
         void  clear() { origins_.clear(); }
         bool  empty() const { return origins_.empty(); }
         std::size_t  size() const { return origins_.size(); }
-        void  insert(vector_overlay const&  origin, sample_execution_props const& value = {}) { origins_.insert({ origin, value }); }
+        void  insert(vector_overlay const&  origin, cached_value const& value = {}) { origins_.insert({ origin, value }); }
         map_iterator_type find(vector_overlay const&  origin) const { return origins_.find(origin); }
         map_iterator_type end() const { return origins_.end(); }
         bool  contains(vector_overlay const&  origin) const  { return origins_.contains(origin); }
@@ -134,7 +141,6 @@ struct  local_search_analysis
     struct  performance_statistics
     {
         std::size_t  generated_inputs{ 0 };
-        std::size_t  cached_inputs{ 0 };
         std::size_t  cache_hits{ 0 };
         std::size_t  start_calls{ 0 };
         std::size_t  stop_calls_regular{ 0 };
