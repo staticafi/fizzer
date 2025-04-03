@@ -9,7 +9,7 @@ namespace  fuzzing {
 
 void  save_execution_results(std::ostream&  ostr, execution_results const&  results, std::string const&  shift)
 {
-    ostr << shift << "\"termination\": " << com::to_string(results.get_termination()) << ",\n"
+    ostr << shift << "\"termination\": \"" << com::to_string(results.get_termination()) << "\",\n"
          << shift << "\"bytes\": \"";
     for (natural_8_bit  byte : *results.get_bytes())
         ostr << std::setw(2) << std::setfill('0') << std::hex << (natural_32_bit)byte;

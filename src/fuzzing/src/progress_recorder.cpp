@@ -339,7 +339,7 @@ void  progress_recorder::on_execution_results_available(test_suite_item const&  
     std::string const  shift2 = "        ";
 
     ostr
-        << shift2 << "\"termination\": " << com::to_string(results.get_termination()) << ",\n"
+        << shift2 << "\"termination\": \"" << com::to_string(results.get_termination()) << "\",\n"
         << shift2 << "\"bytes\": \"";
     for (natural_8_bit  byte : *results.get_bytes())
         ostr << std::setw(2) << std::setfill('0') << std::hex << (natural_32_bit)byte;
