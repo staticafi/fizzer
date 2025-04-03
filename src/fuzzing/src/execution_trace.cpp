@@ -33,8 +33,7 @@ natural_64_bit  compute_hash(execution_path const&  path)
     natural_64_bit  result{ 0UL };
     for (auto const&  loc_and_dir : path)
     {
-        hash_combine(result, (natural_64_bit)loc_and_dir.first.id);
-        hash_combine(result, (natural_64_bit)loc_and_dir.first.context_hash);
+        hash_combine(result, (natural_64_bit)loc_and_dir.first);
         hash_combine(result, (natural_64_bit)(loc_and_dir.second ? 1033UL : 7919UL));
     }
     return result;

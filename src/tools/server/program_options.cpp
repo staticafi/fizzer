@@ -29,9 +29,6 @@ program_options::program_options(int argc, char* argv[])
     add_option("max_trace_length", "Max number of branchings in a trace.", "1");
     add_value("max_trace_length", std::to_string(io_cfg.max_trace_length));
 
-    add_option("max_br_instr_trace_length", "Max number of branchings in a trace.", "1");
-    add_value("max_br_instr_trace_length", std::to_string(io_cfg.max_br_instr_trace_length));
-
     add_option("max_stack_size", "Max number of stack records during benchmark execution.", "1");
     add_value("max_stack_size", std::to_string(io_cfg.max_stack_size));
 
@@ -57,9 +54,6 @@ program_options::program_options(int argc, char* argv[])
 
     add_option("optimizer_max_trace_length", "Test suite optimizer option. Max number of branchings in a trace.", "1");
     add_value("optimizer_max_trace_length", std::to_string(optimizer_config.max_trace_length));
-
-    add_option("optimizer_max_br_instr_trace_length", "Max number of branchings in a trace.", "1");
-    add_value("optimizer_max_br_instr_trace_length", std::to_string(optimizer_config.max_br_instr_trace_length));
 
     add_option("optimizer_max_stack_size", "Max number of stack records during benchmark execution.", "1");
     add_value("optimizer_max_stack_size", std::to_string(optimizer_config.max_stack_size));

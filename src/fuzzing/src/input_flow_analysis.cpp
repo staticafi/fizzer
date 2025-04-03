@@ -170,9 +170,9 @@ void input_flow_analysis::input_flow::do_ret()
         trace_index_type const  path_index{ (trace_index_type)data().sensitive_bits.size() };
         branching_coverage_info const&  branching{ data().trace_ptr->at(path_index) };
 
-        if (branching.id.id != parameters().front().read<instrumentation::location_id>().id)
+        if (branching.id != parameters().front().read<instrumentation::location_id>())
         {
-            auto const& expected{ branching.id };
+            auto const expected{ branching.id };
             auto const obtained{ parameters().front().read<instrumentation::location_id>() };
             state().set_stage(sala::ExecState::Stage::FINISHED);
             state().set_termination(
@@ -180,8 +180,8 @@ void input_flow_analysis::input_flow::do_ret()
                 "input_flow_analysis[extern_code]",
                 "Execution diverged from the expected path in the tree."
                     " At path index " + std::to_string(path_index) + "/" + std::to_string(data().trace_size - 1U) + ": Unexpected location ID."
-                    " [Expected: " + std::to_string(expected.id) +
-                    ", obtained: " + std::to_string(obtained.id) + "]"
+                    " [Expected: " + std::to_string(expected) +
+                    ", obtained: " + std::to_string(obtained) + "]"
                 );
             return;
         }
@@ -190,7 +190,7 @@ void input_flow_analysis::input_flow::do_ret()
         {
             bool const expected{ branching.direction };
             std::stringstream obtained; obtained << (integer_32_bit)parameters().at(1).read<natural_8_bit>();
-            auto const& loc{ branching.id };
+            auto const loc{ branching.id };
             state().set_stage(sala::ExecState::Stage::FINISHED);
             state().set_termination(
                 sala::ExecState::Termination::ERROR,
@@ -199,7 +199,7 @@ void input_flow_analysis::input_flow::do_ret()
                     " At path index " + std::to_string(path_index) + "/" + std::to_string(data().trace_size - 1U) + ": Unexpected direction taken."
                     " [Expected: " + std::to_string(expected) +
                     ", obtained: " + obtained.str() + "]"
-                    "[NOTE: location ID: " + std::to_string(loc.id) + "]"
+                    "[NOTE: location ID: " + std::to_string(loc) + "]"
                 );
             return;
         }

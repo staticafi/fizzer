@@ -62,8 +62,7 @@ void  save_native_test(std::ostream&  ostr, execution_record const&  record)
     for (natural_32_bit  i = 0U, n = (natural_32_bit)record.path.size(); i < n; ++i)
     {
         if (i % 4U == 0U) ostr << '\n' << shift << shift;
-        ostr << std::dec << record.path.at(i).first.id << ','
-             << std::dec << record.path.at(i).first.context_hash << ','
+        ostr << std::dec << record.path.at(i).first << ','
              << (record.path.at(i).second ? 1 : 0);
         if (i + 1 < n)
             ostr << ',' << shift;

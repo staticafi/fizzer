@@ -37,7 +37,6 @@ struct  branching_node final
             branching_node*  predecessor_,
             stdin_bits_and_types_pointer  best_stdin_,
             execution_trace_pointer  best_trace_,
-            br_instr_execution_trace_pointer  best_br_instr_trace_,
             natural_32_bit  execution_number
             );
 
@@ -62,13 +61,11 @@ struct  branching_node final
 
     stdin_bits_and_types_pointer  get_best_stdin() const { return best_stdin; }
     execution_trace_pointer  get_best_trace() const { return best_trace; }
-    br_instr_execution_trace_pointer  get_best_br_instr_trace() const { return best_br_instr_trace; }
     branching_function_value_type  get_best_value() const { return best_trace->at(trace_index).value; }
 
     void  update_best_data(
             stdin_bits_and_types_pointer  stdin_,
             execution_trace_pointer  trace_,
-            br_instr_execution_trace_pointer  br_instr_trace_,
             natural_32_bit  execution_id_
             );
     void  release_best_data(bool  also_sensitive_bits = false);
@@ -116,7 +113,6 @@ private:
 
     stdin_bits_and_types_pointer  best_stdin;
     execution_trace_pointer  best_trace;
-    br_instr_execution_trace_pointer  best_br_instr_trace;
 
     std::unordered_set<stdin_bit_index>  sensitive_stdin_bits;
 

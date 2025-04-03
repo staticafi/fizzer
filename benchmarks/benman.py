@@ -59,8 +59,7 @@ class Benchmark:
         self.aux_files = [
             os.path.join(self.work_dir, self.name + ".ll"),
             os.path.join(self.work_dir, self.name + "_instrumented.ll"),
-            os.path.join(self.work_dir, self.name + "_dbg_cond_map.json"),
-            os.path.join(self.work_dir, self.name + "_dbg_br_map.json")
+            os.path.join(self.work_dir, self.name + "_dbg_cond_map.json")
         ]
 
         self.dir_stack = []

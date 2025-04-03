@@ -20,7 +20,6 @@
                 // "--m32",
 
                 "--save_mapping",
-                // "--br_too",
 
                 "--max_executions", "10000",
                 "--max_seconds", "15",
@@ -33,7 +32,6 @@
                 "--stdout_model", "stdout_void",
                 "--optimizer_max_seconds", "10",
                 "--optimizer_max_trace_length", "1000000",
-                "--optimizer_max_br_instr_trace_length", "10000000",
                 "--optimizer_max_stack_size", "1000",
                 "--optimizer_max_stdin_bytes", "134217728",
                 "--optimizer_max_exec_milliseconds", "3000",
@@ -70,7 +68,6 @@
                 "--stdout_model", "stdout_void",
                 "--optimizer_max_seconds", "10",
                 "--optimizer_max_trace_length", "1000000",
-                "--optimizer_max_br_instr_trace_length", "10000000",
                 "--optimizer_max_stack_size", " 250",
                 "--optimizer_max_stdin_bytes", "134217728",
                 "--optimizer_max_exec_milliseconds", "3000",
@@ -131,7 +128,6 @@
             "args": [
                 "--input", "${workspaceFolder}/dist/output/_.ll",
                 "--output", "${workspaceFolder}/dist/output/__instrumented.ll",
-                // "--br_too",
                 "--save_mapping"
             ],
             "stopAtEntry": false,

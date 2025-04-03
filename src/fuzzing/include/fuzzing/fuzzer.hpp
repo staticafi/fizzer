@@ -157,17 +157,17 @@ private:
         std::unordered_map<branching_node*, bool> const&  get_untouched() const { return untouched; }
         std::unordered_map<location_id, std::pair<branching_node*, bool> > const&  get_iid_twins_sensitive() const { return iid_twins_sensitive; }
         std::unordered_map<location_id, std::pair<branching_node*, bool> > const&  get_iid_twins_others() const { return iid_twins_others; }
-        std::unordered_map<location_id::id_type, natural_32_bit> const&  get_sensitive_counts() const { return sensitive_counts; }
-        std::unordered_map<location_id::id_type, natural_32_bit> const&  get_untouched_counts() const { return untouched_counts; }
+        std::unordered_map<location_id, natural_32_bit> const&  get_sensitive_counts() const { return sensitive_counts; }
+        std::unordered_map<location_id, natural_32_bit> const&  get_untouched_counts() const { return untouched_counts; }
 
     private:
         static void  update_counts(
-                std::unordered_map<location_id::id_type, natural_32_bit>&  counts,
+                std::unordered_map<location_id, natural_32_bit>&  counts,
                 std::unordered_map<branching_node*, bool> const&  data
                 );
         branching_node*  get_best(
                 std::unordered_map<branching_node*, bool>&  targets,
-                std::unordered_map<location_id::id_type, natural_32_bit>&  counts,
+                std::unordered_map<location_id, natural_32_bit>&  counts,
                 natural_32_bit  max_input_width
                 );
 
@@ -177,8 +177,8 @@ private:
         std::unordered_map<branching_node*, bool>  untouched;   // Priority #3
         std::unordered_map<location_id, std::pair<branching_node*, bool> >  iid_twins_sensitive;    // Priority #4
         std::unordered_map<location_id, std::pair<branching_node*, bool> >  iid_twins_others;       // Priority #4.1
-        std::unordered_map<location_id::id_type, natural_32_bit>  sensitive_counts;
-        std::unordered_map<location_id::id_type, natural_32_bit>  untouched_counts;
+        std::unordered_map<location_id, natural_32_bit>  sensitive_counts;
+        std::unordered_map<location_id, natural_32_bit>  untouched_counts;
         natural_32_bit  sensitive_start_index;
         natural_32_bit  untouched_start_index;
         std::function<bool(location_id)>  is_covered;
@@ -253,7 +253,7 @@ private:
 
     struct  histogram_of_hit_counts_per_direction
     {
-        using  hit_counts_map = std::unordered_map<location_id::id_type, hit_count_per_direction>;
+        using  hit_counts_map = std::unordered_map<location_id, hit_count_per_direction>;
         using  pointer_type = std::shared_ptr<histogram_of_hit_counts_per_direction>;
 
         static inline pointer_type  create(pointer_type  predecessor_ptr_)
@@ -298,8 +298,8 @@ private:
         bool  direction;
     };
 
-    using  histogram_of_false_direction_probabilities = std::unordered_map<location_id::id_type, float_32_bit>;
-    using  probability_generators_for_locations = std::unordered_map<location_id::id_type, std::shared_ptr<probability_generator> >;
+    using  histogram_of_false_direction_probabilities = std::unordered_map<location_id, float_32_bit>;
+    using  probability_generators_for_locations = std::unordered_map<location_id, std::shared_ptr<probability_generator> >;
 
     struct  loop_boundary_props
     {

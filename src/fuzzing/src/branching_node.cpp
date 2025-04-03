@@ -13,7 +13,6 @@ branching_node::branching_node(
         branching_node* const  predecessor_,
         stdin_bits_and_types_pointer const  best_stdin_,
         execution_trace_pointer const  best_trace_,
-        br_instr_execution_trace_pointer const  best_br_instr_trace_,
         natural_32_bit const  execution_number
         )
     : id{ id_ }
@@ -27,7 +26,6 @@ branching_node::branching_node(
 
     , best_stdin{ best_stdin_ }
     , best_trace{ best_trace_ }
-    , best_br_instr_trace{ best_br_instr_trace_ }
 
     , sensitive_stdin_bits{}
 
@@ -51,13 +49,11 @@ branching_node::branching_node(
 void  branching_node::update_best_data(
         stdin_bits_and_types_pointer const  stdin_,
         execution_trace_pointer const  trace_,
-        br_instr_execution_trace_pointer const  br_instr_trace_,
         natural_32_bit const  execution_id_
         )
 {
     best_stdin = stdin_;
     best_trace = trace_;
-    best_br_instr_trace = br_instr_trace_;
     best_value_execution = execution_id_;
 }
 
@@ -66,7 +62,6 @@ void  branching_node::release_best_data(bool const  also_sensitive_bits)
 {
     best_stdin = nullptr;
     best_trace = nullptr;
-    best_br_instr_trace = nullptr;
     if (also_sensitive_bits)
         sensitive_stdin_bits.clear();
 }

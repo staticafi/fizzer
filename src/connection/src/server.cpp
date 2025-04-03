@@ -87,7 +87,6 @@ void  server::receive_result_from_client(connection& connection) {
     connection.receive_message(results_from_client);
 
     iomodels::iomanager::instance().clear_trace();
-    iomodels::iomanager::instance().clear_br_instr_trace();
     iomodels::iomanager::instance().get_stdin()->clear();
     iomodels::iomanager::instance().get_stdout()->clear();
     iomodels::iomanager::instance().load_results(results_from_client);

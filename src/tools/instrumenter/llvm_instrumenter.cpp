@@ -36,17 +36,6 @@ bool llvm_instrumenter::doInitialization(Module *M) {
         module->getOrInsertFunction("__sbt_fizzer_process_condition", VoidTy,
                               Int32Ty, Int1Ty, DoubleTy, Int1Ty, Int8Ty);
 
-    processCondBrFunc =
-        module->getOrInsertFunction("__sbt_fizzer_process_br_instr", VoidTy,
-                              Int32Ty, Int1Ty);
-
-    processCallBeginFunc =
-        module->getOrInsertFunction("__sbt_fizzer_process_call_begin", VoidTy,
-                              Int32Ty);
-    processCallEndFunc =
-        module->getOrInsertFunction("__sbt_fizzer_process_call_end", VoidTy,
-                              Int32Ty);
-
     basicBlockCounter = 0;
     condCounter = 0;
     callSiteCounter = 0;
@@ -228,15 +217,6 @@ bool llvm_instrumenter::instrumentCond(Instruction *inst, bool const xor_like_br
     return true;
 }
 
-void llvm_instrumenter::instrumentCondBr(BranchInst *brInst) {
-    IRBuilder<> builder(brInst);
-    
-    Value *location = ConstantInt::get(Int32Ty, basicBlockCounter);
-    Value *cond = brInst->getCondition();
-
-    builder.CreateCall(processCondBrFunc, {location, cond});
-}
-
 void llvm_instrumenter::replaceCalls(
     Function &F,
     std::unordered_map<std::string, FunctionCallee> replacements
@@ -264,33 +244,7 @@ void llvm_instrumenter::replaceCalls(
     }
 }
 
-void llvm_instrumenter::instrumentCalls(Function &F) {
-    TMPROF_BLOCK();
-
-    auto const ignore = [](std::string const& name) {
-        return name.find("__sbt_fizzer_") == 0 ||
-               name.find("__VERIFIER_nondet_") == 0;
-    };
-    std::vector<CallInst*> callSites;
-    for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-        if (auto *callInst = dyn_cast<CallInst>(&*I)) {
-            if (callInst->getCalledFunction() != nullptr
-                && !callInst->getCalledFunction()->isDeclaration()
-                && callInst->getNextNode() != nullptr
-                && !ignore(callInst->getCalledFunction()->getName().str())) {
-                callSites.push_back(callInst);
-            }
-        }
-    }
-    for (CallInst *callInst: callSites) {
-        IRBuilder<>{ callInst }.CreateCall(processCallBeginFunc,
-            { ConstantInt::get(Int32Ty, ++callSiteCounter) });
-        IRBuilder<>{ callInst->getNextNode() }.CreateCall(processCallEndFunc,
-            { ConstantInt::get(Int32Ty, callSiteCounter) });
-    }
-}
-
-bool llvm_instrumenter::runOnFunction(Function &F, bool const br_too) {
+bool llvm_instrumenter::runOnFunction(Function &F) {
     TMPROF_BLOCK();
 
     if (F.isDeclaration()) {
@@ -302,8 +256,6 @@ bool llvm_instrumenter::runOnFunction(Function &F, bool const br_too) {
     if (F.getName() == "main") {
         F.setName("__sbt_fizzer_method_under_test");
     }
-
-    instrumentCalls(F);
 
     for (BasicBlock &BB : F) {
         ++basicBlockCounter;
@@ -335,11 +287,9 @@ bool llvm_instrumenter::runOnFunction(Function &F, bool const br_too) {
         }
 
         BranchInst *brInst = dyn_cast<BranchInst>(BB.getTerminator());
-        if (!brInst || !brInst->isConditional() || !br_too) {
+        if (!brInst || !brInst->isConditional()) {
             continue;
         }
-        instrumentCondBr(brInst);
-        brInstrDbgInfo.push_back({ brInst, basicBlockCounter, (unsigned int)BB.size() });
     }
     return true;
 }

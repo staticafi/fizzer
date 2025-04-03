@@ -251,7 +251,7 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best_others(nat
             branching_node*  best_node{ get_best(untouched, untouched_counts, max_input_width) };
             if (best_node != nullptr)
             {
-                ++untouched_counts.at(best_node->get_location_id().id);
+                ++untouched_counts.at(best_node->get_location_id());
                 ++statistics->strategy_untouched;
                 recorder().on_strategy_turn_untouched();
             }
@@ -305,7 +305,7 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best_sensitive(
             branching_node*  best_node{ get_best(sensitive, sensitive_counts, max_input_width) };
             if (best_node != nullptr)
             {
-                ++sensitive_counts.at(best_node->get_location_id().id);
+                ++sensitive_counts.at(best_node->get_location_id());
                 ++statistics->strategy_sensitive;
                 recorder().on_strategy_turn_sensitive();
             }
@@ -341,26 +341,26 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best_sensitive(
 
 
 void  fuzzer::primary_coverage_target_branchings::update_counts(
-        std::unordered_map<location_id::id_type, natural_32_bit>&  counts,
+        std::unordered_map<location_id, natural_32_bit>&  counts,
         std::unordered_map<branching_node*, bool> const&  data
         )
 {
-    std::unordered_map<location_id::id_type, natural_32_bit>  old_counts;
+    std::unordered_map<location_id, natural_32_bit>  old_counts;
     old_counts.swap(counts);
     natural_32_bit  min_count{ 0U };
     for (auto const&  id_and_count : old_counts)
         min_count = std::min(min_count, id_and_count.second);
     for (auto const&  node_and_bool : data)
     {
-        auto const  it = old_counts.find(node_and_bool.first->get_location_id().id);
-        counts[node_and_bool.first->get_location_id().id] = it == old_counts.end() ? 0U : it->second - min_count;
+        auto const  it = old_counts.find(node_and_bool.first->get_location_id());
+        counts[node_and_bool.first->get_location_id()] = it == old_counts.end() ? 0U : it->second - min_count;
     }
 }
 
 
 branching_node*  fuzzer::primary_coverage_target_branchings::get_best(
         std::unordered_map<branching_node*, bool>&  targets,
-        std::unordered_map<location_id::id_type, natural_32_bit>&  counts,
+        std::unordered_map<location_id, natural_32_bit>&  counts,
         natural_32_bit const  max_input_width
         )
 {
@@ -414,10 +414,10 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best(
 
     update_counts(counts, targets);
 
-    branching_node_with_less_than  best{ targets.begin()->first, counts.at(targets.begin()->first->get_location_id().id), max_input_width };
+    branching_node_with_less_than  best{ targets.begin()->first, counts.at(targets.begin()->first->get_location_id()), max_input_width };
     for (auto  it = std::next(targets.begin()); it != targets.end(); ++it)
     {
-        branching_node_with_less_than const  current{ it->first, counts.at(it->first->get_location_id().id), max_input_width };
+        branching_node_with_less_than const  current{ it->first, counts.at(it->first->get_location_id()), max_input_width };
         if (current < best)
             best = current;
     }
@@ -894,7 +894,7 @@ void  fuzzer::compute_histogram_of_false_direction_probabilities(
 {
     TMPROF_BLOCK();
 
-    std::unordered_map<location_id::id_type, std::multimap<branching_function_value_type, float_32_bit> > hist_pack;
+    std::unordered_map<location_id, std::multimap<branching_function_value_type, float_32_bit> > hist_pack;
     {
         std::unordered_set<histogram_of_hit_counts_per_direction const*>  processed_histograms;
         for (auto  it = pivots.begin(); it != pivots.end(); ++it)
@@ -1091,12 +1091,12 @@ branching_node*  fuzzer::monte_carlo_step(
     {
         float_32_bit  false_direction_probability;
         {
-            auto const  it = histogram.find(pivot->get_location_id().id);
+            auto const  it = histogram.find(pivot->get_location_id());
             false_direction_probability = it != histogram.end() ? it->second : 0.5f;
         }
         float_32_bit  probability;
         {
-            auto const  it = generators.find(pivot->get_location_id().id);
+            auto const  it = generators.find(pivot->get_location_id());
             probability = it != generators.end() ? it->second->next() : location_miss_generator.next();
         }
         desired_direction = probability <= false_direction_probability ? false : true;
@@ -1447,8 +1447,7 @@ execution_record::execution_flags  fuzzer::process_execution_results()
             iomodels::iomanager::instance().get_stdin()->get_types()
             ) };
     execution_trace_pointer const  trace = std::make_shared<execution_trace>(iomodels::iomanager::instance().get_trace());
-    br_instr_execution_trace_pointer const  br_instr_trace = std::make_shared<br_instr_execution_trace>(iomodels::iomanager::instance().get_br_instr_trace());
-
+    
     execution_record::execution_flags  exe_flags { 0U };
 
     if (!trace->empty())
@@ -1466,7 +1465,6 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                     nullptr,
                     bits_and_types,
                     trace,
-                    br_instr_trace,
                     num_driver_executions
                     );
             construction_props.diverging_node = entry_branching;
@@ -1543,7 +1541,7 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                 dead_nodes_buffer.insert(construction_props.leaf);
             }
             else if (std::fabs(info.value) < std::fabs(construction_props.leaf->get_best_value()))
-                construction_props.leaf->update_best_data(bits_and_types, trace, br_instr_trace, num_driver_executions);
+                construction_props.leaf->update_best_data(bits_and_types, trace, num_driver_executions);
 
             construction_props.leaf->set_max_successors_trace_index(std::max(
                     construction_props.leaf->get_max_successors_trace_index(),
@@ -1570,7 +1568,6 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                         construction_props.leaf,
                         bits_and_types,
                         trace,
-                        br_instr_trace,
                         num_driver_executions
                         )
                 });
@@ -1896,7 +1893,7 @@ void  fuzzer::collect_iid_pivots_from_sensitivity_results()
             histogram_of_hit_counts_per_direction::hit_counts_map&  target_hit_counts{ histogram_ptr->local_hit_counts_ref() };
             for (branching_node const*  node = pivot; node->get_predecessor() != end; node = node->get_predecessor())
             {
-                location_id::id_type const  id{ node->get_predecessor()->get_location_id().id };
+                location_id const  id{ node->get_predecessor()->get_location_id() };
                 auto const  it_and_state = target_hit_counts.insert({ id, {} });
                 if (it_and_state.second)
                 {
@@ -1918,7 +1915,7 @@ void  fuzzer::collect_iid_pivots_from_sensitivity_results()
         void  prune_pure_loop_bodies(std::unordered_set<location_id>&  pure_loop_bodies)
         {
             for (auto  it = pure_loop_bodies.begin(); it != pure_loop_bodies.end(); )
-                if (hit_counts.contains(it->id))
+                if (hit_counts.contains(*it))
                     ++it;
                 else
                     it = pure_loop_bodies.erase(it);

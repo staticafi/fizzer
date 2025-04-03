@@ -85,7 +85,6 @@ void  progress_recorder::start(std::filesystem::path const&  path_to_client_, st
         copy_file(input_dir, program_name + ".c", "source.c", output_dir);
     copy_file(input_dir, program_name + "_instrumented.ll", "source.ll", output_dir);
     copy_file(input_dir, program_name + "_dbg_cond_map.json", "cond_map.json", output_dir);
-    copy_file(input_dir, program_name + "_dbg_br_map.json", "br_map.json", output_dir);
 
     started = true;
 
@@ -402,7 +401,7 @@ std::unique_ptr<std::ofstream>  progress_recorder::save_default_execution_result
         branching_function_value_type const  value =
                 std::isfinite(trace.at(i).value) ? trace.at(i).value : std::numeric_limits<branching_function_value_type>::max();
         ostr << '\n';
-        ostr << trace.at(i).id.id << ',' << trace.at(i).id.context_hash << ','
+        ostr << trace.at(i).id << ','
              << (trace.at(i).direction ? 1 : 0) << ','
              << trace.at(i).num_input_bytes << ','
              << std::setprecision(std::numeric_limits<branching_function_value_type>::digits10 + 1) << value << ','

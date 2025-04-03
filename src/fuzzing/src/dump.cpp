@@ -26,7 +26,6 @@ void  print_fuzzing_configuration(
          << shift << "\"max_executions\": " << terminator.max_executions << ",\n"
          << shift << "\"max_seconds\": " << terminator.max_seconds << ",\n"
          << shift << "\"max_trace_length\": " << ioconfig.max_trace_length << ",\n"
-         << shift << "\"max_br_instr_trace_length\": " << ioconfig.max_br_instr_trace_length << ",\n"
          << shift << "\"max_stack_size\": " << ioconfig.max_stack_size << ",\n"
          << shift << "\"max_stdin_bytes\": " << ioconfig.max_stdin_bytes << ",\n"
          << shift << "\"max_exec_milliseconds\": " << ioconfig.max_exec_milliseconds << ",\n"
@@ -231,8 +230,7 @@ void  print_analysis_outcomes(std::ostream&  ostr, analysis_outcomes const&  res
     for (std::size_t  i = 0, n = results.covered_branchings.size(); i < n; ++i)
     {
         if (i % 4U == 0U) ostr << '\n' << shift << shift;
-        ostr << std::dec << results.covered_branchings.at(i).id << ','
-             << std::dec << results.covered_branchings.at(i).context_hash;
+        ostr << std::dec << results.covered_branchings.at(i);
         if (i + 1 < n)
             ostr << ',' << shift;
     }
@@ -243,8 +241,7 @@ void  print_analysis_outcomes(std::ostream&  ostr, analysis_outcomes const&  res
     for (std::size_t  i = 0, n = results.uncovered_branchings.size(); i < n; ++i)
     {
         if (i % 4U == 0U) ostr << '\n' << shift << shift;
-        ostr << std::dec << results.uncovered_branchings.at(i).first.id << ','
-             << std::dec << results.uncovered_branchings.at(i).first.context_hash << ','
+        ostr << std::dec << results.uncovered_branchings.at(i).first << ','
              << (results.uncovered_branchings.at(i).second ? 1 : 0);
         if (i + 1 < n)
             ostr << ',' << shift;
@@ -292,7 +289,6 @@ void  print_optimization_configuration(std::ostream&  ostr, optimizer::configura
     ostr << "{\n"
          << shift << "\"max_seconds\": " << config.max_seconds << ",\n"
          << shift << "\"max_trace_length\": " << config.max_trace_length << ",\n"
-         << shift << "\"max_br_instr_trace_length\": " << config.max_br_instr_trace_length << ",\n"
          << shift << "\"max_stack_size\": " << config.max_stack_size << ",\n"
          << shift << "\"max_stdin_bytes\": " << config.max_stdin_bytes << ",\n"
          << shift << "\"max_exec_milliseconds\": " << config.max_exec_milliseconds << ",\n"
@@ -375,8 +371,7 @@ void  print_optimization_outcomes(std::ostream&  ostr, optimization_outcomes con
     for (std::size_t  i = 0, n = results.covered_branchings.size(); i < n; ++i)
     {
         if (i % 4U == 0U) ostr << '\n' << shift << shift;
-        ostr << std::dec << results.covered_branchings.at(i).id << ','
-             << std::dec << results.covered_branchings.at(i).context_hash;
+        ostr << std::dec << results.covered_branchings.at(i);
         if (i + 1 < n)
             ostr << ',' << shift;
     }
@@ -387,8 +382,7 @@ void  print_optimization_outcomes(std::ostream&  ostr, optimization_outcomes con
     for (std::size_t  i = 0, n = results.uncovered_branchings.size(); i < n; ++i)
     {
         if (i % 4U == 0U) ostr << '\n' << shift << shift;
-        ostr << std::dec << results.uncovered_branchings.at(i).first.id << ','
-             << std::dec << results.uncovered_branchings.at(i).first.context_hash << ','
+        ostr << std::dec << results.uncovered_branchings.at(i).first << ','
              << (results.uncovered_branchings.at(i).second ? 1 : 0);
         if (i + 1 < n)
             ostr << ',' << shift;

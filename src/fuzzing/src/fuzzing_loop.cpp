@@ -38,7 +38,7 @@ analysis_outcomes  run(
 
     analysis_outcomes  results;
     std::unordered_set<natural_64_bit>  hashes_of_crashes;
-    std::unordered_set<location_id::id_type>  exit_locations_of_boundary_violations;
+    std::unordered_set<location_id>  exit_locations_of_boundary_violations;
 
     fuzzer f{ info, sala_program_ptr };
     f.enable_renderer(render);
@@ -79,7 +79,7 @@ analysis_outcomes  run(
                 else if ((record.flags & execution_record::BOUNDARY_CONDITION_VIOLATION) != 0)
                 {
                     if (!record.path.empty())
-                        exit_locations_of_boundary_violations.insert(record.path.back().first.id);
+                        exit_locations_of_boundary_violations.insert(record.path.back().first);
                     collector_of_boundary_violations(record);
                     ++results.output_statistics[record.analysis_name].num_boundary_violations;
                 }
@@ -97,7 +97,7 @@ analysis_outcomes  run(
             else if ((record.flags & execution_record::BOUNDARY_CONDITION_VIOLATION) != 0)
             {
                 local::fill_record(record);
-                if (exit_locations_of_boundary_violations.insert(record.path.back().first.id).second)
+                if (exit_locations_of_boundary_violations.insert(record.path.back().first).second)
                 {
                     collector_of_boundary_violations(record);
                     ++results.output_statistics[record.analysis_name].num_boundary_violations;

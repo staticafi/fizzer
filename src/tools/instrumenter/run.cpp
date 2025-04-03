@@ -115,7 +115,7 @@ void run(int argc, char* argv[])
     instrumenter.doInitialization(M.get());
     instrumenter.renameFunctions();
     for (auto it = M->begin(); it != M->end(); ++it)
-        instrumenter.runOnFunction(*it, get_program_options()->has("br_too"));
+        instrumenter.runOnFunction(*it);
 
     {
         TMPROF_BLOCK();

@@ -18,8 +18,6 @@ namespace  instrumentation {
 class fuzz_target {
 
     natural_32_bit trace_length;
-    natural_32_bit br_instr_trace_length;
-    std::vector<natural_32_bit> context_hashes;
     std::unordered_set<natural_32_bit> locations;
     iomodels::configuration config;
     iomodels::stdin_base_ptr stdin_model;
@@ -31,16 +29,12 @@ public:
     fuzz_target();
 
     void process_condition(
-            location_id::id_type id_type,
+            location_id id,
             bool direction,
             branching_function_value_type value,
             bool xor_like_branching_function,
             natural_8_bit predicate
             );
-    void process_br_instr(location_id id, bool covered_branch);
-
-    void process_call_begin(natural_32_bit const  id);
-    void process_call_end(natural_32_bit const  id);
 
     void on_read(natural_8_bit* ptr, type_of_input_bits type);
     void on_write(natural_8_bit const*  ptr, type_of_input_bits type);

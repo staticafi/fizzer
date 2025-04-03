@@ -55,12 +55,10 @@ struct llvm_instrumenter {
         llvm::Function &F, 
         std::unordered_map<std::string, llvm::FunctionCallee> replacements
     );
-    void instrumentCalls(llvm::Function &F);
-    bool runOnFunction(llvm::Function &F, bool br_too);
+    bool runOnFunction(llvm::Function &F);
 
     void printErrCond(llvm::Value *cond);
 
-    void instrumentCondBr(llvm::BranchInst *brInst);
     bool instrumentCond(llvm::Instruction *inst, bool xor_like_branching_function);
     llvm::Value *instrumentCmp(llvm::CmpInst *cmpInst, llvm::IRBuilder<> &builder);
     llvm::Value *instrumentIcmp(llvm::Value *lhs, llvm::Value *rhs, llvm::CmpInst *cmpInst,
@@ -92,9 +90,6 @@ private:
     std::unique_ptr<llvm::legacy::FunctionPassManager> DependenciesFPM;
 
     llvm::FunctionCallee processCondFunc;
-    llvm::FunctionCallee processCondBrFunc;
-    llvm::FunctionCallee processCallBeginFunc;
-    llvm::FunctionCallee processCallEndFunc;
 
     unsigned int basicBlockCounter;
     unsigned int condCounter;

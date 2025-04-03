@@ -27,7 +27,7 @@ void  bitshare_analysis::start(branching_node*  node_ptr, natural_32_bit const  
     sample_index = 0;
     execution_id = execution_id_;
 
-    auto const  cache_it = cache.find(processed_node->get_location_id().id);
+    auto const  cache_it = cache.find(processed_node->get_location_id());
     if (cache_it != cache.end())
     {
         if (processed_node->successor(false).pointer == nullptr)
@@ -131,7 +131,7 @@ void  bitshare_analysis::bits_available_for_branching(
     std::vector<stdin_bit_index>  bit_indices{ node_ptr->get_sensitive_stdin_bits().begin(), node_ptr->get_sensitive_stdin_bits().end() };
     std::sort(bit_indices.begin(), bit_indices.end());
 
-    std::deque<vecb>&  samples = cache[node_ptr->get_location_id().id][trace->at(node_ptr->get_trace_index()).direction ? 1 : 0];
+    std::deque<vecb>&  samples = cache[node_ptr->get_location_id()][trace->at(node_ptr->get_trace_index()).direction ? 1 : 0];
     samples.push_back({});
     for (stdin_bit_index  idx : bit_indices)
         samples.back().push_back(bits_and_types->bits.at(idx));

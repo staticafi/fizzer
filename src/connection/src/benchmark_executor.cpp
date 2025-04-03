@@ -70,7 +70,6 @@ void benchmark_executor_via_shared_memory::operator()()
     iomodels::iomanager::instance().get_stdout()->save(executor->get_shared_memory());
     executor->execute_target();
     iomodels::iomanager::instance().clear_trace();
-    iomodels::iomanager::instance().clear_br_instr_trace();
     iomodels::iomanager::instance().get_stdin()->clear();
     iomodels::iomanager::instance().get_stdout()->clear();
     iomodels::iomanager::instance().load_results(executor->get_shared_memory());

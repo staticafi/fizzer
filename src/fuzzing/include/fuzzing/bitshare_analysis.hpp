@@ -55,7 +55,7 @@ private:
     static constexpr std::size_t  max_deque_size = 10;
 
     STATE  state;
-    std::unordered_map<location_id::id_type, std::array<std::deque<vecb>, 2> >  cache;
+    std::unordered_map<location_id, std::array<std::deque<vecb>, 2> >  cache;
     branching_node*  processed_node;
     std::deque<vecb>*  samples_ptr;
     std::size_t  sample_index;

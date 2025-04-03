@@ -268,7 +268,7 @@ def main():
             skip_building = True
         elif arg == "--skip_fuzzing":
             skip_fuzzing = True
-        elif arg in [ "--save_mapping", "--br_too" ]:
+        elif arg in [ "--save_mapping" ]:
             options_instument.append(arg)
         elif arg == "--m32":
             use_m32 = True

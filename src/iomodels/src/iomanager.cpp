@@ -18,7 +18,6 @@ iomanager::iomanager()
     : config{}
     , termination{ target_termination::normal }
     , trace()
-    , br_instr_trace()
     , stdin_ptr(nullptr)
     , stdout_ptr(nullptr)
 {}
@@ -46,11 +45,6 @@ void  iomanager::clear_trace()
     trace.clear();
 }
 
-void  iomanager::clear_br_instr_trace()
-{
-    br_instr_trace.clear();
-}
-
 
 template <typename Medium>
 bool  iomanager::load_trace_record(Medium& src) {
@@ -61,7 +55,6 @@ bool  iomanager::load_trace_record(Medium& src) {
     src >> info.id;
     src >> uchr; info.direction = (uchr & 1U) != 0U;
     src >> info.value;
-    src >> info.idx_to_br_instr;
     src >> uchr; info.xor_like_branching_function = (uchr & 1U) != 0U;
     src >> uchr; info.predicate = (BRANCHING_PREDICATE)uchr;
     info.num_input_bytes = (natural_32_bit)get_stdin()->get_bytes().size();
@@ -71,22 +64,6 @@ bool  iomanager::load_trace_record(Medium& src) {
 
 template bool iomanager::load_trace_record(shared_memory&);
 template bool iomanager::load_trace_record(message&);
-
-
-template <typename Medium>
-bool  iomanager::load_br_instr_trace_record(Medium& src) {
-    if (!src.can_deliver_bytes(br_instr_coverage_info::flattened_size()))
-        return false;
-    br_instr_coverage_info  info { invalid_location_id() };
-    natural_8_bit uchr;
-    src >> info.br_instr_id;
-    src >> uchr; info.covered_branch = (uchr & 1U) != 0U;
-    br_instr_trace.push_back(info);
-    return true;
-}
-
-template bool iomanager::load_br_instr_trace_record(shared_memory&);
-template bool iomanager::load_br_instr_trace_record(message&);
 
 
 template <typename Medium>
@@ -106,10 +83,6 @@ void  iomanager::load_results(Medium& src) {
         switch (id) {
             case data_record_id::condition: 
                 if (load_trace_record(src) == false)
-                    return; // Something went wrong => stop loading data.
-                break;
-            case data_record_id::br_instr:
-                if (load_br_instr_trace_record(src) == false)
                     return; // Something went wrong => stop loading data.
                 break;
             case data_record_id::stdin_bytes:
