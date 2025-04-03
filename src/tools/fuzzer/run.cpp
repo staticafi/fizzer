@@ -128,8 +128,8 @@ void run(int argc, char* argv[])
     }
 
     fuzzing::termination_info  terminator{
-            .max_executions = (natural_32_bit)std::max(0, std::stoi(get_program_options()->value("max_executions"))),
-            .max_seconds = (natural_32_bit)std::max(0, std::stoi(get_program_options()->value("max_seconds"))),
+            .max_executions = (natural_32_bit)std::max(0UL, std::stoul(get_program_options()->value("max_executions"))),
+            .max_seconds = (natural_32_bit)std::max(0UL, std::stoul(get_program_options()->value("max_seconds"))),
             };
 
     natural_32_bit  opt_max_seconds = (natural_32_bit)std::max(0, std::stoi(get_program_options()->value("opt_max_seconds")));
@@ -149,16 +149,16 @@ void run(int argc, char* argv[])
 
     fuzzing::target_executor  target_executor{
             get_program_options()->value("path_to_target"),
-            (natural_16_bit)std::max(0, std::stoi(get_program_options()->value("max_exec_milliseconds"))),
-            (natural_16_bit)std::max(0, std::stoi(get_program_options()->value("max_exec_megabytes"))),
-            (natural_32_bit)std::max(0, std::stoi(get_program_options()->value("max_trace_length"))),
+            (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_exec_milliseconds"))),
+            (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_exec_megabytes"))),
+            (natural_32_bit)std::max(0UL, std::stoul(get_program_options()->value("max_trace_length"))),
             mut_type,
             iomodels::cmdline::create(
-                (natural_16_bit)std::max(0, std::stoi(get_program_options()->value("max_num_options"))),
-                (natural_16_bit)std::max(0, std::stoi(get_program_options()->value("max_option_size")))
+                (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_num_options"))),
+                (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_option_size")))
                 ),
             iomodels::simple::create(
-                (natural_64_bit)std::max(0, std::stoi(get_program_options()->value("max_bytes")))
+                (natural_64_bit)std::max(0ULL, std::stoull(get_program_options()->value("max_bytes")))
                 )
             };
 
@@ -211,6 +211,7 @@ void run(int argc, char* argv[])
     {
         std::cout << "\"fuzzing_results\": ";
         fuzzing::print_fuzzing_outcomes(std::cout, results);
+        std::cout << ',' << std::endl;
     }
     fuzzing::log_fuzzing_outcomes(results);
     fuzzing::save_fuzzing_outcomes(output_dir, target_name, results);
@@ -220,22 +221,22 @@ void run(int argc, char* argv[])
     if (!inputs_leading_to_boundary_violation.empty() && opt_max_seconds > 0)
     {
         target_executor.io_cmdline().set_max_num_options(
-            (natural_16_bit)std::max(0, std::stoi(get_program_options()->value("opt_max_num_options")))
+            (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("opt_max_num_options")))
             );
         target_executor.io_cmdline().set_max_option_size(
-            (natural_16_bit)std::max(0, std::stoi(get_program_options()->value("opt_max_option_size")))
+            (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("opt_max_option_size")))
             );
         target_executor.io_simple().set_max_bytes(
-            (natural_64_bit)std::max(0, std::stoi(get_program_options()->value("opt_max_bytes")))
+            (natural_64_bit)std::max(0ULL, std::stoull(get_program_options()->value("opt_max_bytes")))
             );
         target_executor.executor().set_max_exec_milliseconds(
-            (natural_16_bit)std::max(0, std::stoi(get_program_options()->value("opt_max_exec_milliseconds")))
+            (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("opt_max_exec_milliseconds")))
             );
         target_executor.set_max_exec_megabytes(
-            (natural_16_bit)std::max(0, std::stoi(get_program_options()->value("opt_max_exec_megabytes")))
+            (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("opt_max_exec_megabytes")))
             );
         target_executor.set_max_trace_length(
-            (natural_32_bit)std::max(0, std::stoi(get_program_options()->value("opt_max_trace_length")))
+            (natural_32_bit)std::max(0UL, std::stoul(get_program_options()->value("opt_max_trace_length")))
             );
         target_executor.get_medium().set_size(target_executor.compute_max_medium_size());
 
