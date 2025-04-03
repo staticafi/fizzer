@@ -207,9 +207,7 @@ bool llvm_instrumenter::instrumentCond(Instruction *inst, bool const xor_like_br
             return false;
         distance = builder.CreateUIToFP(builder.CreateZExt(inst, Int32Ty), DoubleTy);
     } else if (auto* call = dyn_cast<CallInst>(inst)) {
-        if (call->getCalledOperand() == nullptr
-                || dyn_cast<llvm::Function>(call->getCalledOperand()) == nullptr
-                || dyn_cast<llvm::Function>(call->getCalledOperand())->getName().str() == "__VERIFIER_nondet_bool")
+        if (call->getCalledOperand() == nullptr || dyn_cast<llvm::Function>(call->getCalledOperand()) == nullptr)
             return false;
         distance = builder.CreateUIToFP(builder.CreateZExt(inst, Int32Ty), DoubleTy);
     } else {
