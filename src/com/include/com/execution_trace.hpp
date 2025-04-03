@@ -40,6 +40,7 @@ using  execution_trace_ptr = std::shared_ptr<execution_trace>;
 inline location_id  invalid_location_id() { return 0U; }
 bool  equivalent(trace_item const&  l, trace_item const&  r);
 natural_64_bit  compute_path_hash(execution_trace const&  trace);
+natural_64_bit  compute_weak_path_hash(execution_trace const&  trace);
 
 
 }

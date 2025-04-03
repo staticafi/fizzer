@@ -1,5 +1,6 @@
 #include <com/execution_trace.hpp>
 #include <utility/hash_combine.hpp>
+#include <set>
 
 namespace com {
 
@@ -31,10 +32,22 @@ natural_64_bit  compute_path_hash(execution_trace const&  trace)
 {
     natural_64_bit  result{ 0UL };
     for (auto const&  item : trace)
- {
+    {
         hash_combine(result, (natural_64_bit)item.id);
         hash_combine(result, (natural_64_bit)(item.direction ? 1033UL : 7919UL));
     }
+    return result;
+}
+
+
+natural_64_bit  compute_weak_path_hash(execution_trace const&  trace)
+{
+    std::set<location_id>  ids;
+    for (auto const&  item : trace)
+        ids.insert(item.id);
+    natural_64_bit  result{ 0UL };
+    for (auto const  id : ids)
+        hash_combine(result, (natural_64_bit)id);
     return result;
 }
 

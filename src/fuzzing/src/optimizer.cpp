@@ -110,11 +110,11 @@ optimization_outcomes  optimizer::run(
                 save_test(*test_ptr);
                 ++statistics.num_extended_tests;
                 if (results->get_termination() == target_termination::CRASH)
-                    hashes_of_crashes.insert(com::compute_path_hash(*results->get_trace()));
+                    hashes_of_crashes.insert(com::compute_weak_path_hash(*results->get_trace()));
             }
             else if (results->get_termination() == target_termination::CRASH)
             {
-                if (hashes_of_crashes.insert(com::compute_path_hash(*results->get_trace())).second)
+                if (hashes_of_crashes.insert(com::compute_weak_path_hash(*results->get_trace())).second)
                 {
                     save_test(*test_ptr);
                     ++statistics.num_extended_tests;

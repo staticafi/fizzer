@@ -60,7 +60,7 @@ fuzzing_outcomes  run(
 
                 if (results->get_termination() == target_termination::CRASH)
                 {
-                    hashes_of_crashes.insert(com::compute_path_hash(*results->get_trace()));
+                    hashes_of_crashes.insert(com::compute_weak_path_hash(*results->get_trace()));
                     ++outcomes.output_statistics[test_ptr->analysis_name].num_crashes;
                 }
                 else if (results->get_termination() == target_termination::BOUNDARY_CONDITION_VIOLATION)
@@ -73,7 +73,7 @@ fuzzing_outcomes  run(
             }
             else if (results->get_termination() == target_termination::CRASH)
             {
-                if (hashes_of_crashes.insert(com::compute_path_hash(*results->get_trace())).second)
+                if (hashes_of_crashes.insert(com::compute_weak_path_hash(*results->get_trace())).second)
                 {
                     save_test(*test_ptr);
                     any_test_saved = true;
