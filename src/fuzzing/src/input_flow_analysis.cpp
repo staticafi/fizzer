@@ -29,7 +29,7 @@ struct extern_code : public sala::ExternCodeCStd
         );
     iomodels::simple&  io_simple() { return *io_simple_; }
 private:
-    void read(std::size_t count);
+    sala::MemPtr  read(std::size_t count);
     iomodels::simple*  io_simple_;
 };
 
@@ -42,7 +42,7 @@ extern_code::extern_code(
     : sala::ExternCodeCStd{ state, sanitizer }
     , io_simple_{ io_simple }
 {
-    register_code("__VERIFIER_nondet_bool", [this]() { this->read(sizeof(bool)); });
+    register_code("__VERIFIER_nondet_bool", [this]() { auto const ptr = this->read(sizeof(bool)); *(bool*)ptr = *ptr != 0; });
     register_code("__VERIFIER_nondet_char", [this]() { this->read(sizeof(std::int8_t)); });
     register_code("__VERIFIER_nondet_short", [this]() { this->read(sizeof(std::int16_t)); });
     register_code("__VERIFIER_nondet_int", [this]() { this->read(sizeof(std::int32_t)); });
@@ -58,7 +58,7 @@ extern_code::extern_code(
 }
 
 
-void extern_code::read(std::size_t const count)
+sala::MemPtr  extern_code::read(std::size_t const count)
 {
     data_type  type;
     switch (count)
@@ -79,6 +79,7 @@ void extern_code::read(std::size_t const count)
             state().current_location_message() + ": Call to 'io_manager().get_simple().on_bytes_requested()' has failed."
             );
     }
+    return ptr;
 }
 
 
@@ -181,6 +182,8 @@ void input_flow_analysis::input_flow::do_ret()
 
         if (path_index + 1U < data().trace_size && branching.direction != parameters().at(1).read<bool>())
         {
+bool aaa = parameters().at(1).read<bool>();
+natural_8_bit zzz = parameters().at(1).read<natural_8_bit>();
             bool const expected{ branching.direction };
             std::stringstream obtained; obtained << (integer_32_bit)parameters().at(1).read<natural_8_bit>();
             auto const loc{ branching.id };
