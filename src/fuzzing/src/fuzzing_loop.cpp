@@ -59,10 +59,7 @@ fuzzing_outcomes  run(
                 ++outcomes.output_statistics[test_ptr->analysis_name].num_generated_tests;
 
                 if (results->get_termination() == target_termination::CRASH)
-                {
-                    if (hashes_of_crashes.insert(com::compute_weakest_path_hash(*results->get_trace())).second)
-                        ++outcomes.output_statistics[test_ptr->analysis_name].num_crashes;
-                }
+                    ++outcomes.output_statistics[test_ptr->analysis_name].num_crashes;
                 else if (results->get_termination() == target_termination::BOUNDARY_CONDITION_VIOLATION)
                 {
                     if (!results->get_trace()->empty())
