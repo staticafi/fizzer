@@ -88,7 +88,9 @@ struct input_flow_analysis::input_flow : public sala::InputFlow
     computation_io_data&  data() { return *data_; }
 
 private:
-    void start_input_flow(std::size_t const count);
+    void on_stack_initialized() override;
+    void start_input_flow(sala::MemPtr ptr, std::size_t count);
+    void start_input_flow(std::size_t const count) { start_input_flow(parameters().front().read<sala::MemPtr>(), count);}
     void do_ret() override;
 
     computation_io_data*  data_;
@@ -122,9 +124,30 @@ input_flow_analysis::input_flow::input_flow(
 }
 
 
-void input_flow_analysis::input_flow::start_input_flow(std::size_t const count)
+void input_flow_analysis::input_flow::on_stack_initialized()
 {
-    sala::MemPtr ptr{ parameters().front().read<sala::MemPtr>() };
+    if (state().stage() == sala::ExecState::Stage::EXECUTING && !state().argv_c_strings().empty())
+    {
+        sala::MemBlock const* argc;
+        {
+            auto const& params{ state().stack_top().parameters() };
+            if (params.size() == 2ULL)
+                argc = &params.front();
+            else
+            {
+                ASSUMPTION(params.size() == 3ULL);
+                argc = &params.at(1ULL);
+            }
+        }
+        start_input_flow(argc->start(), argc->count());
+        for (sala::MemBlock const& str : state().argv_c_strings())
+            start_input_flow(str.start(), str.count());
+    }
+}
+
+
+void input_flow_analysis::input_flow::start_input_flow(sala::MemPtr const ptr, std::size_t const count)
+{
     for (std::size_t i = 0ULL; i != count; ++i, ++fresh_descriptor_)
         start(ptr + i, fresh_descriptor_);
     some_input_was_read_ = true;
