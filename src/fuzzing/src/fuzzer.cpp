@@ -10,6 +10,32 @@
 namespace  fuzzing {
 
 
+static natural_32_bit count_calls_to_function(sala::Program const& program, std::string const& func_name)
+{
+    std::uint32_t const end{ (std::uint32_t)program.functions().size() };
+    std::uint32_t func_index{ 0U };
+    for ( ; func_index != end; ++func_index)
+        if (program.functions().at(func_index).name() == func_name)
+            break;
+    if (func_index == end)
+        return 0U;
+    natural_32_bit count{ 0U };
+    for (sala::Function const& function : program.functions())
+        for (sala::BasicBlock const& block : function.basic_blocks())
+            for (sala::Instruction const& instruction : block.instructions())
+            {
+                if (instruction.opcode() != sala::Instruction::Opcode::CALL)
+                    continue;
+                if (instruction.descriptors().front() != sala::Instruction::Descriptor::FUNCTION)
+                    continue;
+                if (instruction.operands().front() != func_index)
+                    continue;
+                ++count;
+            }
+    return count;
+}
+
+
 fuzzer::coverage_progress_control_props::coverage_progress_control_props(fuzzer* const  fuzzer_ptr_)
     : fuzzer_ptr{ fuzzer_ptr_ }
     , phase_start_time{ fuzzer_ptr->get_elapsed_seconds() }
@@ -1118,6 +1144,8 @@ fuzzer::fuzzer(termination_info const&  info, sala::Program const* const sala_pr
 
     , termination_props{ info }
 
+    , num_branchings_to_cover{ count_calls_to_function(*sala_program_ptr, "__sbt_fizzer_process_condition") }
+
     , num_driver_executions{ 0U }
     , time_point_start{ std::chrono::steady_clock::now() }
     , time_point_current{ time_point_start }
@@ -1232,7 +1260,7 @@ bool  fuzzer::generate_next_input(vecb&  stdin_bits, TERMINATION_REASON&  termin
     {
         if (get_performed_driver_executions() > 0U)
         {
-            if (uncovered_branchings.empty())
+            if ((natural_32_bit)covered_branchings.size() == num_branchings_to_cover)
             {
                 terminate();
                 termination_reason = TERMINATION_REASON::ALL_REACHABLE_BRANCHINGS_COVERED;
@@ -1949,7 +1977,7 @@ void  fuzzer::select_next_state()
 
     if (winner == nullptr)
     {
-        if (sala_program_ptr == nullptr || (!leaf_branchings.empty() && !uncovered_branchings.empty()))
+        if (sala_program_ptr == nullptr || (!leaf_branchings.empty() && (natural_32_bit)covered_branchings.size() < num_branchings_to_cover))
         {
             state = BITFLIP;
             if (bitflip.is_ready())

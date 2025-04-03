@@ -411,6 +411,8 @@ private:
 
     termination_info termination_props;
 
+    natural_32_bit  num_branchings_to_cover;
+
     natural_32_bit  num_driver_executions;
     std::chrono::steady_clock::time_point  time_point_start;
     std::chrono::steady_clock::time_point  time_point_current;
