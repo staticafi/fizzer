@@ -139,7 +139,7 @@ void input_flow_analysis::input_flow::on_stack_initialized()
                 argc = &params.at(1ULL);
             }
         }
-        start_input_flow(argc->start(), argc->count());
+        start_input_flow(argc->start(), 2ULL); // IO model cmdline defines argc only in 2 bytes (not in all 4).
         for (sala::MemBlock const& str : state().argv_c_strings())
             start_input_flow(str.start(), str.count());
     }
@@ -251,9 +251,17 @@ void  input_flow_analysis::run(computation_io_data* const  data_ptr_, std::funct
         m_io_simple.get()
         });
 
+    int  argc{ 0 };
+    char**  argv{ nullptr };
+    if (program_ptr->functions().at(program_ptr->entry_function()).parameters().size() > 1ULL)
+    {
+        auto const termination{ m_io_cmdline->on_arguments_requested(argc, argv) };
+        ASSUMPTION(termination == com::target_termination::NORMAL);
+    }
+
     std::chrono::system_clock::time_point const  start_time = std::chrono::system_clock::now();
 
-    sala::ExecState  state{ program_ptr, m_max_exec_megabytes * 1024ULL * 1024ULL };
+    sala::ExecState  state{ program_ptr, argc, argv, m_max_exec_megabytes * 1024ULL * 1024ULL };
     sala::Sanitizer  sanitizer{ &state };
     input_flow  flow{ data_ptr, &state };
     extern_code  externals{ &state, &sanitizer, m_io_simple.get() };
