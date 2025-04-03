@@ -84,7 +84,11 @@ natural_64_bit  cmdline::max_data_in_medium() const
 
 com::target_termination  cmdline::on_arguments_requested(int&  argc, char**&  argv, connection::medium* const  dst)
 {
-    NOT_IMPLEMENTED_YET();
+    static char c = '\0';
+    static char* v[] = { &c };
+    argc = 1;
+    argv = v;
+    return com::target_termination::NORMAL;
 }
 
 
