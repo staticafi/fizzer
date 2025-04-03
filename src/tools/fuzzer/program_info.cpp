@@ -2,7 +2,7 @@
 
 std::string  get_program_name()
 {
-    return "SBT-Fizzer server";
+    return "Fuzzer";
 }
 
 std::string  get_program_version()
@@ -12,8 +12,5 @@ std::string  get_program_version()
 
 std::string  get_program_description()
 {
-    return "TODO: Describe here the purpose of the tool, what functionality\n"
-           "it provides, and briefly explain basic idea(s)/principle(s) of its\n"
-           "functionality. (Note: end each line by '\\n'.)"
-           ;
+    return "Executes target binary with generated inputs.";
 }

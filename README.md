@@ -1,24 +1,24 @@
-# **SBT-Fizzer**
+# **Fizzer**
 
 The name is an acronym, where `SBT` stands for `Symbiotic`
 https://github.com/staticafi/symbiotic, and `Fizzer` is
 a mixture of `FI` representing our faculty and `fuzzer`.
 
-**SBT-Fizzer** is a codebase and playground for students
+**Fizzer** is a codebase and playground for students
 interested in dynamic program analysis and gray-box fuzzing in
 particular.
 
 ## License
 
-**SBT-Fizzer** is available under the **zlib** license. It is included as 
-file `LICENSE.txt` into the repository: https://github.com/staticafi/sbt-fizzer-private
+**Fizzer** is available under the **zlib** license. It is included as 
+file `LICENSE.txt` into the repository: https://github.com/staticafi/fizzer-private
 
 ## Target platforms
 
 The primary target platform is PC running either Windows 10 (or later) or Ubuntu
 22.04 (or later) operating systems.
 
-**NOTE**: Although **SBT-Fizzer** can be built on Windows 10,
+**NOTE**: Although **Fizzer** can be built on Windows 10,
 there are still issues running LLVM instrumentation. So, using 
 the project under Windows is still under construction.
 
@@ -84,33 +84,33 @@ start with the **age** project:
   this library using: `sudo apt install g++-multilib`
 - (optional) **SmartGit** Git GUI client: https://www.syntevo.com/smartgit/
 
-## Downloading **SBT-Fizzer**
+## Downloading **Fizzer**
 
-We do not provide **SBT-Fizzer** in binary form. That means you must
+We do not provide **Fizzer** in binary form. That means you must
 download the source code and then build it.
 
 The recommended way of obtaining the source code is via `Git`. You can
-either clone or fork **SBT-Fizzer**'s repository. Cloning is recommended for 
-members of the **SBT-Fizzer** project with Developer rights. Forking is then for
+either clone or fork **Fizzer**'s repository. Cloning is recommended for 
+members of the **Fizzer** project with Developer rights. Forking is then for
 everyone else. Both procedures are described in the subsections below.
 
 NOTE: Alternatively, you can also download a ZIP package with the source
-code from the project's website: https://github.com/staticafi/sbt-fizzer-private
+code from the project's website: https://github.com/staticafi/fizzer-private
 
 ### Cloning
 
-Create a new directory on the disk for **SBT-Fizzer**. Let `<SBT-Fizzer-root-dir>`
+Create a new directory on the disk for **Fizzer**. Let `<Fizzer-root-dir>`
 be the full path to that directory. Now open the console and type
 there these commands:
 ```
-cd <SBT-Fizzer-root-dir>
-git clone https://github.com/staticafi/sbt-fizzer-private.git .
+cd <Fizzer-root-dir>
+git clone https://github.com/staticafi/fizzer-private.git .
 ```
 
 ### Forking
 
-First, you need to go to GitHub and make a fork of **SBT-Fizzer** project:
-- Go to https://github.com/staticafi/sbt-fizzer-private
+First, you need to go to GitHub and make a fork of **Fizzer** project:
+- Go to https://github.com/staticafi/fizzer-private
 - Click on the **Fork** button at the upper-right corner of the page.
 - Put in all information requested in the form.
 - Click on the **Create fork** button.
@@ -121,12 +121,12 @@ reference your forked repository.
 
 ## Integrating **vcpkg**
 
-Before we can build **SBT-Fizzer** in VS Code, we must let VS Code know
-where **vcpkg** is installed (because it contains SW packages **SBT-Fizzer**
+Before we can build **Fizzer** in VS Code, we must let VS Code know
+where **vcpkg** is installed (because it contains SW packages **Fizzer**
 needs during the build process). We must create the file
 
 ```
-<SBT-Fizzer-root-dir>/.vscode/settings.json
+<Fizzer-root-dir>/.vscode/settings.json
 ```
 
 with this content:
@@ -156,14 +156,14 @@ can just update this existing "global" setting file by adding the section:
 ```
 The advantage of this approach is that the **vcpkg** integration
 with VS Code would work for all CMake C++ projects on your computer
-(including **SBT-Fizzer** of course).
+(including **Fizzer** of course).
 
-## Building **SBT-Fizzer**
+## Building **Fizzer**
 
 Open **Microsoft Visual Studio Code** and in the main menu choose:
-`File/Open Folder...` and open the **SBT-Fizzer**'s directory `<SBT-Fizzer-root-dir>`.
+`File/Open Folder...` and open the **Fizzer**'s directory `<Fizzer-root-dir>`.
 
-Now you should be able to build **SBT-Fizzer** the same way as any other
+Now you should be able to build **Fizzer** the same way as any other
 CMake C++ application. All needed information is available here:
 https://code.visualstudio.com/docs/cpp/introvideos-cpp
 
@@ -196,12 +196,12 @@ The scripts/binaries are found in `dist/tools`
 
 Instrumenting the target program:
 
-`sbt-fizzer_instrument [-h] [--output_dir OUTPUT_DIR] target_file`
+`fizzer_instrument [-h] [--output_dir OUTPUT_DIR] target_file`
 
 Building the fuzz target:
 
-`sbt-fizzer_build_target [-h] [--output_dir OUTPUT_DIR] [--no_instrument | --instrument FLAGS] target_file`
+`fizzer_build_target [-h] [--output_dir OUTPUT_DIR] [--no_instrument | --instrument FLAGS] target_file`
 
 Instrumenting, building, and running fuzzing in one:
 
-`sbt-fizzer [-h] [--output_dir OUTPUT_DIR] [--no_instrument | --instrument FLAGS] [--clang FLAGS] [--max_seconds SECONDS] target_file`
+`fizzer [-h] [--output_dir OUTPUT_DIR] [--no_instrument | --instrument FLAGS] [--clang FLAGS] [--max_seconds SECONDS] target_file`

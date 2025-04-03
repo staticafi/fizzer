@@ -33,7 +33,7 @@ bool llvm_instrumenter::doInitialization(Module *M) {
     DependenciesFPM->add(createLowerSwitchPass());
 
     processCondFunc =
-        module->getOrInsertFunction("__sbt_fizzer_process_condition", VoidTy,
+        module->getOrInsertFunction("__fizzer_process_condition", VoidTy,
                               Int32Ty, Int1Ty, DoubleTy, Int1Ty, Int8Ty);
 
     basicBlockCounter = 0;
@@ -254,7 +254,7 @@ bool llvm_instrumenter::runOnFunction(Function &F) {
     DependenciesFPM->run(F);
 
     if (F.getName() == "main") {
-        F.setName("__sbt_fizzer_method_under_test");
+        F.setName("__fizzer_method_under_test");
     }
 
     for (BasicBlock &BB : F) {

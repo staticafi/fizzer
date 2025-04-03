@@ -23,10 +23,10 @@ struct  configuration
     // 
     mutable std::optional<natural_32_bit> shared_memory_size_cache;
 
-    // not used by sbt-fizzer_target
+    // not used by fizzer_target
     natural_16_bit max_exec_milliseconds { 250 };
 
-    // used by sbt-fizzer_target
+    // used by fizzer_target
     natural_32_bit  max_trace_length { 10000 };
     natural_16_bit  max_stack_size { 25 };
     stdin_base::byte_count_type  max_stdin_bytes { 1800 }; // Standard page: 60 * 30 chars.

@@ -5,7 +5,7 @@
             "name": "run runner.py",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/dist/sbt-fizzer.py",
+            "program": "${workspaceFolder}/dist/fizzer.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/dist/benchmarks",
             "justMyCode": true,
@@ -53,7 +53,7 @@
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
             "args": [
-                "--path_to_target", "__sbt-fizzer_target",
+                "--path_to_target", "__fizzer_target",
                 "--path_to_sala", "__sala.json",
                 "--max_executions", "1000000",
                 "--max_seconds", "300000",
@@ -132,7 +132,7 @@
             "name": "debug client",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/dist/benchmarks/pending/standard_vector_difference_ground_sbt-fizzer_target",
+            "program": "${workspaceFolder}/dist/benchmarks/pending/standard_vector_difference_ground_fizzer_target",
             "args": [
                 "--input", "00",
                 "--max_trace_length", "10000000",

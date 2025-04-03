@@ -43,7 +43,7 @@
             "label": "kill targets",
             "type": "shell",
             "linux": {
-                "command": "pgrep --full \"_sbt-fizzer_target\" | xargs -r kill"
+                "command": "pgrep --full \"_fizzer_target\" | xargs -r kill"
             },
             "windows": {
                 "command": "TODO"

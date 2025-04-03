@@ -163,7 +163,7 @@ void input_flow_analysis::input_flow::start_input_flow(std::size_t const count)
 
 void input_flow_analysis::input_flow::do_ret()
 {
-    if (some_input_was_read_ && state().current_function().name() == "__sbt_fizzer_process_condition")
+    if (some_input_was_read_ && state().current_function().name() == "__fizzer_process_condition")
     {
         INVARIANT(data().sensitive_bits.size() < data().trace_size);
 

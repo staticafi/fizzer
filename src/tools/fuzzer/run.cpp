@@ -142,7 +142,7 @@ void run(int argc, char* argv[])
 
     std::string  target_name = std::filesystem::path(get_program_options()->value("path_to_target")).filename().string();
     {
-        std::string const  target_suffix = "_sbt-fizzer_target";
+        std::string const  target_suffix = "_fizzer_target";
         std::string::size_type const  suffix_i = target_name.find(target_suffix);
         if (suffix_i != std::string::npos) {
             target_name.erase(suffix_i, target_suffix.length());
@@ -160,9 +160,9 @@ void run(int argc, char* argv[])
         std::filesystem::path  sala_program_path;
         if (get_program_options()->has("path_to_sala"))
             sala_program_path = get_program_options()->value("path_to_sala");
-        else if (get_program_options()->value("path_to_target").ends_with("_sbt-fizzer_target"))
+        else if (get_program_options()->value("path_to_target").ends_with("_fizzer_target"))
             sala_program_path = get_program_options()->value("path_to_target").substr(0,
-                    get_program_options()->value("path_to_target").rfind("_sbt-fizzer_target")
+                    get_program_options()->value("path_to_target").rfind("_fizzer_target")
                     ) + "_instrumented.json";
         if (sala_program_path.empty())
             std::cerr << "WARNING: The path to sala program is empty.\n";

@@ -6,15 +6,15 @@ directory and sub-directories.
 
 The license under which this tool is released is in the file ./LICENSE.txt.
 
-The script ./sbt-fizzer.py provides a user friendly interface to the entire
+The script ./fizzer.py provides a user friendly interface to the entire
 tool. Use the help command
 ```
-    python3 ./sbt-fizzer.py --help
+    python3 ./fizzer.py --help
 ```
 to see the usage. For example, you can run the tool from any directory on a 
 `C` program with the default options using the following command:
 ```
-    python3 path/to/sbt-fizzer.py --input_file path/to/input/file.c --output_dir path/to/output/dir
+    python3 path/to/fizzer.py --input_file path/to/input/file.c --output_dir path/to/output/dir
 ```
 The output directory is created, if it does not exist. Otherwise, its content
 is overwritten. The generated test are stored in `JSON` format by default. You

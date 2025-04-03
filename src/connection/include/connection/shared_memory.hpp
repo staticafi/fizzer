@@ -14,7 +14,7 @@ namespace  connection {
 
 
 class shared_memory : public medium {
-    inline static const char* segment_name = "SBT-Fizzer_Shared_Memory";
+    inline static const char* segment_name = "Fizzer_Shared_Memory";
 
     boost::interprocess::shared_memory_object shm{};
     boost::interprocess::mapped_region region{};

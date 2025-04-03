@@ -30,7 +30,7 @@ def  benchmark_instrumented_ll_name(input_file):
 
 
 def  benchmark_target_name(input_file):
-    return benchmark_name(input_file) + "_sbt-fizzer_target"
+    return benchmark_name(input_file) + "_fizzer_target"
 
 
 def  benchmark_sala_name(input_file):
@@ -92,7 +92,7 @@ def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, si
                 "--input", instrumented_ll_file,
                 "--output", output_dir,
                 "--rename", os.path.splitext(benchmark_sala_name(input_file))[0],
-                "--entry", "__sbt_fizzer_method_under_test" ],
+                "--entry", "__fizzer_method_under_test" ],
             None).returncode:
         if silent_mode is False: print("},", flush=True)
         return 
@@ -150,7 +150,7 @@ def generate_testcomp_metadata_xml(input_file, output_dir, use_m32):
                     "\"https://sosy-lab.org/test-format/test-metadata-1.1.dtd\">\n")
         f.write("<test-metadata>\n")
         f.write("  <sourcecodelang>C</sourcecodelang>\n")
-        f.write("  <producer>sbt-fizzer</producer>\n")
+        f.write("  <producer>fizzer</producer>\n")
         f.write("  <specification>COVER( init(main()), FQL(COVER EDGES(@DECISIONEDGE)) )</specification>\n")
         f.write("  <programfile>" + os.path.basename(input_file) + "</programfile>\n")
         f.write("  <programhash>null</programhash>\n")
@@ -184,7 +184,7 @@ def fuzz(self_dir, input_file, output_dir, options, start_time, silent_mode):
 
 
 def help(self_dir):
-    print("sbt-fizzer usage")
+    print("fizzer usage")
     print("================")
     print("help                 Prints this help message.")
     print("input_file <PATH>    A source C file to build and analyze.")

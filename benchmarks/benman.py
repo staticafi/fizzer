@@ -48,7 +48,7 @@ class Benchmark:
             "optimizer_max_stdin_bytes"
             ]), "Benchmark's JSON file does not contain all required options for running the tool.")
 
-        self.fuzz_target_file = os.path.join(self.work_dir, self.name + "_sbt-fizzer_target")
+        self.fuzz_target_file = os.path.join(self.work_dir, self.name + "_fizzer_target")
         self.aux_files = [
             os.path.join(self.work_dir, self.name + ".ll"),
             os.path.join(self.work_dir, self.name + "_instrumented.ll"),
@@ -271,7 +271,7 @@ class Benman:
         self._benchmarks_dir = os.getcwd()
         self.benchmarks_dir = self._benchmarks_dir
         self.output_dir = os.path.normpath(os.path.join(self._benchmarks_dir, "..", "output", "benchmarks"))
-        self.runner_script = os.path.join(self.benchmarks_dir, "..", "sbt-fizzer.py")
+        self.runner_script = os.path.join(self.benchmarks_dir, "..", "fizzer.py")
         ASSUMPTION(os.path.isfile(self.runner_script), "The runner script not found. Build and install the project first.")
 
     def collect_benchmarks(self, name : str) -> list[str]:

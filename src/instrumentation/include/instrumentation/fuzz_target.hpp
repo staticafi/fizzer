@@ -47,7 +47,7 @@ public:
 
 };
 
-extern std::unique_ptr<fuzz_target> sbt_fizzer_target;
+extern std::unique_ptr<fuzz_target> fizzer_target;
 
 }
 

@@ -8,14 +8,14 @@ using namespace instrumentation;
 
 extern "C" {
 
-void __sbt_fizzer_process_condition(
+void __fizzer_process_condition(
         location_id const  id,
         bool const  direction,
         branching_function_value_type const   value,
         bool const  xor_like_branching_function,
         natural_8_bit const  predicate
         ) {
-    sbt_fizzer_target->process_condition(id, direction, value, xor_like_branching_function, predicate);
+    fizzer_target->process_condition(id, direction, value, xor_like_branching_function, predicate);
 }
 
 }
