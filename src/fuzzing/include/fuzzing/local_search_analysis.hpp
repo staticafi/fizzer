@@ -9,6 +9,7 @@
 #   include <vector>
 #   include <unordered_map>
 #   include <unordered_set>
+#   include <functional>
 #   include <limits>
 
 namespace  fuzzing {
@@ -72,6 +73,7 @@ struct  local_search_analysis
 
     struct  sample_execution_props
     {
+        sample_execution_props() {}
         void clear() { *this = {}; }
         vecf64  shift{};
         vecf64  shift_in_world_space{};
@@ -105,45 +107,35 @@ struct  local_search_analysis
         std::vector<vecf64>  shifts{};
     };
 
-    struct  origin_set
+    struct  tested_origins_cache
     {
-        origin_set(type_vector const*  types) : types_{ types }, origins_{ 0UL, hash{ types_},  equal{ types_ } } {}
-        origin_set(origin_set const&  other) : origin_set(other.types_) { origins_ = other.origins_; }
-        origin_set&  operator=(origin_set const&  other) { clear(); types_ = other.types_; origins_ = other.origins_; return *this; }
-        ~origin_set() { clear(); types_ = nullptr;}
+        using map_type = std::unordered_map<vector_overlay, sample_execution_props, vector_overlay_hash, vector_overlay_equal>;
+        using map_iterator_type = map_type::const_iterator;
+
+        tested_origins_cache(type_vector const*  types)
+            : types_{ types }
+            , origins_{ 0UL, vector_overlay_hash{ types_},  vector_overlay_equal{ types_ } }
+        {}
+        ~tested_origins_cache() { clear(); types_ = nullptr;}
 
         void  clear() { origins_.clear(); }
         bool  empty() const { return origins_.empty(); }
         std::size_t  size() const { return origins_.size(); }
-
-        void  insert(vector_overlay const&  origin) { origins_.insert(origin); }
+        void  insert(vector_overlay const&  origin, sample_execution_props const& value = {}) { origins_.insert({ origin, value }); }
+        map_iterator_type find(vector_overlay const&  origin) const { return origins_.find(origin); }
+        map_iterator_type end() const { return origins_.end(); }
         bool  contains(vector_overlay const&  origin) const  { return origins_.contains(origin); }
 
     private:
-
-        struct  hash
-        {
-            hash(type_vector const*  types) : types_{ types } {}
-            std::size_t  operator()(vector_overlay const&  origin) const { return fuzzing::hash(origin, *types_); }
-            type_vector const*  types_;
-        };
-
-        struct  equal
-        {
-            equal(type_vector const*  types) : types_{ types } {}
-            bool  operator()(vector_overlay const&  o1, vector_overlay const&  o2) const { return fuzzing::compare(o1, o2, *types_, BRANCHING_PREDICATE::BP_EQUAL); }
-            type_vector const*  types_;
-        };
-
-        using set_type = std::unordered_set<vector_overlay, hash, equal>;
-
         type_vector const*  types_;
-        set_type  origins_;
+        map_type  origins_;
     };
 
     struct  performance_statistics
     {
         std::size_t  generated_inputs{ 0 };
+        std::size_t  cached_inputs{ 0 };
+        std::size_t  cache_hits{ 0 };
         std::size_t  start_calls{ 0 };
         std::size_t  stop_calls_regular{ 0 };
         std::size_t  stop_calls_early{ 0 };
@@ -171,6 +163,7 @@ struct  local_search_analysis
 
 private:
 
+    void  process_execution_results();
     void  compute_shifts_of_next_partial();
     void  compute_partial_derivative(vecf64 const&  shift, float_64_bit  value);
     vecf64  transform_shift(vecf64  shift, std::size_t  src_space_index) const;
@@ -187,7 +180,7 @@ private:
     void  compute_descent_shifts();
     void  compute_descent_shifts(
             std::vector<vecf64>&  resulting_shifts,
-            origin_set&  used_origins,
+            tested_origins_cache&  used_origins,
             vecf64 const&  g,
             float_64_bit  value,
             std::size_t  space_index
@@ -195,14 +188,14 @@ private:
     bool  compute_descent_lambda(float_64_bit&  lambda, vecf64 const&  g, float_64_bit  value);
     void  insert_shift_if_valid_and_unique(
             std::vector<vecf64>&  resulting_shifts,
-            origin_set&  used_origins,
+            tested_origins_cache&  used_origins,
             vecf64  shift,
             vecf64 const&  grad,
             std::size_t  space_index
             );
     void  insert_shift_if_unique(
             std::vector<vecf64>&  resulting_shifts,
-            origin_set&  used_origins,
+            tested_origins_cache&  used_origins,
             vecf64  shift,
             std::size_t  space_index
             );
@@ -210,7 +203,7 @@ private:
             vecf64 const&  ray_start,
             vecf64  ray_dir,
             float_64_bit  param,
-            origin_set const&  excluded_points
+            std::function<bool(vector_overlay const&)> const& is_excluded
             ) const;
     void  compute_mutations_shifts();
     void  compute_mutations_shift(
@@ -223,7 +216,7 @@ private:
     void  compute_random_shifts();
     void  compute_random_shifts(
             std::vector<vecf64>&  resulting_shifts,
-            origin_set&  used_origins,
+            tested_origins_cache&  used_origins,
             vecf64 const&  g,
             float_64_bit  value,
             vecf64 const&  center,
@@ -249,7 +242,7 @@ private:
 
     PROGRESS_STAGE  progress_stage;
     vecf64  origin;
-    origin_set  tested_origins;
+    tested_origins_cache  tested_origins;
     std::vector<local_space_of_branching>  local_spaces;
     sample_execution_props  execution_props;
 

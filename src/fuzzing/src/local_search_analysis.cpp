@@ -224,7 +224,6 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
     }
 
     bits_to_point(bits_and_types->bits, origin);
-    tested_origins.insert(make_vector_overlay(origin, types_of_variables));
 
     insert_first_local_space();
 
@@ -290,7 +289,9 @@ bool  local_search_analysis::generate_next_input(vecb&  bits_ref)
         return false;
     }
 
-    for (bool done = false; !done; )
+    while (true)
+    {
+        bool done{ false };
         switch (progress_stage)
         {
             case PARTIALS:
@@ -391,11 +392,22 @@ bool  local_search_analysis::generate_next_input(vecb&  bits_ref)
             default: UNREACHABLE(); break;
         }
 
-    execution_props.shift_in_world_space = transform_shift(execution_props.shift, local_spaces.size() - 1UL);
-    execution_props.sample = add_cp(origin, execution_props.shift_in_world_space);
-    execution_props.sample_overlay = point_to_bits(execution_props.sample, bits_ref);
+        if (done == true)
+        {
+            execution_props.shift_in_world_space = transform_shift(execution_props.shift, local_spaces.size() - 1UL);
+            execution_props.sample = add_cp(origin, execution_props.shift_in_world_space);
+            execution_props.sample_overlay = point_to_bits(execution_props.sample, bits_ref);
 
-    tested_origins.insert(execution_props.sample_overlay);
+            auto const it{ tested_origins.find(execution_props.sample_overlay) };
+            if (it == tested_origins.end())
+                break;
+
+            ++statistics.cache_hits;
+
+            execution_props = it->second;
+            process_execution_results();
+        }
+    }
 
     ++statistics.generated_inputs;
 
@@ -430,6 +442,16 @@ void  local_search_analysis::process_execution_results(
             break;
     }
 
+    tested_origins.insert(execution_props.sample_overlay, execution_props);
+
+    ++statistics.cached_inputs;
+
+    process_execution_results();
+}
+
+
+void  local_search_analysis::process_execution_results()
+{
     switch (progress_stage)
     {
         case PARTIALS:
@@ -479,14 +501,16 @@ void  local_search_analysis::compute_shifts_of_next_partial()
         params.push_back(-param);
     }
 
-    origin_set  ignore_origin{ &types_of_variables };
-    ignore_origin.insert(make_vector_overlay(origin, types_of_variables));
+    vector_overlay const origin_overlay{ make_vector_overlay(origin, types_of_variables) };
+    auto const& is_excluded = [&origin_overlay, this](vector_overlay const v) {
+        return compare(v, origin_overlay, types_of_variables, BRANCHING_PREDICATE::BP_EQUAL);
+    };
 
     std::vector<vecf64>  shifts;
     for (float_64_bit const  param : params)
     {
         float_64_bit const  lambda{
-                compute_best_shift_along_ray(origin, at(space.basis_vectors_in_world_space, partial_index), param, ignore_origin)
+                compute_best_shift_along_ray(origin, at(space.basis_vectors_in_world_space, partial_index), param, is_excluded)
                 };
 
         vecf64  shift;
@@ -506,7 +530,7 @@ void  local_search_analysis::compute_shifts_of_next_partial()
         }
     }
 
-    origin_set  used_origins{ &types_of_variables };
+    tested_origins_cache  used_origins{ &types_of_variables };
     for (vecf64 const&  shift : shifts)
     {
         vecf64 const  point{ add_cp(origin, transform_shift(shift, space_index)) };
@@ -808,7 +832,7 @@ bool  local_search_analysis::clip_shift_by_constraints(
 
 void  local_search_analysis::compute_descent_shifts()
 {
-    origin_set  used_origins{ &types_of_variables };
+    tested_origins_cache  used_origins{ &types_of_variables };
 
     vecf64 const&  grad{ local_spaces.back().gradient };
     std::size_t const  space_index{ local_spaces.size() - 1UL };
@@ -832,7 +856,7 @@ void  local_search_analysis::compute_descent_shifts()
 
 void  local_search_analysis::compute_descent_shifts(
         std::vector<vecf64>&  resulting_shifts,
-        origin_set&  used_origins,
+        tested_origins_cache&  used_origins,
         vecf64 const&  g,
         float_64_bit const  value,
         std::size_t const  space_index
@@ -855,8 +879,11 @@ void  local_search_analysis::compute_descent_shifts(
             param /= length(ray_dir);
         }
 
-        origin_set  ignored_points{ tested_origins };
-        ignored_points.insert(make_vector_overlay(ray_start, types_of_variables));
+        vector_overlay const origin_overlay{ make_vector_overlay(ray_start, types_of_variables) };
+        auto const& is_excluded = [&origin_overlay, this](vector_overlay const v) {
+            return compare(v, origin_overlay, types_of_variables, BRANCHING_PREDICATE::BP_EQUAL) ||
+                   tested_origins.contains(v);
+        };
 
         switch (path.at(space_index).predicate)
         {
@@ -866,26 +893,26 @@ void  local_search_analysis::compute_descent_shifts(
                 break;
             case BRANCHING_PREDICATE::BP_UNEQUAL:
                 //ASSUMPTION(value == 0.0);
-                lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, +param, ignored_points));
-                lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, -param, ignored_points));
+                lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, +param, is_excluded));
+                lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, -param, is_excluded));
                 break;
             case BRANCHING_PREDICATE::BP_LESS:
                 //ASSUMPTION(value >= 0.0);// && lambda0 <= 0.0);
-                lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, -param, ignored_points));
+                lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, -param, is_excluded));
                 break;
             case BRANCHING_PREDICATE::BP_LESS_EQUAL:
                 //ASSUMPTION(value > 0.0);// && lambda0 < 0.0);
                 lambdas.push_back(lambda0);
-                lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, -param, ignored_points));
+                lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, -param, is_excluded));
                 break;
             case BRANCHING_PREDICATE::BP_GREATER:
                 //ASSUMPTION(value <= 0.0);// && lambda0 >= 0.0);
-                lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, +param, ignored_points));
+                lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, +param, is_excluded));
                 break;
             case BRANCHING_PREDICATE::BP_GREATER_EQUAL:
                 //ASSUMPTION(value < 0.0);// && lambda0 > 0.0);
                 lambdas.push_back(lambda0);
-                lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, +param, ignored_points));
+                lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, +param, is_excluded));
                 break;
             default: { UNREACHABLE(); } break;
         }
@@ -918,7 +945,7 @@ bool  local_search_analysis::compute_descent_lambda(float_64_bit&  lambda, vecf6
 
 void  local_search_analysis::insert_shift_if_valid_and_unique(
         std::vector<vecf64>&  resulting_shifts,
-        origin_set&  used_origins,
+        tested_origins_cache&  used_origins,
         vecf64  shift,
         vecf64 const&  grad,
         std::size_t const  space_index
@@ -946,7 +973,7 @@ void  local_search_analysis::insert_shift_if_valid_and_unique(
 
 void  local_search_analysis::insert_shift_if_unique(
         std::vector<vecf64>&  resulting_shifts,
-        origin_set&  used_origins,
+        tested_origins_cache&  used_origins,
         vecf64  shift,
         std::size_t const  space_index
         )
@@ -965,7 +992,7 @@ float_64_bit  local_search_analysis::compute_best_shift_along_ray(
         vecf64 const&  ray_start,
         vecf64  ray_dir,
         float_64_bit  param,
-        origin_set const&  excluded_points
+        std::function<bool(vector_overlay const&)> const& is_excluded
         ) const
 {
     ASSUMPTION(size(ray_start) == size(ray_dir) && size(ray_start) == types_of_variables.size());
@@ -1005,7 +1032,7 @@ float_64_bit  local_search_analysis::compute_best_shift_along_ray(
         add_scaled(point, param, ray_dir);
 
         vector_overlay  point_overlay{ make_vector_overlay(point, types_of_variables) };
-        if (!excluded_points.contains(point_overlay))
+        if (!is_excluded(point_overlay))
         {
             vecf64 const  diff{ sub_cp(as<float_64_bit>(point_overlay, types_of_variables), point) };
             vecf64 const  error_vec{ add_scaled_cp(diff, -dot_product(ray_dir, diff) * dd_inv, ray_dir) };
@@ -1026,7 +1053,7 @@ void  local_search_analysis::compute_mutations_shifts()
     std::size_t const  space_index{ local_spaces.size() - 1UL };
 
     vector_overlay const  origin_overlay{ make_vector_overlay(origin, types_of_variables) };
-    origin_set  used_origins{ &types_of_variables };
+    tested_origins_cache  used_origins{ &types_of_variables };
 
     matf64 const&  B{ local_spaces.back().basis_vectors_in_world_space };
     std::size_t const  dim{ columns(B) };
@@ -1139,7 +1166,7 @@ void  local_search_analysis::compute_mutations_shift(
 
 void  local_search_analysis::compute_random_shifts()
 {
-    origin_set  used_origins{ &types_of_variables };
+    tested_origins_cache  used_origins{ &types_of_variables };
 
     std::size_t const  space_index{ local_spaces.size() - 1UL };
     local_space_of_branching const&  space{ local_spaces.at(space_index) };
@@ -1185,7 +1212,7 @@ using special_floats_64 = special_floating_point_values<float_64_bit>;
 
 void  local_search_analysis::compute_random_shifts(
         std::vector<vecf64>&  resulting_shifts,
-        origin_set&  used_origins,
+        tested_origins_cache&  used_origins,
         vecf64 const&  g,
         float_64_bit  value,
         vecf64 const&  center,

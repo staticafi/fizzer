@@ -119,6 +119,24 @@ float_64_bit  smallest_step(float_64_bit  from, type_of_input_bits  type, bool  
 vecf64  smallest_step(vecf64 const&  from, type_vector const&  types, vecf64 const&  direction);
 
 
+struct  vector_overlay_hash
+{
+    vector_overlay_hash(type_vector const*  types) : types_{ types } {}
+    std::size_t  operator()(vector_overlay const&  origin) const { return fuzzing::hash(origin, *types_); }
+private:
+    type_vector const*  types_;
+};
+
+struct  vector_overlay_equal
+{
+    vector_overlay_equal(type_vector const*  types) : types_{ types } {}
+    bool  operator()(vector_overlay const&  o1, vector_overlay const&  o2) const
+    { return compare(o1, o2, *types_, BRANCHING_PREDICATE::BP_EQUAL); }
+private:
+    type_vector const*  types_;
+};
+
+
 }
 
 #endif

@@ -189,6 +189,8 @@ void  print_analysis_outcomes(std::ostream&  ostr, analysis_outcomes const&  res
          << shift << "},\n"
          << shift << "\"local_search_analysis\": {\n"
          << shift << shift << "\"generated_inputs\": " << results.local_search_statistics.generated_inputs << ",\n"
+         << shift << shift << "\"cached_inputs\": " << results.local_search_statistics.cached_inputs << ",\n"
+         << shift << shift << "\"cache_hits\": " << results.local_search_statistics.cache_hits << ",\n"
          << shift << shift << "\"start_calls\": " << results.local_search_statistics.start_calls << ",\n"
          << shift << shift << "\"stop_calls_regular\": " << results.local_search_statistics.stop_calls_regular << ",\n"
          << shift << shift << "\"stop_calls_early\": " << results.local_search_statistics.stop_calls_early << ",\n"
