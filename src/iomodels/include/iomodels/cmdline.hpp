@@ -3,7 +3,6 @@
 
 #   include <iomodels/iomodel.hpp>
 #   include <vector>
-#   include <string>
 
 namespace  iomodels {
 
@@ -34,26 +33,25 @@ struct  cmdline final : public iomodel
     void  set_max_option_size(natural_16_bit const size) { m_max_option_size = size; }
 
     void  clear() override;
+
+    com::record_type  get_record_type() const override { return com::record_type::CMDLINE; }
+    natural_64_bit  max_data_in_medium() const override;
+    natural_64_bit  max_construction_data_in_medium() const override;
+
     bool  save_construction_data(connection::medium&  dst) const override;
     bool  parse_record(
-            com::input_bytes::const_iterator  it_bytes,
-            com::data_type  type,
+            com::input_bytes::const_iterator&  it_bytes,
+            com::input_types::const_iterator&  it_types,
             com::input_metadata::const_iterator&  it_metadata
             ) override;
     bool  parse_record(com::execution_results&  dst, connection::medium&  src) const override;
-    com::record_type  get_record_type() const override { return com::record_type::CMDLINE; }
-    natural_64_bit  max_construction_data_in_medium() const override;
-    natural_64_bit  max_data_in_medium() const override;
 
     com::target_termination  on_arguments_requested(int&  argc, char**&  argv, connection::medium*  dst = nullptr);
 
 private:
     natural_16_bit  m_max_num_options;
     natural_16_bit  m_max_option_size;
-    natural_16_bit  m_arg_idx;
-    natural_16_bit  m_chr_idx;
-    std::vector<std::string>  m_args;
-    natural_16_bit  m_argc;
+    std::vector<vecu8>  m_args;
     std::vector<char*>  m_argv;
 };
 

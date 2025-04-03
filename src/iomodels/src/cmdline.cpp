@@ -1,4 +1,5 @@
 #include <iomodels/cmdline.hpp>
+#include <iomodels/parse_utils.hpp>
 #include <connection/medium.hpp>
 #include <com/record_type.hpp>
 #include <utility/development.hpp>
@@ -19,11 +20,23 @@ cmdline_ptr  cmdline::create(natural_16_bit const  max_num_options, natural_16_b
 
 cmdline_ptr  cmdline::create(connection::medium&  src)
 {
-    if (!src.can_deliver_bytes(sizeof(m_max_num_options) + sizeof(m_max_option_size)))
-        return nullptr;
     natural_16_bit  max_num_options, max_option_size;
-    src >> max_num_options >> max_option_size;
-    return create(max_num_options, max_option_size);
+    return  read_bytes(max_num_options, src) &&
+            read_bytes(max_option_size, src)
+            ? create(max_num_options, max_option_size)
+            : nullptr;
+}
+
+
+bool  cmdline::save_construction_data(connection::medium&  dst) const
+{
+    return append_bytes(dst, m_max_num_options) && append_bytes(dst, m_max_option_size);
+}
+
+
+natural_64_bit  cmdline::max_construction_data_in_medium() const
+{
+    return sizeof(m_max_num_options) + sizeof(m_max_option_size);
 }
 
 
@@ -37,80 +50,58 @@ cmdline::cmdline(natural_16_bit const  max_num_options, natural_16_bit const  ma
     : iomodel{}
     , m_max_num_options{ max_num_options }
     , m_max_option_size{ max_option_size }
-    , m_arg_idx{ 0U }
-    , m_chr_idx{ 0U }
     , m_args{}
-    , m_argc{ 1U }
     , m_argv{}
 {}
 
 
 void  cmdline::clear()
 {
-    m_arg_idx = 0U;
-    m_chr_idx = 0U;
     m_args.clear();
-    m_argc = 1U;
     m_argv.clear();
 }
 
 
-bool  cmdline::save_construction_data(connection::medium&  dst) const
+natural_64_bit  cmdline::max_data_in_medium() const
 {
-    if (!dst.can_accept_bytes(max_construction_data_in_medium()))
-        return false;
-    dst << m_max_num_options << m_max_option_size;
-    return true;
+    return 1ULL + 2ULL * sizeof(natural_16_bit) + m_max_num_options * (sizeof(natural_16_bit) + 2ULL * (m_max_option_size + 1ULL));
 }
 
 
 bool  cmdline::parse_record(
-        com::input_bytes::const_iterator const  it_bytes,
-        com::data_type const  type,
+        com::input_bytes::const_iterator&  it_bytes,
+        com::input_types::const_iterator&  it_types,
         com::input_metadata::const_iterator&  it_metadata
         )
 {
-    if (m_args.empty())
+    if (!m_args.empty())
+        return false;
+
+    natural_16_bit  new_argc;
+    if (!read_expected_bytes(&new_argc, it_bytes, it_types, com::data_type::UINT16))
+        return false;
+    new_argc = std::max((natural_16_bit)1U, std::min(new_argc, m_max_num_options));
+
+    natural_16_bit  orig_argc; read_bytes(&orig_argc, it_metadata, com::data_type::UINT16);
+    m_args.reserve(std::max(orig_argc, new_argc));
+    for (natural_16_bit  i = 0U; i < orig_argc; ++i)
     {
-        if (type != com::data_type::UINT16)
-            return false;
-        std::copy(it_bytes, it_bytes + com::num_bytes(type), &m_argc);
-        m_argc = std::max((natural_16_bit)1U, std::min(m_argc, m_max_num_options));
-        std::copy(it_metadata, it_metadata + com::num_bytes(type), &m_arg_idx);
-        it_metadata += com::num_bytes(type);
-        if (m_arg_idx < 1U || m_arg_idx > m_max_num_options)
-            return false;
-        m_args.reserve(m_arg_idx);
-        while (m_args.size() < m_arg_idx)
-        {
-            m_args.push_back({});
-            std::copy(it_metadata, it_metadata + com::num_bytes(type), &m_chr_idx);
-            it_metadata += com::num_bytes(type);
-            if (m_chr_idx > m_max_option_size)
+        natural_16_bit  num_chars; read_bytes(&num_chars, it_metadata, com::data_type::UINT16);
+        m_args.push_back({});
+        m_args.back().reserve(num_chars + 1U);
+        for (natural_16_bit  j = 0U; j < num_chars; ++j)
+            if (!append_expected_bytes(m_args.back(), it_bytes, it_types, com::data_type::UINT8))
                 return false;
-            m_args.back().reserve(m_chr_idx + 1U);
-            m_args.back().resize(m_chr_idx, '\0');
-        }
-        m_arg_idx = 0U;
-        m_chr_idx = 0U;
-        while (m_arg_idx < m_args.size() && m_args.at(m_arg_idx).empty())
-            ++m_arg_idx;
-        return true;
+
+        if (m_args.back().size() > m_max_option_size)
+            m_args.back().resize(m_max_option_size);
+        auto const  it{ std::find(m_args.back().begin(), m_args.back().end(), 0U) };
+        if (it == m_args.back().end())
+            m_args.back().push_back(0U);
+        else
+            m_args.back().resize(std::distance(m_args.back().begin(), it) + 1);
     }
-
-    if (type != com::data_type::UINT8)
-        return false;
-    if (m_arg_idx >= m_args.size())
-        return false;
-
-    m_args.at(m_arg_idx).at(m_chr_idx) = *it_bytes;
-
-    ++m_chr_idx;
-    if (m_chr_idx == m_args.at(m_arg_idx).size())
-    {
-        do { ++m_arg_idx; } while (m_arg_idx < m_args.size() && m_args.at(m_arg_idx).empty());
-        m_chr_idx = 0U;
-    }
+    m_args.resize(new_argc, { 0 });
 
     return true;
 }
@@ -118,77 +109,44 @@ bool  cmdline::parse_record(
 
 bool  cmdline::parse_record(com::execution_results&  dst, connection::medium&  src) const
 {
-    if (!src.can_deliver_bytes(sizeof(natural_16_bit)))
-        return false;
+    append_metadata(dst, get_record_type());
     natural_16_bit  argc;
-    src >> argc;
-    push_back(*dst.get_bytes(), argc);
-    dst.get_types()->push_back(com::data_type::UINT16);
-    push_back(*dst.get_metadata(), argc);
+    if (!append_typed_bytes(dst, com::data_type::UINT16, src, &argc))
+        return false;
+    append_metadata(dst, argc);
     for (natural_16_bit  i = 0U; i < argc; ++i)
     {
-        if (!src.can_deliver_bytes(sizeof(natural_16_bit)))
-            return false;
         natural_16_bit  count;
-        src >> count;
-        push_back(*dst.get_metadata(), count);
-        if (!src.can_deliver_bytes(count * sizeof(natural_16_bit)))
+        if (!append_metadata(dst, src, &count) ||
+            !append_typed_bytes(dst, com::data_type::UINT8, count, src))
             return false;
-        for (natural_16_bit  j = 0U; j < count; ++j)
-        {
-            natural_8_bit  chr;
-            src >> chr;
-            push_back(*dst.get_bytes(), chr);
-            dst.get_types()->push_back(com::data_type::UINT8);
-        }
     }
     return true;
 }
 
 
-natural_64_bit  cmdline::max_construction_data_in_medium() const
-{
-    return sizeof(m_max_num_options) + sizeof(m_max_option_size);
-}
-
-
-natural_64_bit  cmdline::max_data_in_medium() const
-{
-    return 1ULL + 2ULL * sizeof(natural_16_bit) + m_max_num_options * (sizeof(natural_16_bit) + m_max_option_size + 1U);
-}
-
-
 com::target_termination  cmdline::on_arguments_requested(int&  argc, char**&  argv, connection::medium* const  dst)
 {
-    if (m_arg_idx != m_args.size() || !m_argv.empty())
+    if (!m_argv.empty())
         return com::target_termination::ERROR_IN_DATA;
-    m_args.resize(m_argc, {});
-    for (std::string&  arg : m_args)
-        arg.push_back('\0');
-    for (std::string&  arg : m_args)
-        m_argv.push_back(arg.data());
-    argc = (int)m_argc;
+
+    if (m_args.empty())
+        m_args.push_back({ 0U });
+    for (vecu8&  arg : m_args)
+        m_argv.push_back((char*)arg.data());
+    argc = (int)m_argv.size();
     argv = m_argv.data();
 
     if (dst == nullptr)
         return com::target_termination::NORMAL;
 
-    if (!dst->can_accept_bytes(sizeof(natural_8_bit) + sizeof(natural_16_bit)))
+    if (!append_metadata(*dst, get_record_type()) ||
+        !append_bytes(*dst, (natural_16_bit)argc))
         return com::target_termination::MEDIUM_OVERFLOW;
-    natural_8_bit const record_id{ com::to_record_id(com::record_type::CMDLINE) };
-    dst->accept_bytes(&record_id, sizeof(record_id));
-    dst->accept_bytes(&m_argc, sizeof(m_argc));
-    for (std::string&  arg : m_args)
-    {
-        natural_16_bit  len{ (natural_16_bit)std::strlen(arg.c_str()) };
-        if (len < m_max_option_size)
-            ++len;
-        if (!dst->can_accept_bytes(sizeof(natural_16_bit) + len * sizeof(natural_8_bit)))
+    for (vecu8&  arg : m_args)
+        if (!append_bytes(*dst, (natural_16_bit)arg.size()) ||
+            !append_bytes(*dst, arg.data(), arg.size()))
             return com::target_termination::MEDIUM_OVERFLOW;
-        dst->accept_bytes(&len, sizeof(len));
-        dst->accept_bytes(arg.data(), len);
-    }
-
     return com::target_termination::NORMAL;
 }
 

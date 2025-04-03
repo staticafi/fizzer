@@ -1,4 +1,5 @@
 #include <iomodels/simple.hpp>
+#include <iomodels/parse_utils.hpp>
 #include <connection/medium.hpp>
 #include <com/data_type.hpp>
 #include <com/record_type.hpp>
@@ -17,11 +18,20 @@ simple_ptr  simple::create(natural_64_bit const  max_bytes)
 
 simple_ptr  simple::create(connection::medium&  src)
 {
-    if (!src.can_deliver_bytes(sizeof(m_max_bytes)))
-        return nullptr;
     natural_64_bit  max_bytes;
-    src >> max_bytes;
-    return create(max_bytes);
+    return read_bytes(max_bytes, src) ? create(max_bytes) : nullptr;
+}
+
+
+bool  simple::save_construction_data(connection::medium&  dst) const
+{
+    return append_bytes(dst, m_max_bytes);
+}
+
+
+natural_64_bit  simple::max_construction_data_in_medium() const
+{
+    return sizeof(m_max_bytes);
 }
 
 
@@ -46,57 +56,25 @@ void  simple::clear()
 }
 
 
-bool  simple::save_construction_data(connection::medium&  dst) const
+natural_64_bit  simple::max_data_in_medium() const
 {
-    if (!dst.can_accept_bytes(max_construction_data_in_medium()))
-        return false;
-    dst << m_max_bytes;
-    return true;
+    return 3ULL * m_max_bytes;
 }
 
 
 bool  simple::parse_record(
-        com::input_bytes::const_iterator const  it_bytes,
-        com::data_type const  type,
+        com::input_bytes::const_iterator&  it_bytes,
+        com::input_types::const_iterator&  it_types,
         com::input_metadata::const_iterator&
         )
 {
-    m_bytes.insert(m_bytes.end(), it_bytes, it_bytes + com::num_bytes(type));
-    return true;
+    return append_typed_bytes(m_bytes, it_bytes, it_types);
 }
 
 
 bool  simple::parse_record(com::execution_results&  dst, connection::medium&  src) const
 {
-    if (!src.can_deliver_bytes(sizeof(natural_8_bit)))
-        return false;
-    natural_8_bit  type_id;
-    src >> type_id;
-    com::data_type const type{ com::from_type_id(type_id) };
-    dst.get_types()->push_back(type);
-
-    natural_8_bit const num_bytes{ com::num_bytes(type) };
-    if (!src.can_deliver_bytes(num_bytes))
-        return false;
-    natural_64_bit const  byte_index{ dst.get_bytes()->size() };
-    dst.get_bytes()->resize(byte_index + num_bytes, 0U);
-    src.deliver_bytes(dst.get_bytes()->data() + byte_index, num_bytes);
-
-    dst.get_metadata()->push_back(com::to_record_id(com::record_type::SIMPLE));
-
-    return true;
-}
-
-
-natural_64_bit  simple::max_construction_data_in_medium() const
-{
-    return sizeof(m_max_bytes);
-}
-
-
-natural_64_bit  simple::max_data_in_medium() const
-{
-    return 3ULL * m_max_bytes;
+    return append_metadata(dst, get_record_type()) && append_typed_bytes(dst, src);
 }
 
 
@@ -115,15 +93,9 @@ com::target_termination  simple::on_bytes_requested(natural_8_bit* const  ptr, c
     if (dst == nullptr)
         return com::target_termination::NORMAL;
 
-    if (!dst->can_accept_bytes(2UL * sizeof(natural_8_bit) + num_bytes))
-        return com::target_termination::MEDIUM_OVERFLOW;
-    natural_8_bit const record_id{ com::to_record_id(com::record_type::SIMPLE) };
-    dst->accept_bytes(&record_id, sizeof(record_id));
-    natural_8_bit const type_id{ com::to_type_id(type) };
-    dst->accept_bytes(&type_id, sizeof(type_id));
-    dst->accept_bytes(m_bytes.data() + m_cursor - num_bytes, num_bytes);
-
-    return com::target_termination::NORMAL;
+    return  append_metadata(*dst, get_record_type()) && append_typed_bytes(*dst, type, ptr)
+            ? com::target_termination::NORMAL
+            : com::target_termination::MEDIUM_OVERFLOW;
 }
 
 
