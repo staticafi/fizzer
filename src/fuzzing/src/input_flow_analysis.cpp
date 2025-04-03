@@ -182,8 +182,6 @@ void input_flow_analysis::input_flow::do_ret()
 
         if (path_index + 1U < data().trace_size && branching.direction != parameters().at(1).read<bool>())
         {
-bool aaa = parameters().at(1).read<bool>();
-natural_8_bit zzz = parameters().at(1).read<natural_8_bit>();
             bool const expected{ branching.direction };
             std::stringstream obtained; obtained << (integer_32_bit)parameters().at(1).read<natural_8_bit>();
             auto const loc{ branching.id };
