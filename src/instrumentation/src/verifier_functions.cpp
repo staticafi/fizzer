@@ -44,7 +44,7 @@ unsigned char __VERIFIER_nondet_uchar(void) {
 _Bool __VERIFIER_nondet_bool(void) {
     char n;
     sbt_fizzer_target->on_read((natural_8_bit*) &n, type_of_input_bits::BOOLEAN);
-    if (n > 0) {
+    if (n != 0) {
         return true;
     }
     return false;
