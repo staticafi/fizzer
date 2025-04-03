@@ -1223,12 +1223,6 @@ bool  fuzzer::round_begin(
     vecb  bits;
     if (!generate_next_input(bits, types, metadata, termination_reason))
         return false;
-    if (!can_make_progress())
-    {
-        terminate();
-        termination_reason = TERMINATION_REASON::FUZZING_STRATEGY_DEPLETED;
-        return false;
-    }
     bits_to_bytes(bits, bytes);
 
     return true;
@@ -1308,6 +1302,8 @@ bool  fuzzer::generate_next_input(
                         if (bitflip.is_busy())
                             recorder().on_bitflip_stop(progress_recorder::STOP::INTERRUPTED);
                         break;
+                    case FINISHED:
+                        break;
                     default: { UNREACHABLE(); break; }
                 }
 
@@ -1327,6 +1323,8 @@ bool  fuzzer::generate_next_input(
                     case BITFLIP:
                         if (bitflip.is_busy())
                             recorder().on_bitflip_start(bitflip.get_node(), progress_recorder::START::RESUMED);
+                        break;
+                    case FINISHED:
                         break;
                     default: { UNREACHABLE(); break; }
                 }
@@ -1447,7 +1445,11 @@ bool  fuzzer::generate_next_input(
 
             case FINISHED:
                 if (!apply_coverage_failures_with_hope())
-                    return true;
+                {
+                    terminate();
+                    termination_reason = TERMINATION_REASON::FUZZING_STRATEGY_DEPLETED;
+                    return false;
+                }
                 break;
 
             default: { UNREACHABLE(); break; }
