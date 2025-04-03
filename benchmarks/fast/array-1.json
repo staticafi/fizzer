@@ -3,15 +3,12 @@
         "max_executions": 200,
         "max_seconds": 10,
         "max_trace_length": 10000,
-        "max_stack_size": 25,
         "max_bytes": 6400,
         "max_exec_milliseconds": 250,
         "max_exec_megabytes": 1024,
-        "stdin_model": "stdin_replay_bytes_then_repeat_zero",
-        "stdout_model": "stdout_void",
-        "optimizer_max_seconds": 10,
-        "optimizer_max_trace_length": 1000000,
-        "optimizer_max_bytes": 1000000,
+        "opt_max_seconds": 10,
+        "opt_max_trace_length": 1000000,
+        "opt_max_bytes": 1000000,
         "m32": false
     },
     "results": {

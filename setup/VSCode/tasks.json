@@ -17,6 +17,7 @@
                     // "all"
                     "fast"
                     // "pending"
+                    // "fast/_.c"
                 // , ">", "./dist/benchmarks/benman_output.txt"
             ]
         },
@@ -38,16 +39,6 @@
                     //"interpret"
                     "inputflow"
             ]
-        },
-        {
-            "label": "kill targets",
-            "type": "shell",
-            "linux": {
-                "command": "pgrep --full \"_fizzer_target\" | xargs -r kill"
-            },
-            "windows": {
-                "command": "TODO"
-            }
         },
         {
             "label": "clean dist",
