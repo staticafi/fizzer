@@ -20,7 +20,7 @@
         "num_executions": 10,
         "num_covered_branchings": 2,
         "covered_branchings": [
-            1,0,    2,0
+            1, 2
         ],
         "output_statistics": {
             "bitflip_analysis": {

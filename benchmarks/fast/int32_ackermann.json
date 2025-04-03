@@ -16,26 +16,21 @@
     },
     "results": {
         "termination_type": "NORMAL",
-        "termination_reason": "EXECUTIONS_BUDGET_DEPLETED",
-        "num_executions": 1000,
-        "num_covered_branchings": 26,
+        "termination_reason": "ALL_REACHABLE_BRANCHINGS_COVERED",
+        "num_executions": 243,
+        "num_covered_branchings": 8,
         "covered_branchings": [
-            1,0,    2,0,    3,0,    4,0,    
-            5,0,    6,0,    7,1013904435,    7,1013904498,    
-            7,1013904566,    7,2027809121,    7,2027809127,    7,2654435832,    
-            7,3668340393,    7,3668340399,    7,3668340457,    7,3668340520,    
-            7,3668340524,    8,1013904498,    8,1013904566,    8,2027809121,    
-            8,2027809127,    8,2654435832,    8,3668340393,    8,3668340399,    
-            8,3668340520,    8,3668340524
+            1, 2, 3, 4,    
+            5, 6, 7, 8
         ],
         "output_statistics": {
             "local_search": {
-                "num_generated_tests": 7,
+                "num_generated_tests": 6,
                 "num_crashes": 0,
                 "num_boundary_violations": 0
             },
             "bitflip_analysis": {
-                "num_generated_tests": 3,
+                "num_generated_tests": 1,
                 "num_crashes": 0,
                 "num_boundary_violations": 0
             },

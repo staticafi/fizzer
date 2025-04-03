@@ -20,7 +20,7 @@
         "num_executions": 25,
         "num_covered_branchings": 3,
         "covered_branchings": [
-            1,0,    2,0,    3,0
+            1, 2, 3
         ],
         "output_statistics": {
             "local_search": {
