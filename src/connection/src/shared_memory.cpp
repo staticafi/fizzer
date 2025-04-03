@@ -25,7 +25,7 @@ void  shared_memory::clear()
 {
     m_cursor = 0ULL;
     *m_saved = 0ULL;
-    std::memset(get_address(), 0xCD, get_size());
+    //std::memset(get_address(), 0xCD, get_size());
 }
 
 
