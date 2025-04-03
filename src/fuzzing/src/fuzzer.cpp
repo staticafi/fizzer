@@ -2065,8 +2065,8 @@ bool  fuzzer::try_start_input_flow_analysis(branching_node*  winner)
         branching_node* const  left = winner->successor(false).pointer;
         branching_node* const  right = winner->successor(true).pointer;
 
-        bool const  can_go_left = left != nullptr;
-        bool const  can_go_right = right != nullptr;
+        bool const  can_go_left = left != nullptr && left->get_best_stdin() != nullptr && left->get_best_trace() != nullptr;
+        bool const  can_go_right = right != nullptr && right->get_best_stdin() != nullptr && right->get_best_trace() != nullptr;
 
         if (can_go_left && can_go_right)
             winner = left->get_max_successors_trace_index() >= right->get_max_successors_trace_index() ? left : right;
