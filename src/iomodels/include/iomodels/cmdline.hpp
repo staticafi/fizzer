@@ -2,6 +2,8 @@
 #   define IOMODELS_CMDLINE_HPP_INCLUDED
 
 #   include <iomodels/iomodel.hpp>
+#   include <vector>
+#   include <string>
 
 namespace  iomodels {
 
@@ -48,6 +50,11 @@ struct  cmdline final : public iomodel
 private:
     natural_16_bit  m_max_num_options;
     natural_16_bit  m_max_option_size;
+    natural_16_bit  m_arg_idx;
+    natural_16_bit  m_chr_idx;
+    std::vector<std::string>  m_args;
+    natural_16_bit  m_argc;
+    std::vector<char*>  m_argv;
 };
 
 
