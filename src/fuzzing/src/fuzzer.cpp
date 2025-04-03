@@ -2060,16 +2060,35 @@ bool  fuzzer::try_start_input_flow_analysis(branching_node*  winner)
     if (!input_flow_thread.is_ready())
         return false;
 
+    trace_index_type const  max_trace_index{ 2U * winner->get_trace_index() };
+    natural_64_bit const  max_bytes{ 2ULL * winner->get_best_stdin()->bytes()->size() };
+    auto const&  valid_successor = [max_trace_index, max_bytes](branching_node const* const node) {
+        return
+            node != nullptr
+            && node->get_best_trace() != nullptr
+            && node->get_best_stdin() != nullptr
+            && node->get_trace_index() <= max_trace_index
+            && node->get_best_stdin()->bytes()->size() <= max_bytes
+            ;
+    };
+
     while (true)
     {
         branching_node* const  left = winner->successor(false).pointer;
         branching_node* const  right = winner->successor(true).pointer;
 
-        bool const  can_go_left = left != nullptr && left->get_best_stdin() != nullptr && left->get_best_trace() != nullptr;
-        bool const  can_go_right = right != nullptr && right->get_best_stdin() != nullptr && right->get_best_trace() != nullptr;
+        bool const  can_go_left = valid_successor(left);
+        bool const  can_go_right = valid_successor(right);
 
         if (can_go_left && can_go_right)
-            winner = left->get_max_successors_trace_index() >= right->get_max_successors_trace_index() ? left : right;
+        {
+            if (!left->was_sensitivity_performed())
+                winner = left;
+            else if (!right->was_sensitivity_performed())
+                winner = right;
+            else
+                winner = left->get_max_successors_trace_index() >= right->get_max_successors_trace_index() ? left : right;
+        }
         else if (can_go_left)
             winner = left;
         else if (can_go_right)
