@@ -1,25 +1,11 @@
 set(THIS_TARGET_NAME iomodels)
 
+file(GLOB "${THIS_TARGET_NAME}_HPP" "./include/${THIS_TARGET_NAME}/*.hpp")
+file(GLOB "${THIS_TARGET_NAME}_CPP" "./src/*.cpp")
+
 add_library(${THIS_TARGET_NAME}
-
-./include/iomodels/iomanager.hpp
-    ./src/iomanager.cpp
-
-    ./include/iomodels/stdin_base.hpp
-
-    ./include/iomodels/stdin_replay_bytes_then_repeat_byte.hpp
-    ./src/stdin_replay_bytes_then_repeat_byte.cpp
-    
-    ./include/iomodels/models_map.hpp
-    ./src/models_map.cpp
-    
-    ./include/iomodels/stdout_base.hpp
-    
-    ./include/iomodels/stdout_void.hpp
-    ./src/stdout_void.cpp
-
-    ./include/iomodels/configuration.hpp
-    ./src/configuration.cpp
+    "${${THIS_TARGET_NAME}_HPP}"
+    "${${THIS_TARGET_NAME}_CPP}"
     )
 
 set_target_properties(${THIS_TARGET_NAME} PROPERTIES

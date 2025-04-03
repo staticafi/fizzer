@@ -2,6 +2,7 @@
 #   define FUZZING_PROGRESS_RECORDER_HPP_INCLUDED
 
 #   include <fuzzing/branching_node.hpp>
+#   include <fuzzing/test_suite_item.hpp>
 #   include <utility/basic_numeric_types.hpp>
 #   include <unordered_set>
 #   include <string>
@@ -52,9 +53,7 @@ struct  progress_recorder
     void  on_taint_response_start(branching_node const*  node_ptr, START attribute);
     void  on_taint_response_stop(STOP  attribute);
 
-    void  on_input_generated();
-    void  on_trace_mapped_to_tree(branching_node const*  leaf_);
-    void  on_execution_results_available();
+    void  on_execution_results_available(test_suite_item const&  item, branching_node const*  leaf);
 
     void  on_strategy_turn_loop_head_sensitive();
     void  on_strategy_turn_loop_head_others();
@@ -71,7 +70,7 @@ private:
 
     enum struct ANALYSIS
     {
-        NONE            = 0,
+        STARTUP         = 0,
         BITSHARE        = 1,
         LOCAL_SEARCH    = 2,
         BITFLIP         = 3,
@@ -157,8 +156,6 @@ private:
     void  on_analysis_start(ANALYSIS analysis_, analysis_common_info&  info, branching_node const*  node_ptr);
     void  on_analysis_stop();
 
-    std::unique_ptr<std::ofstream>  save_default_execution_results();
-
     static std::string const&  analysis_name(ANALYSIS a);
 
     bool  started;
@@ -174,9 +171,6 @@ private:
     taint_response_progress_info  taint_response;
     natural_32_bit  counter_analysis;
     natural_32_bit  counter_results;
-
-    natural_32_bit  num_bytes;
-    branching_node const*  leaf;
 
     strategy_data  strategy;
 };

@@ -1,6 +1,5 @@
 #include <fuzzing/optimizer.hpp>
 #include <fuzzing/optimization_outcomes.hpp>
-#include <iomodels/iomanager.hpp>
 #include <utility/std_pair_hash.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
@@ -11,24 +10,24 @@
 namespace  fuzzing {
 
 
-optimizer::optimizer(configuration const&  cfg)
-    : config{ cfg }
-
-    , time_point_start{}
+optimizer::optimizer()
+    : time_point_start{}
     , time_point_current{}
-
     , statistics{}
 {}
 
 
 optimization_outcomes  optimizer::run(
-        std::vector<vecu8> const&  inputs_leading_to_boundary_violation,
+        std::vector<test_suite_item_ptr> const&  inputs_leading_to_boundary_violation,
         std::vector<location_id> const&  already_covered_branchings,
-        std::vector<branching_location_and_direction> const&  already_uncovered_branchings,
-        connection::benchmark_executor_via_shared_memory&  benchmark_executor,
-        execution_record_writer&  save_execution_record
-        )
+        std::vector<location_and_direction> const&  already_uncovered_branchings,
+        natural_32_bit const  max_seconds,
+        target_executor&  executor,
+        test_suite_item_writer&  save_test
+    )
 {
+    TMPROF_BLOCK();
+
     time_point_start = std::chrono::steady_clock::now();
     time_point_current = time_point_start;
 
@@ -40,39 +39,29 @@ optimization_outcomes  optimizer::run(
 
     if (!inputs_leading_to_boundary_violation.empty())
     {
-
         std::unordered_set<location_id>  covered_branchings{
                 already_covered_branchings.begin(), already_covered_branchings.end()
                 };
-        std::unordered_set<branching_location_and_direction>  uncovered_branchings{
+        std::unordered_set<location_and_direction>  uncovered_branchings{
                 already_uncovered_branchings.begin(), already_uncovered_branchings.end()
                 };
 
         std::unordered_set<location_id>  extra_covered_branchings;
-        std::unordered_set<branching_location_and_direction>  extra_uncovered_branchings;
+        std::unordered_set<location_and_direction>  extra_uncovered_branchings;
 
-        for (vecu8 const&  stdin_bytes : inputs_leading_to_boundary_violation)
+        for (test_suite_item_ptr const&  item_ptr : inputs_leading_to_boundary_violation)
         {
             time_point_current = std::chrono::steady_clock::now();
-            if (num_remaining_seconds() <= 0L)
+            if (get_elapsed_seconds() >= max_seconds)
             {
                 outcomes.termination_reason = TERMINATION_REASON::TIME_BUDGET_DEPLETED;
                 break;
             }
 
-            iomodels::iomanager::instance().get_stdin()->clear();
-            iomodels::iomanager::instance().get_stdout()->clear();
-            iomodels::iomanager::instance().get_stdin()->set_bytes(stdin_bytes);
-
-            try
+            execution_results_ptr  results;
             {
-                benchmark_executor();
-            }
-            catch (std::exception const&  e)
-            {
-                outcomes.termination_type = optimization_outcomes::TERMINATION_TYPE::SERVER_INTERNAL_ERROR;
-                outcomes.error_message = e.what();
-                break;
+                TMPROF_BLOCK();
+                results = executor.run(*item_ptr->results->get_bytes(), *item_ptr->results->get_types(), *item_ptr->results->get_metadata());
             }
 
             ++statistics.num_executions;
@@ -80,7 +69,7 @@ optimization_outcomes  optimizer::run(
             bool  trace_any_location_discovered = false;
             std::unordered_set<location_id>  trace_covered_branchings;
             {
-                for (branching_coverage_info const&  info : iomodels::iomanager::instance().get_trace())
+                for (trace_item const&  info : *results->get_trace())
                 {
                     if (!covered_branchings.contains(info.id))
                     {
@@ -110,50 +99,24 @@ optimization_outcomes  optimizer::run(
                 }
             }
 
-            execution_record::execution_flags  exe_flags;
+            test_suite_item_ptr const  test_ptr{ std::make_shared<test_suite_item>() };
+            test_ptr->results = results;
+            test_ptr->any_location_discovered = trace_any_location_discovered;
+            test_ptr->covered_locations.assign(trace_covered_branchings.begin(), trace_covered_branchings.end());
+            test_ptr->analysis_name = "OPTIMIZER";
+
+            if (test_ptr->any_location_discovered || !test_ptr->covered_locations.empty())
             {
-                exe_flags = 0;
-
-                if (iomodels::iomanager::instance().get_termination() == instrumentation::target_termination::crash)
-                    exe_flags |= execution_record::EXECUTION_CRASHES;
-
-                if (iomodels::iomanager::instance().get_termination() == instrumentation::target_termination::boundary_condition_violation)
-                    exe_flags |= execution_record::BOUNDARY_CONDITION_VIOLATION;
-
-                if (iomodels::iomanager::instance().get_termination() == instrumentation::target_termination::medium_overflow)
-                    exe_flags |= execution_record::MEDIUM_OVERFLOW;
-
-                if (trace_any_location_discovered)
-                    exe_flags |= execution_record::BRANCH_DISCOVERED;
-
-                if (!trace_covered_branchings.empty())
-                    exe_flags |= execution_record::BRANCH_COVERED;
+                save_test(*test_ptr);
+                ++statistics.num_extended_tests;
+                if (results->get_termination() == target_termination::CRASH)
+                    hashes_of_crashes.insert(com::compute_path_hash(*results->get_trace()));
             }
-
-            bool const  is_path_worth_recording =
-                    exe_flags & (execution_record::BRANCH_DISCOVERED | execution_record::BRANCH_COVERED | execution_record::EXECUTION_CRASHES);
-
-            if (is_path_worth_recording)
+            else if (results->get_termination() == target_termination::CRASH)
             {
-                execution_record record;
+                if (hashes_of_crashes.insert(com::compute_path_hash(*results->get_trace())).second)
                 {
-                    record.flags |= exe_flags;
-                    record.stdin_bytes = iomodels::iomanager::instance().get_stdin()->get_bytes();
-                    record.stdin_types = iomodels::iomanager::instance().get_stdin()->get_types();
-                    record.path.clear();
-                    for (branching_coverage_info const&  info : iomodels::iomanager::instance().get_trace())
-                        record.path.push_back({ info.id, info.direction });
-                }
-
-                bool const  is_saved_crash{
-                        (exe_flags & execution_record::EXECUTION_CRASHES) != 0 &&
-                        !hashes_of_crashes.insert(compute_hash(record.path)).second
-                        };
-
-                if (!is_saved_crash)
-                {
-                    save_execution_record(record);
-
+                    save_test(*test_ptr);
                     ++statistics.num_extended_tests;
                 }
             }

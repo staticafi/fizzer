@@ -1,10 +1,8 @@
 #include <fuzzing/progress_recorder.hpp>
-#include <fuzzing/execution_trace.hpp>
-#include <iomodels/iomanager.hpp>
+#include <fuzzing/basic_types.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <utility/timeprof.hpp>
-#include <instrumentation/target_termination.hpp>
 #include <vector>
 #include <algorithm>
 #include <iostream>
@@ -50,7 +48,7 @@ progress_recorder::progress_recorder()
     , output_dir{}
     , program_name{}
 
-    , analysis{ ANALYSIS::NONE }
+    , analysis{ ANALYSIS::STARTUP }
     , bitshare{}
     , local_search{}
     , bitflip{}
@@ -58,9 +56,6 @@ progress_recorder::progress_recorder()
     , taint_response{}
     , counter_analysis{ 1 }
     , counter_results{ 0 }
-
-    , num_bytes{ 0 }
-    , leaf{ nullptr }
 
     , strategy{}
 {}
@@ -88,7 +83,7 @@ void  progress_recorder::start(std::filesystem::path const&  path_to_target_, st
 
     started = true;
 
-    analysis = ANALYSIS::NONE;
+    analysis = ANALYSIS::STARTUP;
     bitshare = {};
     local_search = {};
     bitflip = {};
@@ -96,9 +91,6 @@ void  progress_recorder::start(std::filesystem::path const&  path_to_target_, st
     taint_response = {};
     counter_analysis = 1;
     counter_results = 0;
-
-    num_bytes = 0;
-    leaf = nullptr;
 
     strategy.clear();
 }
@@ -130,7 +122,7 @@ void  progress_recorder::stop()
     output_dir.clear();
     program_name.clear();
  
-    analysis = ANALYSIS::NONE;
+    analysis = ANALYSIS::STARTUP;
     bitshare = {};
     local_search = {};
     bitflip = {};
@@ -138,9 +130,6 @@ void  progress_recorder::stop()
     taint_response = {};
     counter_analysis = 1;
     counter_results = 0;
-
-    num_bytes = 0;
-    leaf = nullptr;
 
     strategy.clear();
 }
@@ -282,9 +271,6 @@ void  progress_recorder::on_analysis_start(ANALYSIS const  analysis_, analysis_c
     ++counter_analysis;
     counter_results = 0;
 
-    num_bytes = 0;
-    leaf = nullptr;
-
     info.node = node_ptr;
     info.analysis_dir = output_dir / (std::to_string(counter_analysis) + '_' + analysis_name(analysis));
     std::filesystem::create_directories(info.analysis_dir);
@@ -297,10 +283,10 @@ void  progress_recorder::on_analysis_start(ANALYSIS const  analysis_, analysis_c
 
 void  progress_recorder::on_analysis_stop()
 {
-    if (!is_started() || analysis == ANALYSIS::NONE)
+    if (!is_started() || analysis == ANALYSIS::STARTUP)
         return;
 
-    analysis = ANALYSIS::NONE;
+    analysis = ANALYSIS::STARTUP;
     bitshare = {};
     local_search = {};
     bitflip = {};
@@ -309,52 +295,12 @@ void  progress_recorder::on_analysis_stop()
 }
 
 
-void  progress_recorder::on_input_generated()
-{
-    if (!is_started())
-        return;
-    num_bytes = (natural_32_bit)iomodels::iomanager::instance().get_stdin()->get_bytes().size();
-}
-
-
-void  progress_recorder::on_trace_mapped_to_tree(branching_node const* const  leaf_)
-{
-    if (!is_started())
-        return;
-    leaf = leaf_;
-}
-
-
-void  progress_recorder::on_execution_results_available()
+void  progress_recorder::on_execution_results_available(test_suite_item const&  item, branching_node const* const  leaf)
 {
     if (!is_started())
         return;
 
     TMPROF_BLOCK();
-
-    auto const  ostr_ptr{ save_default_execution_results() };
-    std::ofstream&  ostr{ *ostr_ptr };
-
-    vecu8 const&  bytes = iomodels::iomanager::instance().get_stdin()->get_bytes();
-
-    ostr << "\"num_generated_input_bytes\": " << num_bytes << ",\n\"num_obtained_input_bytes\": " << bytes.size() << ",\n"
-         << "\"obtained_input_bytes\": [";
-    for (natural_32_bit  i = 0U, n = (natural_32_bit)bytes.size(); i < n; ++i)
-    {
-        if (i % 16U == 0U) ostr << '\n';
-        ostr << (natural_32_bit)bytes.at(i);
-        if (i + 1 < n) ostr << ',';
-    }
-
-    ostr << "]\n}\n";
-}
-
-
-std::unique_ptr<std::ofstream>  progress_recorder::save_default_execution_results()
-{
-    TMPROF_BLOCK();
-
-    ++counter_results;
 
     std::filesystem::path const  record_dir = output_dir / (std::to_string(counter_analysis) + '_' + analysis_name(analysis));
     std::filesystem::create_directories(record_dir);
@@ -371,53 +317,73 @@ std::unique_ptr<std::ofstream>  progress_recorder::save_default_execution_result
 
     std::ofstream&  ostr{ *ostr_ptr }; 
 
-    execution_trace const&  trace = iomodels::iomanager::instance().get_trace();
+    std::string const  shift = "    ";
 
-    std::vector<branching_node::guid_type>  node_guids;
-    for (branching_node const* n = leaf; n != nullptr; n = n->get_predecessor())
-        node_guids.push_back(n->guid());
-    std::reverse(node_guids.begin(), node_guids.end());
-
-    INVARIANT(trace.size() == node_guids.size());
-
-    ostr << "{\n";
-
-    ostr << "\"trace_termination\": \"";
-
-    switch (iomodels::iomanager::instance().get_termination())
+    ostr
+        << "{\n"
+        << shift << "\"any_location_discovered\": " << (item.any_location_discovered ? 1 : 0) << ",\n"
+        << shift << "\"covered_locations\": [ ";
+    bool first{ true };
+    for (location_id const&  id : item.covered_locations)
     {
-    case instrumentation::target_termination::normal: ostr << "NORMAL"; break;
-    case instrumentation::target_termination::crash: ostr << "CRASH"; break;
-    case instrumentation::target_termination::timeout: ostr << "TIMEOUT"; break;
-    case instrumentation::target_termination::boundary_condition_violation: ostr << "BOUNDARY_CONDITION_VIOLATION"; break;
-    case instrumentation::target_termination::medium_overflow: ostr << "MEDIUM_OVERFLOW"; break;
-    default: UNREACHABLE(); break;
+        if (first) first = false; else ostr << ',';
+        ostr << id;
     }
+    ostr
+        << " ],\n"
+        << shift << "\"analysis_name\": \"" << item.analysis_name << "\",\n"
+        << shift << "\"execution_results\": {\n"
+        ;
 
-    ostr << "\",\n\"num_trace_records\": " << trace.size() << ",\n\"trace_records\": [";
+    execution_results const&  results{ *item.results };
+    std::string const  shift2 = "        ";
 
-    for (natural_32_bit  i = 0U, n = (natural_32_bit)trace.size(); i < n; ++i)
+    ostr
+        << shift2 << "\"termination\": " << com::to_string(results.get_termination()) << ",\n"
+        << shift2 << "\"bytes\": \"";
+    for (natural_8_bit  byte : *results.get_bytes())
+        ostr << std::setw(2) << std::setfill('0') << std::hex << (natural_32_bit)byte;
+    ostr << "\",\n" << shift2 << "\"types\": \"";
+    for (data_type  type : *results.get_types())
+        ostr << std::setw(2) << std::setfill('0') << std::hex << (natural_32_bit)com::to_type_id(type);
+    ostr << "\",\n" << shift2 << "\"metadata\": \"";
+    for (natural_8_bit  byte : *results.get_metadata())
+        ostr << std::setw(2) << std::setfill('0') << std::hex << (natural_32_bit)byte;
+    ostr << "\",\n" << std::setfill(' ') << std::dec << shift2 << "\"trace\": [ ";
     {
-        branching_function_value_type const  value =
-                std::isfinite(trace.at(i).value) ? trace.at(i).value : std::numeric_limits<branching_function_value_type>::max();
-        ostr << '\n';
-        ostr << trace.at(i).id << ','
-             << (trace.at(i).direction ? 1 : 0) << ','
-             << trace.at(i).num_input_bytes << ','
-             << std::setprecision(std::numeric_limits<branching_function_value_type>::digits10 + 1) << value << ','
-             << node_guids.at(i);
-        if (i + 1 < n) ostr << ',';
+        execution_trace const&  trace = *results.get_trace();
+
+        std::vector<branching_node::guid_type>  node_guids;
+        for (branching_node const* n = leaf; n != nullptr; n = n->get_predecessor())
+            node_guids.push_back(n->guid());
+        std::reverse(node_guids.begin(), node_guids.end());
+    
+        INVARIANT(trace.size() == node_guids.size());
+
+        first = true;
+        for (trace_index_type  i = 0U, n = (trace_index_type)trace.size(); i < n; ++i)
+        {
+            trace_item const&  trace_item{ trace.at(i) };
+            branching_value const  value{
+                    std::isfinite(trace_item.value) ? trace_item.value : std::numeric_limits<branching_value>::max()
+                    };
+            if (first) first = false; else ostr << ',';
+            ostr << trace_item.id << ','
+                 << (trace_item.direction ? 1 : 0) << ','
+                 << trace_item.num_input_bytes << ','
+                 << std::setprecision(std::numeric_limits<branching_value>::digits10 + 1) << value << ','
+                 << node_guids.at(i);
+        }
     }
+    ostr << " ]\n" << shift << "}\n}";
 
-    ostr << "],\n";
-
-    return ostr_ptr;
+    ++counter_results;
 }
 
 
 std::string const&  progress_recorder::analysis_name(ANALYSIS const a)
 {
-    static std::string const  names[] { "NONE","BITSHARE","LOCAL_SEARCH","BITFLIP","TAINT_REQ","TAINT_RES" };
+    static std::string const  names[] { "STARTUP","BITSHARE","LOCAL_SEARCH","BITFLIP","TAINT_REQ","TAINT_RES" };
     ASSUMPTION((int)a < sizeof(names)/sizeof(names[0]));
     return names[(int)a];
 }

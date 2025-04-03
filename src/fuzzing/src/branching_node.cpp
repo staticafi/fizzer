@@ -9,17 +9,17 @@ branching_node::branching_node(
         trace_index_type const  trace_index_,
         natural_32_bit const  num_stdin_bytes_,
         bool const  xor_like_branching_function_,
-        BRANCHING_PREDICATE const  branching_predicate_,
+        atomic_predicate const  predicate_,
         branching_node* const  predecessor_,
-        stdin_bits_and_types_pointer const  best_stdin_,
-        execution_trace_pointer const  best_trace_,
+        typed_input_ptr const  best_stdin_,
+        execution_trace_ptr const  best_trace_,
         natural_32_bit const  execution_number
         )
     : id{ id_ }
     , trace_index{ trace_index_ }
     , num_stdin_bytes{ num_stdin_bytes_ }
     , xor_like_branching_function{ xor_like_branching_function_ }
-    , branching_predicate{ branching_predicate_ }
+    , predicate{ predicate_ }
 
     , predecessor{ predecessor_ }
     , successors{}
@@ -47,8 +47,8 @@ branching_node::branching_node(
 
 
 void  branching_node::update_best_data(
-        stdin_bits_and_types_pointer const  stdin_,
-        execution_trace_pointer const  trace_,
+        typed_input_ptr const  stdin_,
+        execution_trace_ptr const  trace_,
         natural_32_bit const  execution_id_
         )
 {

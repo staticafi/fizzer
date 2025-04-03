@@ -1,7 +1,7 @@
 #ifndef FUZZING_LOCAL_SEARCH_ANALYSIS_HPP_INCLUDED
 #   define FUZZING_LOCAL_SEARCH_ANALYSIS_HPP_INCLUDED
 
-#   include <fuzzing/execution_trace.hpp>
+#   include <fuzzing/basic_types.hpp>
 #   include <fuzzing/branching_node.hpp>
 #   include <fuzzing/number_overlay.hpp>
 #   include <utility/math.hpp>
@@ -49,7 +49,7 @@ struct  local_search_analysis
         branching_node*  node_ptr{ nullptr };
         float_64_bit  value{ 0.0 };
         bool  direction{ false };
-        BRANCHING_PREDICATE  predicate{ BRANCHING_PREDICATE::BP_EQUAL };
+        atomic_predicate  predicate{ atomic_predicate::EQUAL };
         bool  xor_like_branching_function{ false };
         std::unordered_set<natural_32_bit>  variable_indices{};
     };
@@ -58,7 +58,7 @@ struct  local_search_analysis
     {
         vecf64  normal{};
         float_64_bit  param{ 0.0 };
-        BRANCHING_PREDICATE  predicate{ BRANCHING_PREDICATE::BP_EQUAL };
+        atomic_predicate  predicate{ atomic_predicate::EQUAL };
     };
 
     struct  local_space_of_branching
@@ -79,7 +79,7 @@ struct  local_search_analysis
         vecf64  shift_in_world_space{};
         vecf64  sample{};
         vector_overlay  sample_overlay{};
-        stdin_bits_and_types_pointer  bits_and_types_ptr{ nullptr };
+        typed_input_ptr  current_input_ptr{ nullptr };
         vecf64  values{};
     };
 
@@ -111,9 +111,9 @@ struct  local_search_analysis
     {
         struct cached_value
         {
-            cached_value() : bits_and_types_ptr{ nullptr }, values{} {}
-            cached_value(stdin_bits_and_types_pointer const p, vecf64 const& v) : bits_and_types_ptr{ p }, values{ v } {}
-            stdin_bits_and_types_pointer  bits_and_types_ptr;
+            cached_value() : current_input_ptr{ nullptr }, values{} {}
+            cached_value(typed_input_ptr const p, vecf64 const& v) : current_input_ptr{ p }, values{ v } {}
+            typed_input_ptr  current_input_ptr;
             vecf64  values;
         };
         using map_type = std::unordered_map<vector_overlay, cached_value, vector_overlay_hash, vector_overlay_equal>;
@@ -159,8 +159,8 @@ struct  local_search_analysis
 
     natural_32_bit  max_num_executions() const { return max_executions; }
 
-    bool  generate_next_input(vecb&  bits_ref);
-    void  process_execution_results(execution_trace_pointer  trace_ptr, stdin_bits_and_types_pointer  bits_and_types_ptr);
+    bool  generate_next_input(vecb&  bits_ref, input_types_ptr&  types_ref, input_metadata_ptr&  metadata_ref);
+    void  process_execution_results(execution_trace_ptr  trace_ptr, typed_input_ptr  current_input_ptr);
 
     branching_node*  get_node() const { return node; }
     bool  get_stopped_early() const { return stopped_early; }
@@ -230,13 +230,13 @@ private:
             std::size_t  space_index
             );
     bool  is_improving_value(float_64_bit  value) const;
-    void  commit_execution_results(stdin_bits_and_types_pointer  bits_and_types_ptr, vecf64 const&  values);
+    void  commit_execution_results(typed_input_ptr  current_input_ptr, vecf64 const&  values);
     void  bits_to_point(vecb const&  bits, vecf64&  point);
     vector_overlay  point_to_bits(vecf64 const&  point, vecb&  bits);
 
     STATE  state;
     branching_node*  node;
-    stdin_bits_and_types_pointer  bits_and_types;
+    typed_input_ptr  current_input;
     natural_32_bit  execution_id;
     std::vector<full_path_record>  full_path;
     std::vector<branching_info>  path;

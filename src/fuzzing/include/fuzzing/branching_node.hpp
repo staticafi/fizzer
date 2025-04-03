@@ -1,8 +1,8 @@
 #ifndef FUZZING_BRANCHING_NODE_HPP_INCLUDED
 #   define FUZZING_BRANCHING_NODE_HPP_INCLUDED
 
-#   include <fuzzing/execution_trace.hpp>
-#   include <fuzzing/stdin_bits.hpp>
+#   include <fuzzing/basic_types.hpp>
+#   include <fuzzing/typed_input.hpp>
 #   include <array>
 #   include <vector>
 #   include <unordered_set>
@@ -33,10 +33,10 @@ struct  branching_node final
             trace_index_type  trace_index_,
             natural_32_bit  num_stdin_bytes_,
             bool  xor_like_branching_function_,
-            BRANCHING_PREDICATE  branching_predicate_,
+            atomic_predicate  predicate_,
             branching_node*  predecessor_,
-            stdin_bits_and_types_pointer  best_stdin_,
-            execution_trace_pointer  best_trace_,
+            typed_input_ptr  best_stdin_,
+            execution_trace_ptr  best_trace_,
             natural_32_bit  execution_number
             );
 
@@ -45,7 +45,7 @@ struct  branching_node final
     natural_32_bit  get_num_stdin_bytes() const { return num_stdin_bytes; }
     natural_32_bit  get_num_stdin_bits() const { return 8U * num_stdin_bytes; }
     bool  get_xor_like_branching_function() const { return xor_like_branching_function; }
-    BRANCHING_PREDICATE  get_branching_predicate() const { return branching_predicate; }
+    atomic_predicate  get_atomic_predicate() const { return predicate; }
 
     branching_node*  get_predecessor() const { return predecessor; }
     successor_pointer const&  successor(bool const  direction) const { return direction == false ? successors.front() : successors.back(); }
@@ -59,13 +59,13 @@ struct  branching_node final
 
     bool  is_direction_unexplored(bool const  direction) const { return successor(direction).label == successor_pointer::NOT_VISITED; }
 
-    stdin_bits_and_types_pointer  get_best_stdin() const { return best_stdin; }
-    execution_trace_pointer  get_best_trace() const { return best_trace; }
-    branching_function_value_type  get_best_value() const { return best_trace->at(trace_index).value; }
+    typed_input_ptr  get_best_stdin() const { return best_stdin; }
+    execution_trace_ptr  get_best_trace() const { return best_trace; }
+    branching_value  get_best_value() const { return best_trace->at(trace_index).value; }
 
     void  update_best_data(
-            stdin_bits_and_types_pointer  stdin_,
-            execution_trace_pointer  trace_,
+            typed_input_ptr  stdin_,
+            execution_trace_ptr  trace_,
             natural_32_bit  execution_id_
             );
     void  release_best_data(bool  also_sensitive_bits = false);
@@ -89,8 +89,8 @@ struct  branching_node final
     void  set_bitshare_performed(natural_32_bit  execution_id);
     void  set_local_search_performed(natural_32_bit  execution_id);
 
-    std::unordered_set<stdin_bit_index> const&  get_sensitive_stdin_bits() const { return sensitive_stdin_bits; }
-    bool  insert_sensitive_stdin_bit(stdin_bit_index const  idx) { return sensitive_stdin_bits.insert(idx).second; }
+    std::unordered_set<natural_32_bit> const&  get_sensitive_stdin_bits() const { return sensitive_stdin_bits; }
+    bool  insert_sensitive_stdin_bit(natural_32_bit const  idx) { return sensitive_stdin_bits.insert(idx).second; }
 
     trace_index_type  get_max_successors_trace_index() const { return max_successors_trace_index; }
     void  set_max_successors_trace_index(trace_index_type const  idx) { max_successors_trace_index = idx; }
@@ -106,15 +106,15 @@ private:
     trace_index_type  trace_index;
     natural_32_bit  num_stdin_bytes;
     bool  xor_like_branching_function;
-    BRANCHING_PREDICATE  branching_predicate;
+    atomic_predicate  predicate;
 
     branching_node*  predecessor;
     std::array<successor_pointer, 2>  successors;
 
-    stdin_bits_and_types_pointer  best_stdin;
-    execution_trace_pointer  best_trace;
+    typed_input_ptr  best_stdin;
+    execution_trace_ptr  best_trace;
 
-    std::unordered_set<stdin_bit_index>  sensitive_stdin_bits;
+    std::unordered_set<natural_32_bit>  sensitive_stdin_bits;
 
     bool  sensitivity_performed;
     bool  bitshare_performed;

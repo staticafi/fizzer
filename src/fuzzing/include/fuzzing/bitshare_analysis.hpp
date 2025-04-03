@@ -1,7 +1,7 @@
 #ifndef FUZZING_BITSHARE_ANALYSIS_HPP_INCLUDED
 #   define FUZZING_BITSHARE_ANALYSIS_HPP_INCLUDED
 
-#   include <fuzzing/execution_trace.hpp>
+#   include <fuzzing/basic_types.hpp>
 #   include <fuzzing/branching_node.hpp>
 #   include <unordered_map>
 #   include <array>
@@ -17,6 +17,13 @@ struct  bitshare_analysis
     {
         READY,
         BUSY
+    };
+
+    struct cache_item
+    {
+        vecb  bits;
+        input_types_ptr  types;
+        input_metadata_ptr  metadata;
     };
 
     struct  performance_statistics
@@ -43,10 +50,10 @@ struct  bitshare_analysis
     void  start(branching_node*  node_ptr, natural_32_bit  execution_id_);
     void  stop();
 
-    bool  generate_next_input(vecb&  bits_ref);
-    void  process_execution_results(execution_trace_pointer  trace_ptr);
+    bool  generate_next_input(vecb&  bits_ref, input_types_ptr&  types_ref, input_metadata_ptr&  metadata_ref);
+    void  process_execution_results(execution_trace_ptr  trace_ptr);
 
-    void  bits_available_for_branching(branching_node*  node_ptr, execution_trace_pointer  trace, stdin_bits_and_types_pointer  bits_and_types);
+    void  bits_available_for_branching(branching_node*  node_ptr, execution_trace_ptr  trace, typed_input_ptr  current_input);
 
     performance_statistics const&  get_statistics() const { return statistics; }
 
@@ -55,9 +62,9 @@ private:
     static constexpr std::size_t  max_deque_size = 10;
 
     STATE  state;
-    std::unordered_map<location_id, std::array<std::deque<vecb>, 2> >  cache;
+    std::unordered_map<location_id, std::array<std::deque<cache_item>, 2> >  cache;
     branching_node*  processed_node;
-    std::deque<vecb>*  samples_ptr;
+    std::deque<cache_item>*  samples_ptr;
     std::size_t  sample_index;
     natural_32_bit  execution_id;
     performance_statistics  statistics;

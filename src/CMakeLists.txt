@@ -5,15 +5,17 @@ message("Build also tools: " ${FIZZ_BUILD_ALSO_TOOLS})
 
 include_directories(
     "${PROJECT_SOURCE_DIR}/src/utility/include"
-    "${PROJECT_SOURCE_DIR}/src/instrumentation/include"
+    "${PROJECT_SOURCE_DIR}/src/com/include"
     "${PROJECT_SOURCE_DIR}/src/iomodels/include"
     "${PROJECT_SOURCE_DIR}/src/connection/include"
+    "${PROJECT_SOURCE_DIR}/src/target/include"
     "${PROJECT_SOURCE_DIR}/src/benchmarks/include"
-    "${PROJECT_SOURCE_DIR}/src/client/include"
     )
 message("Including the following libraries to the build:")
-add_subdirectory(./instrumentation)
-    message("  instrumentation")
+add_subdirectory(./com)
+    message("  com")
+add_subdirectory(./target)
+    message("  target")
 add_subdirectory(./iomodels)
     message("  iomodels")
 add_subdirectory(./connection)

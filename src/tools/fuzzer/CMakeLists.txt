@@ -1,26 +1,20 @@
 set(THIS_TARGET_NAME fuzzer)
 
+file(GLOB "${THIS_TARGET_NAME}_HPP" "./*.hpp")
+file(GLOB "${THIS_TARGET_NAME}_CPP" "./*.cpp")
+
 add_executable(${THIS_TARGET_NAME}
-    program_info.hpp
-    program_info.cpp
-
-    program_options.hpp
-    program_options.cpp
-
-    main.cpp
-    run.cpp
+    "${${THIS_TARGET_NAME}_HPP}"
+    "${${THIS_TARGET_NAME}_CPP}"
     )
 
 target_link_libraries(${THIS_TARGET_NAME}
-    instrumentation
-    connection
-    iomodels
     fuzzing
-    instrumentation # Duplicating because of Mingw (otherwise linking errors)
-    connection  # Duplicating because of Mingw (otherwise linking errors)
-    fuzzing     # Duplicating because of Mingw (otherwise linking errors)
+    com
     utility
     sala
+    connection
+    iomodels
     Threads::Threads
     ${BOOST_LIST_OF_LIBRARIES_TO_LINK_WITH}
     )

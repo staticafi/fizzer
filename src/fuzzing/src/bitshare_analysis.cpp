@@ -74,7 +74,7 @@ void  bitshare_analysis::stop()
 }
 
 
-bool  bitshare_analysis::generate_next_input(vecb&  bits_ref)
+bool  bitshare_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  types_ref, input_metadata_ptr&  metadata_ref)
 {
     TMPROF_BLOCK();
 
@@ -88,13 +88,17 @@ bool  bitshare_analysis::generate_next_input(vecb&  bits_ref)
         return false;
     }
 
-    vecb const&  sample_bits = samples_ptr->at(sample_index);
-    std::vector<stdin_bit_index>  bit_indices{ processed_node->get_sensitive_stdin_bits().begin(), processed_node->get_sensitive_stdin_bits().end() };
+    cache_item const&  item{ samples_ptr->at(sample_index) };
+    vecb const&  sample_bits = item.bits;
+    std::vector<natural_32_bit>  bit_indices{ processed_node->get_sensitive_stdin_bits().begin(), processed_node->get_sensitive_stdin_bits().end() };
     std::sort(bit_indices.begin(), bit_indices.end());
 
-    bits_ref = processed_node->get_best_stdin()->bits;
+    bits_ref = processed_node->get_best_stdin()->bits();
     for (std::size_t  i = 0; i < sample_bits.size() && i < bit_indices.size(); ++i)
         bits_ref.at(bit_indices.at(i)) = sample_bits.at(i);
+
+    types_ref = item.types;
+    metadata_ref = item.metadata;
 
     ++sample_index;
 
@@ -104,7 +108,7 @@ bool  bitshare_analysis::generate_next_input(vecb&  bits_ref)
 }
 
 
-void  bitshare_analysis::process_execution_results(execution_trace_pointer const  trace_ptr)
+void  bitshare_analysis::process_execution_results(execution_trace_ptr const  trace_ptr)
 {
     ASSUMPTION(is_busy());
     ASSUMPTION(trace_ptr != nullptr);
@@ -118,23 +122,23 @@ void  bitshare_analysis::process_execution_results(execution_trace_pointer const
 
 void  bitshare_analysis::bits_available_for_branching(
         branching_node* const  node_ptr,
-        execution_trace_pointer const  trace,
-        stdin_bits_and_types_pointer const  bits_and_types
+        execution_trace_ptr const  trace,
+        typed_input_ptr const  current_input
         )
 {
     TMPROF_BLOCK();
 
     ASSUMPTION(node_ptr != nullptr && node_ptr->was_sensitivity_performed() && !node_ptr->get_sensitive_stdin_bits().empty());
     ASSUMPTION(trace != nullptr && trace->size() > node_ptr->get_trace_index() && trace->at(node_ptr->get_trace_index()).id == node_ptr->get_location_id());
-    ASSUMPTION(bits_and_types != nullptr && !bits_and_types->bits.empty());
+    ASSUMPTION(current_input != nullptr && !current_input->bits().empty());
 
-    std::vector<stdin_bit_index>  bit_indices{ node_ptr->get_sensitive_stdin_bits().begin(), node_ptr->get_sensitive_stdin_bits().end() };
+    std::vector<natural_32_bit>  bit_indices{ node_ptr->get_sensitive_stdin_bits().begin(), node_ptr->get_sensitive_stdin_bits().end() };
     std::sort(bit_indices.begin(), bit_indices.end());
 
-    std::deque<vecb>&  samples = cache[node_ptr->get_location_id()][trace->at(node_ptr->get_trace_index()).direction ? 1 : 0];
-    samples.push_back({});
-    for (stdin_bit_index  idx : bit_indices)
-        samples.back().push_back(bits_and_types->bits.at(idx));
+    std::deque<cache_item>&  samples = cache[node_ptr->get_location_id()][trace->at(node_ptr->get_trace_index()).direction ? 1 : 0];
+    samples.push_back({ {}, current_input->types(), current_input->meta() });
+    for (natural_32_bit  idx : bit_indices)
+        samples.back().bits.push_back(current_input->bits().at(idx));
 
     statistics.num_locations = std::max(statistics.num_locations, cache.size());
     ++statistics.num_insertions;

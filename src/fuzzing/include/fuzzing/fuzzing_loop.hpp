@@ -2,21 +2,20 @@
 #   define FUZZING_FUZZING_LOOP_HPP_INCLUDED
 
 #   include <fuzzing/termination_info.hpp>
-#   include <fuzzing/analysis_outcomes.hpp>
-#   include <fuzzing/execution_record.hpp>
-#   include <fuzzing/execution_record_writer.hpp>
-#   include <connection/benchmark_executor.hpp>
+#   include <fuzzing/fuzzing_outcomes.hpp>
+#   include <fuzzing/test_suite_item_writer.hpp>
+#   include <fuzzing/target_executor.hpp>
 #   include <sala/program.hpp>
 #   include <functional>
 
 namespace  fuzzing {
 
 
-analysis_outcomes  run(
-        connection::benchmark_executor_via_shared_memory&  benchmark_executor,
-        sala::Program const* sala_program_ptr,
-        execution_record_writer&  save_execution_record,
-        std::function<void(execution_record const&)> const&  collector_of_boundary_violations,
+fuzzing_outcomes  run(
+        target_executor&  executor,
+        sala::Program const*  sala_program_ptr,
+        test_suite_item_writer&  save_test,
+        std::function<void(test_suite_item_ptr)> const&  collector_of_boundary_violations,
         fuzzing::termination_info const&  info,
         bool  render
         );

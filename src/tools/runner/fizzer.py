@@ -86,13 +86,15 @@ def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, si
 
     if silent_mode is False: print("    \"Compiling[LLVM->sala]\": ", end='', flush=True)
     t0 = time.time()
+    with open(os.path.join(output_dir, benchmark_name(input_file) + "_mut.txt"), "r") as f:
+        mut_name = f.read()
     if _execute(
             [ os.path.join(self_dir, "tools", "salac", "salac.py") ] +
                 (["--jsonc"] if generate_jsonc is True else []) + [
                 "--input", instrumented_ll_file,
                 "--output", output_dir,
                 "--rename", os.path.splitext(benchmark_sala_name(input_file))[0],
-                "--entry", "__fizzer_method_under_test" ],
+                "--entry", mut_name ],
             None).returncode:
         if silent_mode is False: print("},", flush=True)
         return 
@@ -128,15 +130,15 @@ def adjust_timeouts(options, start_time, silent_mode):
     if silent_mode is False: print("    \"time_already_taken\": %.2f," % time_taken, flush=True)
 
     fuzz_value, fuzz_idx = find_option_value_and_index("--max_seconds")
-    opt_value, opt_idx = find_option_value_and_index("--optimizer_max_seconds")
+    opt_value, opt_idx = find_option_value_and_index("--opt_max_seconds")
 
     if fuzz_value is not None and opt_value is not None:
         reduce_option_value("--max_seconds", fuzz_value, fuzz_idx, fuzz_value + opt_value, ",")
-        reduce_option_value("--optimizer_max_seconds", opt_value, opt_idx, fuzz_value + opt_value)
+        reduce_option_value("--opt_max_seconds", opt_value, opt_idx, fuzz_value + opt_value)
     elif fuzz_value is not None:
         reduce_option_value("--max_seconds", fuzz_value, fuzz_idx, fuzz_value)
     elif opt_value is not None:
-        reduce_option_value("--optimizer_max_seconds", opt_value, opt_idx, opt_value)
+        reduce_option_value("--opt_max_seconds", opt_value, opt_idx, opt_value)
 
     if silent_mode is False: print("},", flush=True)
 

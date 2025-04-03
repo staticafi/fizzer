@@ -1,6 +1,10 @@
 #include <fuzzing/input_flow_analysis.hpp>
 #include <fuzzing/progress_recorder.hpp>
-#include <iomodels/iomanager.hpp>
+#include <fuzzing/target_executor.hpp>
+#include <connection/medium.hpp>
+#include <iomodels/loader.hpp>
+#include <iomodels/cmdline.hpp>
+#include <iomodels/simple.hpp>
 #include <sala/interpreter.hpp>
 #include <sala/sanitizer.hpp>
 #include <sala/input_flow.hpp>
@@ -16,61 +20,27 @@
 namespace  fuzzing {
 
 
-struct terminator_medium : public connection::medium
-{
-    terminator_medium(sala::ExecState* state) : connection::medium{}, state_{ state } {}
-    void set_termination(instrumentation::target_termination  termination) override;
-private:
-    sala::ExecState* state_;
-};
-
-
-void terminator_medium::set_termination(instrumentation::target_termination  termination)
-{
-    std::string  message;
-    switch (termination)
-    {
-        case instrumentation::target_termination::normal:
-            message = state_->make_error_message("normal");
-            break;
-        case instrumentation::target_termination::crash:
-            message = state_->make_error_message("crash");
-            break;
-        case instrumentation::target_termination::timeout:
-            message = state_->make_error_message("timeout");
-            break;
-        case instrumentation::target_termination::boundary_condition_violation:
-            message = state_->make_error_message("boundary_condition_violation");
-            break;
-        case instrumentation::target_termination::medium_overflow:
-            message = state_->make_error_message("medium_overflow");
-            break;
-        default: UNREACHABLE(); break;
-    }
-    state_->set_stage(sala::ExecState::Stage::FINISHED);
-    state_->set_termination(
-        sala::ExecState::Termination::ERROR,
-        "input_flow_analysis[terminator_medium]",
-        message
-        );
-}
-
-
 struct extern_code : public sala::ExternCodeCStd
 {
-    extern_code(sala::ExecState*  state, sala::Sanitizer* const sanitizer, input_flow_analysis::io_models_setup const* io_setup_ptr_);
-    input_flow_analysis::io_models_setup const&  io_setup() const { return *io_setup_ptr; }
+    extern_code(
+        sala::ExecState*  state,
+        sala::Sanitizer*  sanitizer,
+        iomodels::simple*  io_simple
+        );
+    iomodels::simple&  io_simple() { return *io_simple_; }
 private:
     void read(std::size_t count);
-    terminator_medium  medium_;
-    input_flow_analysis::io_models_setup const* io_setup_ptr;
+    iomodels::simple*  io_simple_;
 };
 
 
-extern_code::extern_code(sala::ExecState* const  state, sala::Sanitizer* const sanitizer, input_flow_analysis::io_models_setup const* const io_setup_ptr_)
+extern_code::extern_code(
+        sala::ExecState* const  state,
+        sala::Sanitizer* const  sanitizer,
+        iomodels::simple* const  io_simple
+        )
     : sala::ExternCodeCStd{ state, sanitizer }
-    , medium_{ state }
-    , io_setup_ptr{ io_setup_ptr_ }
+    , io_simple_{ io_simple }
 {
     register_code("__VERIFIER_nondet_bool", [this]() { this->read(sizeof(bool)); });
     register_code("__VERIFIER_nondet_char", [this]() { this->read(sizeof(std::int8_t)); });
@@ -90,23 +60,23 @@ extern_code::extern_code(sala::ExecState* const  state, sala::Sanitizer* const s
 
 void extern_code::read(std::size_t const count)
 {
-    type_of_input_bits  type;
+    data_type  type;
     switch (count)
     {
-        case 1ULL: type = type_of_input_bits::UNTYPED8; break;
-        case 2ULL: type = type_of_input_bits::UNTYPED16; break;
-        case 4ULL: type = type_of_input_bits::UNTYPED32; break;
-        case 8ULL: type = type_of_input_bits::UNTYPED64; break;
+        case 1ULL: type = data_type::UNTYPED8; break;
+        case 2ULL: type = data_type::UNTYPED16; break;
+        case 4ULL: type = data_type::UNTYPED32; break;
+        case 8ULL: type = data_type::UNTYPED64; break;
         default: UNREACHABLE(); break;
     }
     sala::MemPtr const ptr{ parameters().front().read<sala::MemPtr>() };
-    if (!io_setup().stdin_ptr->read_bytes(ptr, type, medium_))
+    if (io_simple().on_bytes_requested(ptr, type) != target_termination::NORMAL)
     {
         state().set_stage(sala::ExecState::Stage::FINISHED);
         state().set_termination(
             sala::ExecState::Termination::ERROR,
             "input_flow_analysis[extern_code]",
-            state().current_location_message() + ": Call to 'io_setup().stdin_ptr->read_bytes()' has failed."
+            state().current_location_message() + ": Call to 'io_manager().get_simple().on_bytes_requested()' has failed."
             );
     }
 }
@@ -114,25 +84,26 @@ void extern_code::read(std::size_t const count)
 
 struct input_flow_analysis::input_flow : public sala::InputFlow
 {
-    input_flow(input_flow_analysis*  analysis, sala::ExecState*  state);
-    computation_io_data&  data() { return analysis_->data(); }
-    io_models_setup const&  io_setup() const { return analysis_->io_setup(); }
+    input_flow(computation_io_data*  data, sala::ExecState*  state);
+    computation_io_data&  data() { return *data_; }
 
 private:
     void start_input_flow(std::size_t const count);
     void do_ret() override;
 
-    input_flow_analysis*  analysis_;
+    computation_io_data*  data_;
+    sala::InputFlow::InputDescriptor  fresh_descriptor_;
     bool  some_input_was_read_;
 };
 
 
 input_flow_analysis::input_flow::input_flow(
-        input_flow_analysis* const  analysis,
+        computation_io_data* const  data,
         sala::ExecState* const  state
         )
     : sala::InputFlow{ state }
-    , analysis_{ analysis }
+    , data_{ data }
+    , fresh_descriptor_{ 0U }
     , some_input_was_read_{ false }
 {
     REGISTER_EXTERN_FUNCTION_PROCESSOR(__VERIFIER_nondet_bool, this->start_input_flow(sizeof(bool)) );
@@ -153,10 +124,9 @@ input_flow_analysis::input_flow::input_flow(
 
 void input_flow_analysis::input_flow::start_input_flow(std::size_t const count)
 {
-    std::size_t desc{ io_setup().stdin_ptr->num_bytes_read() - count };
     sala::MemPtr ptr{ parameters().front().read<sala::MemPtr>() };
-    for (std::size_t i = 0ULL; i != count; ++i, ++desc)
-        start(ptr + i, (sala::InputFlow::InputDescriptor)desc);
+    for (std::size_t i = 0ULL; i != count; ++i, ++fresh_descriptor_)
+        start(ptr + i, fresh_descriptor_);
     some_input_was_read_ = true;
 }
 
@@ -168,12 +138,12 @@ void input_flow_analysis::input_flow::do_ret()
         INVARIANT(data().sensitive_bits.size() < data().trace_size);
 
         trace_index_type const  path_index{ (trace_index_type)data().sensitive_bits.size() };
-        branching_coverage_info const&  branching{ data().trace_ptr->at(path_index) };
+        trace_item const&  branching{ data().trace_ptr->at(path_index) };
 
-        if (branching.id != parameters().front().read<instrumentation::location_id>())
+        if (branching.id != parameters().front().read<location_id>())
         {
             auto const expected{ branching.id };
-            auto const obtained{ parameters().front().read<instrumentation::location_id>() };
+            auto const obtained{ parameters().front().read<location_id>() };
             state().set_stage(sala::ExecState::Stage::FINISHED);
             state().set_termination(
                 sala::ExecState::Termination::ERROR,
@@ -205,9 +175,9 @@ void input_flow_analysis::input_flow::do_ret()
         }
 
         data().sensitive_bits.push_back({});
-        std::unordered_set<stdin_bit_index>&  sensitive_bits{ data().sensitive_bits.back() };
+        std::unordered_set<natural_32_bit>&  sensitive_bits{ data().sensitive_bits.back() };
         sala::MemPtr ptr{ parameters().at(2).start() };
-        for (std::size_t i = 0ULL; i != sizeof(branching_function_value_type); ++i)
+        for (std::size_t i = 0ULL; i != sizeof(branching_value); ++i)
             for (auto const& desc : read(ptr + i)->descriptors())
                 for (std::size_t j = 0ULL; j != 8ULL; ++j)
                     sensitive_bits.insert(8ULL * desc + j);
@@ -228,9 +198,12 @@ void input_flow_analysis::input_flow::do_ret()
 }
 
 
-input_flow_analysis::input_flow_analysis(sala::Program const* const sala_program_ptr, io_models_setup const* const io_setup_ptr_)
+input_flow_analysis::input_flow_analysis(sala::Program const* const sala_program_ptr, target_executor const* const  tgt_exec)
     : program_ptr{ sala_program_ptr }
-    , io_setup_ptr{ io_setup_ptr_ }
+    , m_max_trace_length{ tgt_exec->max_trace_length() }
+    , m_max_exec_megabytes{ tgt_exec->max_exec_megabytes() }
+    , m_io_cmdline{ tgt_exec->io_cmdline().clone() }
+    , m_io_simple{ tgt_exec->io_simple().clone() }
     , data_ptr{ nullptr }
     , statistics{}
 {}
@@ -250,18 +223,17 @@ void  input_flow_analysis::run(computation_io_data* const  data_ptr_, std::funct
     if (program_ptr == nullptr)
         return;
 
-    vecu8 stdin_bytes;
-    bits_to_bytes(data().input_ptr->bits, stdin_bytes);
-    io_setup().stdin_ptr->clear();
-    io_setup().stdout_ptr->clear();
-    io_setup().stdin_ptr->set_bytes(stdin_bytes);
+    iomodels::load_models(*data_ptr->input_ptr->bytes(), *data_ptr->input_ptr->types(), *data_ptr->input_ptr->meta(), {
+        m_io_cmdline.get(),
+        m_io_simple.get()
+        });
 
     std::chrono::system_clock::time_point const  start_time = std::chrono::system_clock::now();
 
-    sala::ExecState  state{ program_ptr, io_setup().io_config.max_exec_megabytes * 1024ULL * 1024ULL };
+    sala::ExecState  state{ program_ptr, m_max_exec_megabytes * 1024ULL * 1024ULL };
     sala::Sanitizer  sanitizer{ &state };
-    input_flow  flow{ this, &state };
-    extern_code  externals{ &state, &sanitizer, &io_setup() };
+    input_flow  flow{ data_ptr, &state };
+    extern_code  externals{ &state, &sanitizer, m_io_simple.get() };
     sala::Interpreter  interpreter{ &state, &externals, { &sanitizer, &flow } };
 
     interpreter.run(terminator);
@@ -271,7 +243,7 @@ void  input_flow_analysis::run(computation_io_data* const  data_ptr_, std::funct
     if (!data().sensitive_bits.empty())
     {
         std::size_t const  last_index{ data().sensitive_bits.size() - 1ULL };
-        branching_coverage_info const&  last_branching{ data().trace_ptr->at(last_index) };
+        trace_item const&  last_branching{ data().trace_ptr->at(last_index) };
         std::pair<natural_32_bit,trace_index_type> const key{ last_index, last_branching.num_input_bytes };
         float_64_bit const  value = std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - start_time).count();
         //statistics.complexity[key].insert(value);

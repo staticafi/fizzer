@@ -1,7 +1,7 @@
 #ifndef FUZZING_BITFLIP_ANALYSIS_HPP_INCLUDED
 #   define FUZZING_BITFLIP_ANALYSIS_HPP_INCLUDED
 
-#   include <fuzzing/execution_trace.hpp>
+#   include <fuzzing/basic_types.hpp>
 #   include <fuzzing/branching_node.hpp>
 #   include <utility/random.hpp>
 #   include <unordered_set>
@@ -34,7 +34,7 @@ struct  bitflip_analysis
     void  start(std::unordered_set<branching_node*> const&  leaf_branchings);
     void  stop();
 
-    bool  generate_next_input(vecb&  bits_ref);
+    bool  generate_next_input(vecb&  bits_ref, input_types_ptr&  types_ref, input_metadata_ptr&  metadata_ref);
 
     performance_statistics const&  get_statistics() const { return statistics; }
 
@@ -49,13 +49,13 @@ private:
 
     STATE  state;
     branching_node*  node_ptr;
-    stdin_bits_and_types_pointer  bits_and_types;
-    stdin_bit_index  mutated_bit_index;
+    typed_input_ptr  current_input;
+    natural_32_bit  mutated_bit_index;
     natural_32_bit  mutated_type_index;
     natural_32_bit  mutated_value_index;
-    stdin_bit_index  probed_bit_start_index;
-    stdin_bit_index  probed_bit_end_index;
-    std::unordered_set<stdin_bits_and_types const*>  processed_inputs;
+    natural_32_bit  probed_bit_start_index;
+    natural_32_bit  probed_bit_end_index;
+    std::unordered_set<typed_input const*>  processed_inputs;
     random_generator_for_natural_32_bit  rnd_generator;
 
     performance_statistics  statistics;

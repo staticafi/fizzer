@@ -1,5 +1,4 @@
 #include <fuzzing/dump.hpp>
-#include <iomodels/iomanager.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <utility/math.hpp>
@@ -15,7 +14,7 @@ namespace  fuzzing {
 void  print_fuzzing_configuration(
         std::ostream&  ostr,
         std::string const&  benchmark,
-        iomodels::configuration const&  ioconfig,
+        target_executor const&  executor,
         termination_info const&  terminator
         )
 {
@@ -24,13 +23,12 @@ void  print_fuzzing_configuration(
          << shift << "\"benchmark\": \"" << benchmark << "\",\n"
          << shift << "\"max_executions\": " << terminator.max_executions << ",\n"
          << shift << "\"max_seconds\": " << terminator.max_seconds << ",\n"
-         << shift << "\"max_trace_length\": " << ioconfig.max_trace_length << ",\n"
-         << shift << "\"max_stack_size\": " << ioconfig.max_stack_size << ",\n"
-         << shift << "\"max_stdin_bytes\": " << ioconfig.max_stdin_bytes << ",\n"
-         << shift << "\"max_exec_milliseconds\": " << ioconfig.max_exec_milliseconds << ",\n"
-         << shift << "\"max_exec_megabytes\": " << ioconfig.max_exec_megabytes << ",\n"
-         << shift << "\"stdin_model\": \"" << ioconfig.stdin_model_name << "\",\n"
-         << shift << "\"stdout_model\": \"" << ioconfig.stdout_model_name << "\"\n"
+         << shift << "\"max_exec_milliseconds\": " << executor.executor().get_max_exec_milliseconds() << ",\n"
+         << shift << "\"max_exec_megabytes\": " << executor.max_exec_megabytes() << ",\n"
+         << shift << "\"max_trace_length\": " << executor.max_trace_length() << ",\n"
+         << shift << "\"max_num_options\": " << executor.io_cmdline().max_num_options() << ",\n"
+         << shift << "\"max_option_size\": " << executor.io_cmdline().max_option_size() << ",\n"
+         << shift << "\"max_bytes\": " << executor.io_simple().max_bytes() << ",\n"
          << "}"
          ;
 }
@@ -38,12 +36,12 @@ void  print_fuzzing_configuration(
 
 void  log_fuzzing_configuration(
         std::string const&  benchmark,
-        iomodels::configuration const&  ioconfig,
+        target_executor const&  executor,
         termination_info const&  terminator
         )
 {
     std::stringstream sstr;
-    print_fuzzing_configuration(sstr, benchmark, ioconfig, terminator);
+    print_fuzzing_configuration(sstr, benchmark, executor, terminator);
     LOG(LSL_INFO, sstr.str());
 }
 
@@ -51,17 +49,17 @@ void  log_fuzzing_configuration(
 void  save_fuzzing_configuration(
         std::filesystem::path const&  output_dir,
         std::string const&  benchmark,
-        iomodels::configuration const&  ioconfig,
+        target_executor const&  executor,
         termination_info const&  terminator
         )
 {
     std::filesystem::path const  test_file_path = output_dir / (benchmark + "_config.json");
     std::ofstream  ostr(test_file_path.c_str(), std::ios::binary);
-    print_fuzzing_configuration(ostr, benchmark, ioconfig, terminator);
+    print_fuzzing_configuration(ostr, benchmark, executor, terminator);
 }
 
 
-void  print_analysis_outcomes(std::ostream&  ostr, analysis_outcomes const&  results)
+void  print_fuzzing_outcomes(std::ostream&  ostr, fuzzing_outcomes const&  results)
 {
     std::string const  shift = "    ";
 
@@ -70,20 +68,20 @@ void  print_analysis_outcomes(std::ostream&  ostr, analysis_outcomes const&  res
     ostr << shift << "\"termination_type\": \"";
     switch (results.termination_type)
     {
-    case analysis_outcomes::TERMINATION_TYPE::NORMAL:
+    case fuzzing_outcomes::TERMINATION_TYPE::NORMAL:
         ostr << "NORMAL";
         break;
-    case analysis_outcomes::TERMINATION_TYPE::SERVER_INTERNAL_ERROR:
+    case fuzzing_outcomes::TERMINATION_TYPE::SERVER_INTERNAL_ERROR:
         ostr << "SERVER_INTERNAL_ERROR";
         break;
-    case analysis_outcomes::TERMINATION_TYPE::UNCLASSIFIED_ERROR:
+    case fuzzing_outcomes::TERMINATION_TYPE::UNCLASSIFIED_ERROR:
         ostr << "UNCLASSIFIED_ERROR";
         break;
     default: { UNREACHABLE(); break; }
     }
     ostr << "\",\n";
 
-    if (results.termination_type == analysis_outcomes::TERMINATION_TYPE::NORMAL)
+    if (results.termination_type == fuzzing_outcomes::TERMINATION_TYPE::NORMAL)
     {
         ostr << shift << "\"termination_reason\": \"";
         switch (results.termination_reason)
@@ -208,9 +206,9 @@ void  print_analysis_outcomes(std::ostream&  ostr, analysis_outcomes const&  res
          << shift << shift << "\"max_leaf_nodes\": " << results.fuzzer_statistics.max_leaf_nodes << ",\n"
          << shift << shift << "\"max_input_width\": " << results.fuzzer_statistics.max_input_width << ",\n"
          << shift << shift << "\"longest_branch\": " << results.fuzzer_statistics.longest_branch << ",\n"
-         << shift << shift << "\"traces_to_crash\": " << results.fuzzer_statistics.traces_to_crash << ",\n"
-         << shift << shift << "\"traces_to_boundary_violation\": " << results.fuzzer_statistics.traces_to_boundary_violation << ",\n"
-         << shift << shift << "\"traces_to_medium_overflow\": " << results.fuzzer_statistics.traces_to_medium_overflow << ",\n"
+         << shift << shift << "\"crashes\": " << results.fuzzer_statistics.crashes << ",\n"
+         << shift << shift << "\"boundary_violations\": " << results.fuzzer_statistics.boundary_violations << ",\n"
+         << shift << shift << "\"medium_overflows\": " << results.fuzzer_statistics.medium_overflows << ",\n"
          << shift << shift << "\"strategy_loop_head_sensitive\": " << results.fuzzer_statistics.strategy_loop_head_sensitive << ",\n"
          << shift << shift << "\"strategy_loop_head_others\": " << results.fuzzer_statistics.strategy_loop_head_others << ",\n"
          << shift << shift << "\"strategy_sensitive\": " << results.fuzzer_statistics.strategy_sensitive << ",\n"
@@ -260,58 +258,70 @@ void  print_analysis_outcomes(std::ostream&  ostr, analysis_outcomes const&  res
 }
 
 
-void  log_analysis_outcomes(analysis_outcomes const&  results)
+void  log_fuzzing_outcomes(fuzzing_outcomes const&  results)
 {
     std::stringstream sstr;
-    print_analysis_outcomes(sstr, results);
+    print_fuzzing_outcomes(sstr, results);
     LOG(LSL_INFO, sstr.str());
 }
 
 
-void  save_analysis_outcomes(
+void  save_fuzzing_outcomes(
         std::filesystem::path const&  output_dir,
         std::string const&  benchmark,
-        analysis_outcomes const&  results
+        fuzzing_outcomes const&  results
         )
 {
     std::filesystem::path const  test_file_path = output_dir / (benchmark + "_outcomes.json");
     std::ofstream  ostr(test_file_path.c_str(), std::ios::binary);
-    print_analysis_outcomes(ostr, results);
+    print_fuzzing_outcomes(ostr, results);
 }
 
 
-void  print_optimization_configuration(std::ostream&  ostr, optimizer::configuration const&  config)
+void  print_optimization_configuration(
+    std::ostream&  ostr,
+    std::string const&  benchmark,
+    target_executor const&  executor,
+    natural_32_bit const  opt_max_num_seconds
+    )
 {
     std::string const  shift = "    ";
     ostr << "{\n"
-         << shift << "\"max_seconds\": " << config.max_seconds << ",\n"
-         << shift << "\"max_trace_length\": " << config.max_trace_length << ",\n"
-         << shift << "\"max_stack_size\": " << config.max_stack_size << ",\n"
-         << shift << "\"max_stdin_bytes\": " << config.max_stdin_bytes << ",\n"
-         << shift << "\"max_exec_milliseconds\": " << config.max_exec_milliseconds << ",\n"
-         << shift << "\"max_exec_megabytes\": " << config.max_exec_megabytes << "\n"
-         << "}"
-         ;
+        << shift << "\"benchmark\": \"" << benchmark << "\",\n"
+        << shift << "\"opt_max_seconds\": " << opt_max_num_seconds << ",\n"
+        << shift << "\"opt_max_exec_milliseconds\": " << executor.executor().get_max_exec_milliseconds() << ",\n"
+        << shift << "\"opt_max_exec_megabytes\": " << executor.max_exec_megabytes() << ",\n"
+        << shift << "\"opt_max_trace_length\": " << executor.max_trace_length() << ",\n"
+        << shift << "\"opt_max_num_options\": " << executor.io_cmdline().max_num_options() << ",\n"
+        << shift << "\"opt_max_option_size\": " << executor.io_cmdline().max_option_size() << ",\n"
+        << shift << "\"opt_max_bytes\": " << executor.io_simple().max_bytes() << ",\n"
+        << "}"
+        ;
 }
 
 
-void  log_optimization_configuration(optimizer::configuration const&  config)
+void  log_optimization_configuration(
+    std::string const&  benchmark,
+    target_executor const&  executor,
+    natural_32_bit const  opt_max_num_seconds
+    )
 {
     std::stringstream sstr;
-    print_optimization_configuration(sstr, config);
+    print_optimization_configuration(sstr, benchmark, executor, opt_max_num_seconds);
     LOG(LSL_INFO, sstr.str());
 }
 
 
 void  save_optimization_configuration(
-        std::filesystem::path const&  output_dir,
-        std::string const&  benchmark,
-        optimizer::configuration const&  config
-        )
+    std::filesystem::path const&  output_dir,
+    std::string const&  benchmark,
+    target_executor const&  executor,
+    natural_32_bit const  opt_max_num_seconds
+    )
 {
     std::filesystem::path const  test_file_path = output_dir / (benchmark + "_config_opt.json");
     std::ofstream  ostr(test_file_path.c_str(), std::ios::binary);
-    print_optimization_configuration(ostr, config);
+    print_optimization_configuration(ostr, benchmark, executor, opt_max_num_seconds);
 }
 
 

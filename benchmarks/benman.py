@@ -38,14 +38,14 @@ class Benchmark:
             "max_executions",
             "max_seconds",
             "max_trace_length",
-            "max_stdin_bytes",
+            "max_bytes",
             "max_exec_milliseconds",
             "max_exec_megabytes",
             "stdin_model",
             "stdout_model",
             "optimizer_max_seconds",
             "optimizer_max_trace_length",
-            "optimizer_max_stdin_bytes"
+            "optimizer_max_bytes"
             ]), "Benchmark's JSON file does not contain all required options for running the tool.")
 
         self.fuzz_target_file = os.path.join(self.work_dir, self.name + "_fizzer_target")
@@ -212,14 +212,14 @@ class Benchmark:
                 "--max_executions", str(self.config["args"]["max_executions"]),
                 "--max_seconds", str(self.config["args"]["max_seconds"]),
                 "--max_trace_length", str(self.config["args"]["max_trace_length"]),
-                "--max_stdin_bytes", str(self.config["args"]["max_stdin_bytes"]),
+                "--max_bytes", str(self.config["args"]["max_bytes"]),
                 "--max_exec_milliseconds", str(self.config["args"]["max_exec_milliseconds"]),
                 "--max_exec_megabytes", str(self.config["args"]["max_exec_megabytes"]),
                 "--stdin_model", self.config["args"]["stdin_model"],
                 "--stdout_model", self.config["args"]["stdout_model"],
                 "--optimizer_max_seconds", str(self.config["args"]["optimizer_max_seconds"]),
                 "--optimizer_max_trace_length", str(self.config["args"]["optimizer_max_trace_length"]),
-                "--optimizer_max_stdin_bytes", str(self.config["args"]["optimizer_max_stdin_bytes"]),
+                "--optimizer_max_bytes", str(self.config["args"]["optimizer_max_bytes"]),
                 "--test_type", "native",
                 ("--silent_mode" if self.verbose is False else ""),
                 "--port", str(45654)

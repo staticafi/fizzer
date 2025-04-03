@@ -10,7 +10,7 @@ namespace  fuzzing {
 bitflip_analysis::bitflip_analysis()
     : state{ READY }
     , node_ptr{ nullptr }
-    , bits_and_types{ nullptr }
+    , current_input{ nullptr }
     , mutated_bit_index{ 0U }
     , mutated_type_index{ 0U }
     , mutated_value_index{ 0U }
@@ -24,14 +24,14 @@ bitflip_analysis::bitflip_analysis()
 
 bool  bitflip_analysis::is_mutated_bit_index_valid() const
 {
-    return mutated_bit_index < bits_and_types->bits.size();
+    return mutated_bit_index < current_input->bits().size();
 }
 
 
 bool  bitflip_analysis::is_mutated_type_index_valid() const
 {
-    return mutated_type_index < bits_and_types->types.size() &&
-                bits_and_types->type_end_bit_index(mutated_type_index) < bits_and_types->bits.size();
+    return mutated_type_index < current_input->types()->size() &&
+                current_input->type_end_bit_index(mutated_type_index) < current_input->bits().size();
 }
 
 
@@ -41,16 +41,16 @@ void  bitflip_analysis::start(std::unordered_set<branching_node*> const&  leaf_b
     ASSUMPTION(!leaf_branchings.empty());
 
     node_ptr = nullptr;
-    bits_and_types = nullptr;
+    current_input = nullptr;
     auto const  it_end = std::next(leaf_branchings.begin(), get_random_natural_32_bit_in_range(0UL, leaf_branchings.size() - 1UL, rnd_generator));
     auto  it = it_end;
     do
     {
         for (auto*  node{ *it }; node != nullptr; node = node->get_predecessor())
-            if (node->get_best_stdin() != nullptr && !node->get_best_stdin()->bits.empty()
+            if (node->get_best_stdin() != nullptr && !node->get_best_stdin()->bits().empty()
                     && !processed_inputs.contains(node->get_best_stdin().get()))
             {
-                bits_and_types = node->get_best_stdin();
+                current_input = node->get_best_stdin();
                 node_ptr = node;
                 break;
             }
@@ -59,21 +59,21 @@ void  bitflip_analysis::start(std::unordered_set<branching_node*> const&  leaf_b
         if (it == leaf_branchings.end())
             it = leaf_branchings.begin();
     }
-    while (bits_and_types == nullptr && it != it_end);
+    while (current_input == nullptr && it != it_end);
     
-    if (bits_and_types == nullptr)
+    if (current_input == nullptr)
         return;
 
     state = BUSY;
 
-    processed_inputs.insert(bits_and_types.get());
+    processed_inputs.insert(current_input.get());
 
     mutated_bit_index = 0;
     mutated_type_index = 0;
     mutated_value_index = 0;
 
     ++statistics.start_calls;
-    statistics.max_bits = std::max(statistics.max_bits, bits_and_types->bits.size());
+    statistics.max_bits = std::max(statistics.max_bits, current_input->bits().size());
 
     recorder().on_bitflip_start(node_ptr, progress_recorder::START::REGULAR);
 }
@@ -90,7 +90,7 @@ void  bitflip_analysis::stop()
 }
 
 
-bool  bitflip_analysis::generate_next_input(vecb&  bits_ref)
+bool  bitflip_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  types_ref, input_metadata_ptr&  metadata_ref)
 {
     TMPROF_BLOCK();
 
@@ -99,7 +99,7 @@ bool  bitflip_analysis::generate_next_input(vecb&  bits_ref)
 
     if (is_mutated_bit_index_valid())
     {
-        bits_ref = bits_and_types->bits;
+        bits_ref = current_input->bits();
         bits_ref.at(mutated_bit_index) = !bits_ref.at(mutated_bit_index);
 
         probed_bit_start_index = 8 * (mutated_bit_index / 8);
@@ -112,6 +112,9 @@ bool  bitflip_analysis::generate_next_input(vecb&  bits_ref)
         stop();
         return false;
     }
+
+    types_ref = current_input->types();
+    metadata_ref = current_input->meta();
 
     ++statistics.generated_inputs;
 
@@ -128,14 +131,14 @@ bool  bitflip_analysis::write_bits(vecb&  bits_ref, T const  (&values)[N])
         return false;
     }
 
-    probed_bit_start_index = bits_and_types->type_start_bit_index(mutated_type_index);
+    probed_bit_start_index = current_input->type_start_bit_index(mutated_type_index);
     probed_bit_end_index = probed_bit_start_index + 8 * sizeof(T);
 
     vecb  bits;
     natural_8_bit const* const  value_ptr = (natural_8_bit const*)&values[mutated_value_index];
     bytes_to_bits(value_ptr, value_ptr + sizeof(T), bits);
 
-    bits_ref = bits_and_types->bits;
+    bits_ref = current_input->bits();
     std::copy(bits.begin(), bits.end(), std::next(bits_ref.begin(), probed_bit_start_index));
 
     ++mutated_value_index;
@@ -146,12 +149,12 @@ bool  bitflip_analysis::write_bits(vecb&  bits_ref, T const  (&values)[N])
 bool  bitflip_analysis::generate_next_typed_value(vecb&  bits_ref)
 {
     for ( ; is_mutated_type_index_valid(); ++mutated_type_index)
-        switch (bits_and_types->types.at(mutated_type_index))
+        switch (current_input->types()->at(mutated_type_index))
         {
-        case type_of_input_bits::BOOLEAN:
+        case data_type::BOOLEAN:
             break;
 
-        case type_of_input_bits::SINT8:
+        case data_type::SINT8:
             {
                 static integer_8_bit const  values[] = {
                         std::numeric_limits<integer_8_bit>::min(),
@@ -161,8 +164,8 @@ bool  bitflip_analysis::generate_next_typed_value(vecb&  bits_ref)
                     return true;
             }
             break;
-        case type_of_input_bits::UINT8:
-        case type_of_input_bits::UNTYPED8:
+        case data_type::UINT8:
+        case data_type::UNTYPED8:
             {
                 static natural_8_bit const  values[] = {
                         std::numeric_limits<natural_8_bit>::max(),
@@ -172,7 +175,7 @@ bool  bitflip_analysis::generate_next_typed_value(vecb&  bits_ref)
             }
             break;
 
-        case type_of_input_bits::SINT16:
+        case data_type::SINT16:
             {
                 static integer_16_bit const  values[] = {
                         std::numeric_limits<integer_16_bit>::min(),
@@ -182,8 +185,8 @@ bool  bitflip_analysis::generate_next_typed_value(vecb&  bits_ref)
                     return true;
             }
             break;
-        case type_of_input_bits::UINT16:
-        case type_of_input_bits::UNTYPED16:
+        case data_type::UINT16:
+        case data_type::UNTYPED16:
             {
                 static natural_16_bit const  values[] = {
                         std::numeric_limits<natural_16_bit>::max(),
@@ -193,7 +196,7 @@ bool  bitflip_analysis::generate_next_typed_value(vecb&  bits_ref)
             }
             break;
 
-        case type_of_input_bits::SINT32:
+        case data_type::SINT32:
             {
                 static integer_32_bit const  values[] = {
                         std::numeric_limits<integer_32_bit>::min(),
@@ -203,8 +206,8 @@ bool  bitflip_analysis::generate_next_typed_value(vecb&  bits_ref)
                     return true;
             }
             break;
-        case type_of_input_bits::UINT32:
-        case type_of_input_bits::UNTYPED32:
+        case data_type::UINT32:
+        case data_type::UNTYPED32:
             {
                 static natural_32_bit const  values[] = {
                         std::numeric_limits<natural_32_bit>::max(),
@@ -214,7 +217,7 @@ bool  bitflip_analysis::generate_next_typed_value(vecb&  bits_ref)
             }
             break;
 
-        case type_of_input_bits::SINT64:
+        case data_type::SINT64:
             {
                 static integer_64_bit const  values[] = {
                         std::numeric_limits<integer_64_bit>::min(),
@@ -224,8 +227,8 @@ bool  bitflip_analysis::generate_next_typed_value(vecb&  bits_ref)
                     return true;
             }
             break;
-        case type_of_input_bits::UINT64:
-        case type_of_input_bits::UNTYPED64:
+        case data_type::UINT64:
+        case data_type::UNTYPED64:
             {
                 static natural_64_bit const  values[] = {
                         std::numeric_limits<natural_64_bit>::max(),
@@ -235,7 +238,7 @@ bool  bitflip_analysis::generate_next_typed_value(vecb&  bits_ref)
             }
             break;
 
-        case type_of_input_bits::FLOAT32:
+        case data_type::FLOAT32:
             {
                 static float_32_bit const  values[] = {
                         -std::numeric_limits<float_32_bit>::infinity(),
@@ -253,7 +256,7 @@ bool  bitflip_analysis::generate_next_typed_value(vecb&  bits_ref)
                     return true;
             }
             break;
-        case type_of_input_bits::FLOAT64:
+        case data_type::FLOAT64:
             {
                 static float_64_bit const  values[] = {
                         -std::numeric_limits<float_64_bit>::infinity(),

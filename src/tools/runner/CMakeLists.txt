@@ -5,9 +5,9 @@ if("${LLVM_VERSION_MAJOR}" VERSION_GREATER_EQUAL "12")
 endif()
 
 set(FUZZ_TARGET_LIBRARIES
+    target
+    com
     connection
-    iomodels
-    instrumentation
     iomodels
     utility
     )

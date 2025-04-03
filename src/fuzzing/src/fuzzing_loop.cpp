@@ -1,10 +1,6 @@
 #include <fuzzing/fuzzing_loop.hpp>
 #include <fuzzing/fuzzer.hpp>
-#include <fuzzing/execution_record.hpp>
-#include <iomodels/iomanager.hpp>
-#include <utility/assumptions.hpp>
-#include <utility/invariants.hpp>
-#include <utility/development.hpp>
+#include <fuzzing/test_suite_item.hpp>
 #include <utility/timeprof.hpp>
 #include <utility/config.hpp>
 #include <algorithm>
@@ -13,121 +9,112 @@
 namespace  fuzzing {
 
 
-analysis_outcomes  run(
-        connection::benchmark_executor_via_shared_memory&  benchmark_executor,
-        sala::Program const* const sala_program_ptr,
-        execution_record_writer&  save_execution_record,
-        std::function<void(execution_record const&)> const&  collector_of_boundary_violations,
+fuzzing_outcomes  run(
+        target_executor&  executor,
+        sala::Program const* const  sala_program_ptr,
+        test_suite_item_writer&  save_test,
+        std::function<void(test_suite_item_ptr)> const&  collector_of_boundary_violations,
         fuzzing::termination_info const&  info,
         bool const  render
         )
 {
     TMPROF_BLOCK();
 
-    struct  local
-    {
-        static void  fill_record(execution_record&  record)
-        {
-            record.stdin_bytes = iomodels::iomanager::instance().get_stdin()->get_bytes();
-            record.stdin_types = iomodels::iomanager::instance().get_stdin()->get_types();
-            for (branching_coverage_info const&  info : iomodels::iomanager::instance().get_trace())
-                record.path.push_back({ info.id, info.direction });
-        }
-    };
-
-    analysis_outcomes  results;
+    fuzzing_outcomes  outcomes;
     std::unordered_set<natural_64_bit>  hashes_of_crashes;
     std::unordered_set<location_id>  exit_locations_of_boundary_violations;
+    bool  any_test_saved{ false };
 
-    fuzzer f{ info, sala_program_ptr };
-    f.enable_renderer(render);
-    f.render();
+    fuzzer  analyzer{ info, sala_program_ptr, &executor };
+    analyzer.enable_renderer(render);
+    analyzer.render();
 
     try
     {
         while (true)
         {
-            if (!f.round_begin(results.termination_reason))
+            input_bytes  bytes;
+            input_types_ptr  types;
+            input_metadata_ptr  metadata;
+            if (!analyzer.round_begin(outcomes.termination_reason, bytes, types, metadata))
             {
-                results.termination_type = analysis_outcomes::TERMINATION_TYPE::NORMAL;
+                outcomes.termination_type = fuzzing_outcomes::TERMINATION_TYPE::NORMAL;
                 break;
             }
 
+            execution_results_ptr  results;
             {
                 TMPROF_BLOCK();
-                benchmark_executor();
+                results = executor.run(bytes, *types, *metadata);
             }
 
-            execution_record  record;
-            std::tie(record.flags, record.analysis_name) = f.round_end();
-            f.render();
+            test_suite_item_ptr const  test_ptr{ std::make_shared<test_suite_item>() };
+            bool const is_valid_valid{ analyzer.round_end(*test_ptr, results) };
+            analyzer.render();
 
-            if ((record.flags & (execution_record::BRANCH_DISCOVERED  |
-                                 execution_record::BRANCH_COVERED     |
-                                 execution_record::EMPTY_STARTUP_TRACE)) != 0)
+            if (test_ptr->any_location_discovered || !test_ptr->covered_locations.empty() || any_test_saved == false)
             {
-                local::fill_record(record);
-                save_execution_record(record);
-                ++results.output_statistics[record.analysis_name].num_generated_tests;
+                save_test(*test_ptr);
+                any_test_saved = true;
+                ++outcomes.output_statistics[test_ptr->analysis_name].num_generated_tests;
 
-                if ((record.flags & execution_record::EXECUTION_CRASHES) != 0)
+                if (results->get_termination() == target_termination::CRASH)
                 {
-                    hashes_of_crashes.insert(compute_hash(record.path));
-                    ++results.output_statistics[record.analysis_name].num_crashes;
+                    hashes_of_crashes.insert(com::compute_path_hash(*results->get_trace()));
+                    ++outcomes.output_statistics[test_ptr->analysis_name].num_crashes;
                 }
-                else if ((record.flags & execution_record::BOUNDARY_CONDITION_VIOLATION) != 0)
+                else if (results->get_termination() == target_termination::BOUNDARY_CONDITION_VIOLATION)
                 {
-                    if (!record.path.empty())
-                        exit_locations_of_boundary_violations.insert(record.path.back().first);
-                    collector_of_boundary_violations(record);
-                    ++results.output_statistics[record.analysis_name].num_boundary_violations;
+                    if (!results->get_trace()->empty())
+                        exit_locations_of_boundary_violations.insert(results->get_trace()->back().id);
+                    collector_of_boundary_violations(test_ptr);
+                    ++outcomes.output_statistics[test_ptr->analysis_name].num_boundary_violations;
                 }
             }
-            else if ((record.flags & execution_record::EXECUTION_CRASHES) != 0)
+            else if (results->get_termination() == target_termination::CRASH)
             {
-                local::fill_record(record);
-                if (hashes_of_crashes.insert(compute_hash(record.path)).second)
+                if (hashes_of_crashes.insert(com::compute_path_hash(*results->get_trace())).second)
                 {
-                    save_execution_record(record);
-                    ++results.output_statistics[record.analysis_name].num_generated_tests;
-                    ++results.output_statistics[record.analysis_name].num_crashes;
+                    save_test(*test_ptr);
+                    any_test_saved = true;
+                    ++outcomes.output_statistics[test_ptr->analysis_name].num_generated_tests;
+                    ++outcomes.output_statistics[test_ptr->analysis_name].num_crashes;
                 }
             }
-            else if ((record.flags & execution_record::BOUNDARY_CONDITION_VIOLATION) != 0)
+            else if (results->get_termination() == target_termination::BOUNDARY_CONDITION_VIOLATION)
             {
-                local::fill_record(record);
-                if (exit_locations_of_boundary_violations.insert(record.path.back().first).second)
+                if (exit_locations_of_boundary_violations.insert(results->get_trace()->back().id).second)
                 {
-                    collector_of_boundary_violations(record);
-                    ++results.output_statistics[record.analysis_name].num_boundary_violations;
+                    collector_of_boundary_violations(test_ptr);
+                    ++outcomes.output_statistics[test_ptr->analysis_name].num_boundary_violations;
                 }
             }
         }
     }
     catch (std::exception const&  e)
     {
-        results.termination_type = analysis_outcomes::TERMINATION_TYPE::SERVER_INTERNAL_ERROR;
-        results.error_message = e.what();
+        outcomes.termination_type = fuzzing_outcomes::TERMINATION_TYPE::SERVER_INTERNAL_ERROR;
+        outcomes.error_message = e.what();
     }
 
-    if (results.termination_type != analysis_outcomes::TERMINATION_TYPE::NORMAL)
+    if (outcomes.termination_type != fuzzing_outcomes::TERMINATION_TYPE::NORMAL)
     {
-        try { f.terminate(); } catch (...) {}
+        try { analyzer.terminate(); } catch (...) {}
     }
 
-    results.num_executions = f.get_performed_driver_executions();
-    results.num_elapsed_seconds = f.get_elapsed_seconds();
-    results.covered_branchings.assign(f.get_covered_branchings().begin(), f.get_covered_branchings().end());
-    std::sort(results.covered_branchings.begin(),results.covered_branchings.end());
-    results.uncovered_branchings.assign(f.get_uncovered_branchings().begin(), f.get_uncovered_branchings().end());
-    std::sort(results.uncovered_branchings.begin(),results.uncovered_branchings.end());
-    results.input_flow_statistics = f.get_input_flow_statistics();
-    results.bitshare_statistics = f.get_bitshare_statistics();
-    results.local_search_statistics = f.get_local_search_statistics();
-    results.bitflip_statistics = f.get_bitflip_statistics();
-    results.fuzzer_statistics = f.get_fuzzer_statistics();
+    outcomes.num_executions = analyzer.get_performed_driver_executions();
+    outcomes.num_elapsed_seconds = analyzer.get_elapsed_seconds();
+    outcomes.covered_branchings.assign(analyzer.get_covered_branchings().begin(), analyzer.get_covered_branchings().end());
+    std::sort(outcomes.covered_branchings.begin(),outcomes.covered_branchings.end());
+    outcomes.uncovered_branchings.assign(analyzer.get_uncovered_branchings().begin(), analyzer.get_uncovered_branchings().end());
+    std::sort(outcomes.uncovered_branchings.begin(),outcomes.uncovered_branchings.end());
+    outcomes.input_flow_statistics = analyzer.get_input_flow_statistics();
+    outcomes.bitshare_statistics = analyzer.get_bitshare_statistics();
+    outcomes.local_search_statistics = analyzer.get_local_search_statistics();
+    outcomes.bitflip_statistics = analyzer.get_bitflip_statistics();
+    outcomes.fuzzer_statistics = analyzer.get_fuzzer_statistics();
 
-    return  results;
+    return  outcomes;
 }
 
 

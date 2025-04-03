@@ -6,8 +6,8 @@
 #   include <fuzzing/bitshare_analysis.hpp>
 #   include <fuzzing/bitflip_analysis.hpp>
 #   include <fuzzing/local_search_analysis.hpp>
-#   include <fuzzing/execution_record.hpp>
-#   include <fuzzing/instrumentation_types.hpp>
+#   include <fuzzing/test_suite_item.hpp>
+#   include <fuzzing/basic_types.hpp>
 #   include <sala/program.hpp>
 #   include <utility/math.hpp>
 #   include <utility/random.hpp>
@@ -22,6 +22,9 @@
 #   include <limits>
 
 namespace  fuzzing {
+
+
+struct target_executor;
 
 
 struct  fuzzer final
@@ -43,9 +46,11 @@ struct  fuzzer final
         std::size_t  max_leaf_nodes{ 0 };
         std::size_t  max_input_width{ 0 };
         std::size_t  longest_branch{ 0 };
-        std::size_t  traces_to_crash{ 0 };
-        std::size_t  traces_to_boundary_violation{ 0 };
-        std::size_t  traces_to_medium_overflow{ 0 };
+        std::size_t  crashes{ 0 };
+        std::size_t  target_timeouts{ 0 };
+        std::size_t  boundary_violations{ 0 };
+        std::size_t  medium_overflows{ 0 };
+        std::size_t  data_errors_in_medium{ 0 };
         std::size_t  strategy_loop_head_sensitive{ 0 };
         std::size_t  strategy_loop_head_others{ 0 };
         std::size_t  strategy_sensitive{ 0 };
@@ -56,7 +61,7 @@ struct  fuzzer final
         std::size_t  coverage_failure_resets{ 0 };
     };
 
-    fuzzer(termination_info const&  info, sala::Program const* sala_program_ptr_);
+    fuzzer(termination_info const&  info, sala::Program const*  sala_program_ptr_, target_executor const*  tgt_exec);
     ~fuzzer();
 
     sala::Program const* sala_program() const { return sala_program_ptr; }
@@ -73,12 +78,12 @@ struct  fuzzer final
     float_64_bit  get_elapsed_seconds() const { return std::chrono::duration<float_64_bit>(time_point_current - time_point_start).count(); }
 
     std::unordered_set<location_id> const&  get_covered_branchings() const { return covered_branchings; }
-    std::unordered_set<branching_location_and_direction> const&  get_uncovered_branchings() const { return uncovered_branchings; }
+    std::unordered_set<location_and_direction> const&  get_uncovered_branchings() const { return uncovered_branchings; }
 
     bool  can_make_progress() const { return state != FINISHED; }
 
-    bool  round_begin(TERMINATION_REASON&  termination_reason);
-    std::pair<execution_record::execution_flags, std::string const&>  round_end();
+    bool  round_begin(TERMINATION_REASON&  termination_reason, input_bytes&  bytes, input_types_ptr&  types, input_metadata_ptr&  metadata);
+    bool  round_end(test_suite_item&  test, execution_results_ptr  results);
 
     void  enable_renderer(bool state);
     bool  is_renderer_enabled() const;
@@ -188,7 +193,7 @@ private:
 
     struct  input_flow_analysis_thread
     {
-        input_flow_analysis_thread(sala::Program const* sala_program_ptr);
+        input_flow_analysis_thread(sala::Program const*  sala_program_ptr, target_executor const* const  tgt_exec);
 
         bool  is_ready() const;
         bool  is_busy() const;
@@ -233,7 +238,6 @@ private:
         void worker_thread_procedure();
 
         STATE  state;
-        input_flow_analysis::io_models_setup  io_setup;
         computation_request  request;
         input_flow_analysis  input_flow;
         bool  worker_stop_flag;
@@ -393,8 +397,8 @@ private:
             probability_generator_random_uniform&  location_miss_generator
             );
 
-    bool  generate_next_input(vecb&  stdin_bits, TERMINATION_REASON&  termination_reason);
-    execution_record::execution_flags  process_execution_results();
+    bool  generate_next_input(vecb&  stdin_bits, input_types_ptr&  types, input_metadata_ptr&  metadata, TERMINATION_REASON&  termination_reason);
+    bool  process_execution_results(test_suite_item&  test, execution_results_ptr  results);
 
     void  do_cleanup();
     void  do_cleanup_iid_pivots();
@@ -421,7 +425,7 @@ private:
     std::unordered_set<branching_node*>  leaf_branchings;
 
     std::unordered_set<location_id>  covered_branchings;
-    std::unordered_set<branching_location_and_direction>  uncovered_branchings;
+    std::unordered_set<location_and_direction>  uncovered_branchings;
     std::unordered_set<location_id>  branchings_to_crashes;
 
     primary_coverage_target_branchings  primary_coverage_targets;

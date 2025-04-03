@@ -126,6 +126,14 @@ void run(int argc, char* argv[])
         ros.flush();
     }
 
+    {
+        std::filesystem::path const output_dir{ std::filesystem::path(get_program_options()->value("output")).parent_path() };
+        std::filesystem::path const input_file_name { std::filesystem::path(get_program_options()->value("input")).filename().replace_extension("") };
+        std::filesystem::path pathname = output_dir / (input_file_name.string() + "_mut.txt");
+        std::ofstream  ostr(pathname.c_str(), std::ios::binary);
+        ostr << instrumenter.mut();
+    }
+
     if (get_program_options()->has("save_mapping"))
     {
         instrumenter.propagateMissingBasicBlockDbgInfo();

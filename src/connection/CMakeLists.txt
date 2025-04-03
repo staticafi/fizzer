@@ -1,16 +1,11 @@
 set(THIS_TARGET_NAME connection)
 
+file(GLOB "${THIS_TARGET_NAME}_HPP" "./include/${THIS_TARGET_NAME}/*.hpp")
+file(GLOB "${THIS_TARGET_NAME}_CPP" "./src/*.cpp")
+
 add_library(${THIS_TARGET_NAME}
-    ./include/connection/medium.hpp
-
-    ./include/connection/shared_memory.hpp
-    ./src/shared_memory.cpp
-
-    ./include/connection/target_executor.hpp
-    ./src/target_executor.cpp
-
-    ./include/connection/benchmark_executor.hpp
-    ./src/benchmark_executor.cpp
+    "${${THIS_TARGET_NAME}_HPP}"
+    "${${THIS_TARGET_NAME}_CPP}"
     )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")

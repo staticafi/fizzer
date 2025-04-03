@@ -1,6 +1,8 @@
 #include <fuzzer/program_options.hpp>
 #include <fuzzer/program_info.hpp>
-#include <iomodels/iomanager.hpp>
+#include <fuzzing/target_executor.hpp>
+#include <iomodels/cmdline.hpp>
+#include <connection/target_executor.hpp>
 #include <fuzzing/termination_info.hpp>
 #include <fuzzing/optimizer.hpp>
 #include <utility/assumptions.hpp>
@@ -8,9 +10,6 @@
 program_options::program_options(int argc, char* argv[])
     : program_options_default(argc, argv)
 {
-    add_option("list_stdin_models", "Prints stdin models.", "0");
-    add_option("list_stdout_models", "Prints stdout models.", "0");
-
     add_option("output_dir", "A directory where to store generated tests.", "1");
     add_value("output_dir", ".");
 
@@ -23,49 +22,38 @@ program_options::program_options(int argc, char* argv[])
 
     add_option("max_seconds", "Max number of seconds for fuzzing the benchmark.", "1");
     add_value("max_seconds", std::to_string(terminator.max_seconds));
+    add_option("opt_max_seconds", "Max number of seconds for optimization of tests violating fuzzing boundaries.", "1");
+    add_value("opt_max_seconds", std::to_string(fuzzing::optimizer::default_opt_max_seconds));
 
-    iomodels::configuration const  io_cfg{};
+    add_option("max_trace_length", "Max number of branchings in a trace during fuzzing.", "1");
+    add_value("max_trace_length", std::to_string(fuzzing::target_executor::default_max_trace_length));
+    add_option("opt_max_trace_length", "Max number of branchings in a trace during optimization of tests violating fuzzing boundaries.", "1");
+    add_value("opt_max_trace_length", std::to_string(fuzzing::target_executor::default_opt_max_trace_length));
 
-    add_option("max_trace_length", "Max number of branchings in a trace.", "1");
-    add_value("max_trace_length", std::to_string(io_cfg.max_trace_length));
+    add_option("max_exec_megabytes", "Max number of mega bytes the target can allocate during fuzzing.", "1");
+    add_value("max_exec_megabytes", std::to_string(fuzzing::target_executor::default_max_exec_megabytes));
+    add_option("opt_max_exec_megabytes", "Max number of mega bytes the target can allocate during optimization of tests violating fuzzing boundaries.", "1");
+    add_value("opt_max_exec_megabytes", std::to_string(fuzzing::target_executor::default_opt_max_exec_megabytes));
 
-    add_option("max_stack_size", "Max number of stack records during benchmark execution.", "1");
-    add_value("max_stack_size", std::to_string(io_cfg.max_stack_size));
+    add_option("max_exec_milliseconds", "Max number of milliseconds for target execution during fuzzing.", "1");
+    add_value("max_exec_milliseconds", std::to_string(connection::target_executor::default_max_exec_milliseconds));
+    add_option("opt_max_exec_milliseconds", "Max number of milliseconds for target execution during optimization of tests violating fuzzing boundaries.", "1");
+    add_value("opt_max_exec_milliseconds", std::to_string(connection::target_executor::default_opt_max_exec_milliseconds));
 
-    add_option("max_stdin_bytes", "Max number of stdin bits read during benchmark execution.", "1");
-    add_value("max_stdin_bytes", std::to_string(io_cfg.max_stdin_bytes));
+    add_option("max_num_options", "Max number of command line options in the 'cmdline' IO model during fuzzing.", "1");
+    add_value("max_num_options", std::to_string(iomodels::cmdline::default_max_num_options));
+    add_option("opt_max_num_options", "Max number of command line options in the 'cmdline' IO model during optimization.", "1");
+    add_value("opt_max_num_options", std::to_string(iomodels::cmdline::default_opt_max_num_options));
 
-    add_option("max_exec_milliseconds", "Max number of milliseconds for benchmark execution.", "1");
-    add_value("max_exec_milliseconds", std::to_string(io_cfg.max_exec_milliseconds));
+    add_option("max_option_size", "Max number of characters in a command line option of the 'cmdline' IO model during fuzzing.", "1");
+    add_value("max_option_size", std::to_string(iomodels::cmdline::default_max_option_size));
+    add_option("opt_max_option_size", "Max number of characters in a command line option of the 'cmdline' IO model during optimization.", "1");
+    add_value("opt_max_option_size", std::to_string(iomodels::cmdline::default_opt_max_option_size));
 
-    add_option("max_exec_megabytes", "Max number of mega bytes which can be allocated during benchmark execution.", "1");
-    add_value("max_exec_megabytes", std::to_string(io_cfg.max_exec_megabytes));
-
-    add_option("stdin_model", "The model of stdin to be used during the analysis.", "1");
-    add_value("stdin_model", io_cfg.stdin_model_name);
-
-    add_option("stdout_model", "The model of stdout to be used during the analysis.", "1");
-    add_value("stdout_model", io_cfg.stdout_model_name);
-
-    fuzzing::optimizer::configuration const  optimizer_config{};
-
-    add_option("optimizer_max_seconds", "Max number of seconds for optimization of raw tests obtained from fuzzing.", "1");
-    add_value("optimizer_max_seconds", std::to_string(optimizer_config.max_seconds));
-
-    add_option("optimizer_max_trace_length", "Test suite optimizer option. Max number of branchings in a trace.", "1");
-    add_value("optimizer_max_trace_length", std::to_string(optimizer_config.max_trace_length));
-
-    add_option("optimizer_max_stack_size", "Max number of stack records during benchmark execution.", "1");
-    add_value("optimizer_max_stack_size", std::to_string(optimizer_config.max_stack_size));
-
-    add_option("optimizer_max_stdin_bytes", "Test suite optimizer option. Max number of stdin bits read during benchmark execution.", "1");
-    add_value("optimizer_max_stdin_bytes", std::to_string(optimizer_config.max_stdin_bytes));
-
-    add_option("optimizer_max_exec_milliseconds", "Max number of milliseconds for benchmark execution.", "1");
-    add_value("optimizer_max_exec_milliseconds", std::to_string(optimizer_config.max_exec_milliseconds));
-
-    add_option("optimizer_max_exec_megabytes", "Max number of mega bytes which can be allocated during benchmark execution.", "1");
-    add_value("optimizer_max_exec_megabytes", std::to_string(optimizer_config.max_exec_megabytes));
+    add_option("max_bytes", "Max number of input bytes produced by the 'simple' IO model during fuzzing.", "1");
+    add_value("max_bytes", std::to_string(iomodels::simple::default_max_bytes));
+    add_option("opt_max_bytes", "Max number of input bytes produced by the 'simple' IO model during optimization.", "1");
+    add_value("opt_max_bytes", std::to_string(iomodels::simple::default_opt_max_bytes));
 
     add_option("path_to_target", "Path to target executable.", "1");
 
@@ -73,9 +61,6 @@ program_options::program_options(int argc, char* argv[])
 
     add_option("test_type", "Output type (native, testcomp)", "1");
     add_value("test_type", "native");
-
-    add_option("port", "Port the server will use", "1");
-    add_value("port", "42085");
 
     add_option("progress_recording", "When specified, all inputs generated by all analyses and corresponding execution traces "
                                      "will be recorded to the disk, per each analysis run and in the chronological order.", "0");

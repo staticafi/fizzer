@@ -1,10 +1,9 @@
 #ifndef FUZZING_OPTIMIZER_HPP_INCLUDED
 #   define FUZZING_OPTIMIZER_HPP_INCLUDED
 
-#   include <fuzzing/execution_record.hpp>
-#   include <fuzzing/execution_record_writer.hpp>
-#   include <fuzzing/instrumentation_types.hpp>
-#   include <connection/benchmark_executor.hpp>
+#   include <fuzzing/target_executor.hpp>
+#   include <fuzzing/test_suite_item_writer.hpp>
+#   include <fuzzing/basic_types.hpp>
 #   include <utility/math.hpp>
 #   include <chrono>
 #   include <functional>
@@ -17,15 +16,7 @@ struct optimization_outcomes;
 
 struct  optimizer final
 {
-    struct  configuration
-    {
-        natural_32_bit  max_seconds{ 30 };
-        natural_32_bit  max_trace_length{ 10000000 };
-        natural_16_bit  max_stack_size{ 1000 };
-        natural_32_bit  max_stdin_bytes{ 128U*1024U*1024U };
-        natural_16_bit  max_exec_milliseconds{ 3000 };
-        natural_16_bit  max_exec_megabytes{ 2048 };
-    };
+    static natural_32_bit constexpr  default_opt_max_seconds{ 30 };
 
     enum struct TERMINATION_REASON
     {
@@ -40,24 +31,22 @@ struct  optimizer final
         natural_32_bit  num_extended_tests{ 0 };
     };
 
-    optimizer(configuration const&  cfg);
+    optimizer();
 
-    float_64_bit  num_remaining_seconds() const { return (float_64_bit)config.max_seconds - get_elapsed_seconds(); }
     float_64_bit  get_elapsed_seconds() const { return std::chrono::duration<float_64_bit>(time_point_current - time_point_start).count(); }
 
     optimization_outcomes  run(
-            std::vector<vecu8> const&  inputs_leading_to_boundary_violation,
+            std::vector<test_suite_item_ptr> const&  inputs_leading_to_boundary_violation,
             std::vector<location_id> const&  already_covered_branchings,
-            std::vector<branching_location_and_direction> const&  already_uncovered_branchings,
-            connection::benchmark_executor_via_shared_memory&  benchmark_executor,
-            execution_record_writer&  save_execution_record
+            std::vector<location_and_direction> const&  already_uncovered_branchings,
+            natural_32_bit  max_seconds,
+            target_executor&  executor,
+            test_suite_item_writer&  save_test
             );
 
     performance_statistics const&  get_statistics() const { return statistics; }
 
 private:
-
-    configuration  config;
 
     std::chrono::steady_clock::time_point  time_point_start;
     std::chrono::steady_clock::time_point  time_point_current;

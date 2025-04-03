@@ -87,9 +87,9 @@ void fuzzer::render() const
     RENDER("    \"bitflip_analysis\": " << get_bitflip_statistics().generated_inputs << ",");
     RENDER("    \"leaf_branchings\": " << leaf_branchings.size() << ",");
     RENDER("    \"tree_nodes\": " << get_fuzzer_statistics().nodes_created - get_fuzzer_statistics().nodes_destroyed << ",");
-    RENDER("    \"traces_to_crash\": " << get_fuzzer_statistics().traces_to_crash << ",");
-    RENDER("    \"traces_to_boundary_violation\": " << get_fuzzer_statistics().traces_to_boundary_violation << ",");
-    RENDER("    \"traces_to_medium_overflow\": " << get_fuzzer_statistics().traces_to_medium_overflow << ",");
+    RENDER("    \"crashes\": " << get_fuzzer_statistics().crashes << ",");
+    RENDER("    \"boundary_violations\": " << get_fuzzer_statistics().boundary_violations << ",");
+    RENDER("    \"medium_overflows\": " << get_fuzzer_statistics().medium_overflows << ",");
     RENDER("    \"primary_coverage_targets\": {");
     RENDER("        \"loop_heads_sensitive\": " << primary_coverage_targets.get_loop_heads_sensitive().size() << ",");
     RENDER("        \"loop_heads_others\": " << primary_coverage_targets.get_loop_heads_others().size() << ",");

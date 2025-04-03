@@ -1,7 +1,7 @@
 #ifndef FUZZING_OPTIMIZATION_OUTCOMES_HPP_INCLUDED
 #   define FUZZING_OPTIMIZATION_OUTCOMES_HPP_INCLUDED
 
-#   include <fuzzing/execution_trace.hpp>
+#   include <fuzzing/basic_types.hpp>
 #   include <fuzzing/optimizer.hpp>
 #   include <utility/math.hpp>
 #   include <vector>
@@ -23,7 +23,7 @@ struct optimization_outcomes
     optimizer::TERMINATION_REASON  termination_reason; // Valid only if 'termination_type == NORMAL'.
     std::string  error_message; // Valid only if 'termination_type != NORMAL'.
     std::vector<location_id> covered_branchings;
-    std::vector<branching_location_and_direction>  uncovered_branchings;
+    std::vector<location_and_direction>  uncovered_branchings;
     optimizer::performance_statistics  statistics;
 };
 

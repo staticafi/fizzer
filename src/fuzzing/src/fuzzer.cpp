@@ -1,6 +1,5 @@
 #include <fuzzing/fuzzer.hpp>
 #include <fuzzing/progress_recorder.hpp>
-#include <iomodels/iomanager.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <utility/development.hpp>
@@ -459,15 +458,13 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best(
 }
 
 
-fuzzer::input_flow_analysis_thread::input_flow_analysis_thread(sala::Program const* sala_program_ptr)
+fuzzer::input_flow_analysis_thread::input_flow_analysis_thread(
+        sala::Program const* sala_program_ptr,
+        target_executor const* const  tgt_exec
+        )
     : state{ READY }
-    , io_setup{
-            iomodels::iomanager::instance().clone_stdin(),
-            iomodels::iomanager::instance().clone_stdout(),
-            iomodels::iomanager::instance().get_config()
-            }
     , request{}
-    , input_flow{ sala_program_ptr, &io_setup }
+    , input_flow{ sala_program_ptr, tgt_exec }
     , worker_stop_flag{ false }
     , mutex{}
     , worker{ std::thread(&input_flow_analysis_thread::worker_thread_procedure, this) }
@@ -695,9 +692,9 @@ std::string const&  fuzzer::get_analysis_name_from_state(STATE state)
 {
     static std::unordered_map<STATE, std::string> const  map {
         { STARTUP, "STARTUP" },
-        { BITSHARE, "bitshare_analysis" },
+        { BITSHARE, "bitshare" },
         { LOCAL_SEARCH, "local_search" },
-        { BITFLIP, "bitflip_analysis" },
+        { BITFLIP, "bitflip" },
         { FINISHED, "FINISHED" },
     };
     return map.at(state);
@@ -894,7 +891,7 @@ std::unordered_map<branching_node*, fuzzer::iid_pivot_props>::const_iterator  fu
             return pivot->get_trace_index() < other.pivot->get_trace_index();
         }
         branching_node*  pivot;
-        branching_function_value_type  abs_value;
+        branching_value  abs_value;
         integer_32_bit  distance_to_central_input_width_class;
     };
     std::vector<iid_pivot_with_less_than>  pivots_order;
@@ -920,7 +917,7 @@ void  fuzzer::compute_histogram_of_false_direction_probabilities(
 {
     TMPROF_BLOCK();
 
-    std::unordered_map<location_id, std::multimap<branching_function_value_type, float_32_bit> > hist_pack;
+    std::unordered_map<location_id, std::multimap<branching_value, float_32_bit> > hist_pack;
     {
         std::unordered_set<histogram_of_hit_counts_per_direction const*>  processed_histograms;
         for (auto  it = pivots.begin(); it != pivots.end(); ++it)
@@ -1139,7 +1136,7 @@ branching_node*  fuzzer::monte_carlo_step(
 }
 
 
-fuzzer::fuzzer(termination_info const&  info, sala::Program const* const sala_program_ptr_)
+fuzzer::fuzzer(termination_info const&  info, sala::Program const* const  sala_program_ptr_, target_executor const* const  tgt_exec)
     : sala_program_ptr{ sala_program_ptr_ }
 
     , termination_props{ info }
@@ -1172,7 +1169,7 @@ fuzzer::fuzzer(termination_info const&  info, sala::Program const* const sala_pr
 
     , state{ STARTUP }
     , coverage_control{ this }
-    , input_flow_thread{ sala_program_ptr }
+    , input_flow_thread{ sala_program_ptr, tgt_exec }
     , bitshare{}
     , local_search{}
     , bitflip{}
@@ -1214,15 +1211,17 @@ void  fuzzer::stop_all_analyzes()
 }
 
 
-bool  fuzzer::round_begin(TERMINATION_REASON&  termination_reason)
+bool  fuzzer::round_begin(
+    TERMINATION_REASON&  termination_reason,
+    input_bytes&  bytes,
+    input_types_ptr&  types,
+    input_metadata_ptr&  metadata
+    )
 {
     TMPROF_BLOCK();
 
-    iomodels::iomanager::instance().get_stdin()->clear();
-    iomodels::iomanager::instance().get_stdout()->clear();
-
-    vecb  stdin_bits;
-    if (!generate_next_input(stdin_bits, termination_reason))
+    vecb  bits;
+    if (!generate_next_input(bits, types, metadata, termination_reason))
         return false;
     if (!can_make_progress())
     {
@@ -1230,32 +1229,29 @@ bool  fuzzer::round_begin(TERMINATION_REASON&  termination_reason)
         termination_reason = TERMINATION_REASON::FUZZING_STRATEGY_DEPLETED;
         return false;
     }
-    vecu8 stdin_bytes;
-    bits_to_bytes(stdin_bits, stdin_bytes);
-    iomodels::iomanager::instance().get_stdin()->set_bytes(stdin_bytes);
-
-    recorder().on_input_generated();
+    bits_to_bytes(bits, bytes);
 
     return true;
 }
 
 
-std::pair<execution_record::execution_flags, std::string const&>  fuzzer::round_end()
+bool  fuzzer::round_end(test_suite_item&  test, execution_results_ptr  results)
 {
     TMPROF_BLOCK();
 
-    execution_record::execution_flags const  flags = process_execution_results();
-
+    bool const retval{ process_execution_results(test, results) };
     ++num_driver_executions;
-
-    return { flags, get_analysis_name_from_state(state) };
+    return retval;
 }
 
 
-bool  fuzzer::generate_next_input(vecb&  stdin_bits, TERMINATION_REASON&  termination_reason)
+bool  fuzzer::generate_next_input(
+    vecb&  stdin_bits,
+    input_types_ptr&  types,
+    input_metadata_ptr&  metadata,
+    TERMINATION_REASON&  termination_reason
+    )
 {
-    TMPROF_BLOCK();
-
     while (true)
     {
         if (get_performed_driver_executions() > 0U)
@@ -1385,7 +1381,7 @@ bool  fuzzer::generate_next_input(vecb&  stdin_bits, TERMINATION_REASON&  termin
         }
         else if (state == BITFLIP)
             coverage_control.reset_period();
-        else
+        else if (state != STARTUP)
         {
             if (coverage_control.is_period_exceeded())
             {
@@ -1404,21 +1400,25 @@ bool  fuzzer::generate_next_input(vecb&  stdin_bits, TERMINATION_REASON&  termin
         {
             case STARTUP:
                 if (get_performed_driver_executions() == 0U)
+                {
+                    types = std::make_shared<input_types>();
+                    metadata = std::make_shared<input_metadata>();
                     return true;
+                }
                 break;
 
             case BITSHARE:
-                if (bitshare.generate_next_input(stdin_bits))
+                if (bitshare.generate_next_input(stdin_bits, types, metadata))
                     return true;
                 break;
 
             case LOCAL_SEARCH:
-                if (local_search.generate_next_input(stdin_bits))
+                if (local_search.generate_next_input(stdin_bits, types, metadata))
                     return true;
                 break;
 
             case BITFLIP:
-                if (bitflip.generate_next_input(stdin_bits))
+                if (bitflip.generate_next_input(stdin_bits, types, metadata))
                     return true;
                 if (coverage_control.is_analysis_interrupted())
                 {
@@ -1463,25 +1463,25 @@ bool  fuzzer::generate_next_input(vecb&  stdin_bits, TERMINATION_REASON&  termin
 }
 
 
-execution_record::execution_flags  fuzzer::process_execution_results()
+bool  fuzzer::process_execution_results(test_suite_item&  test, execution_results_ptr const  results)
 {
-    TMPROF_BLOCK();
-
     if (state == FINISHED)
-        return 0;
+        return false;
 
-    stdin_bits_and_types_pointer const  bits_and_types{ std::make_shared<stdin_bits_and_types>(
-            iomodels::iomanager::instance().get_stdin()->get_bytes(),
-            iomodels::iomanager::instance().get_stdin()->get_types()
-            ) };
-    execution_trace_pointer const  trace = std::make_shared<execution_trace>(iomodels::iomanager::instance().get_trace());
-    
-    execution_record::execution_flags  exe_flags { 0U };
+    test.results = results;
+    test.any_location_discovered = false;
+    test.covered_locations.clear();
+    test.analysis_name = get_analysis_name_from_state(state);
+
+    typed_input_ptr const  current_input{
+            std::make_shared<typed_input>(results->get_bytes(), results->get_types(), results->get_metadata())
+            };
+    execution_trace_ptr const  trace = results->get_trace();
+
+    leaf_branching_construction_props  construction_props;
 
     if (!trace->empty())
     {
-        leaf_branching_construction_props  construction_props;
-
         if (entry_branching == nullptr)
         {
             entry_branching = new branching_node(
@@ -1491,7 +1491,7 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                     trace->front().xor_like_branching_function,
                     trace->front().predicate,
                     nullptr,
-                    bits_and_types,
+                    current_input,
                     trace,
                     num_driver_executions
                     );
@@ -1505,7 +1505,7 @@ execution_record::execution_flags  fuzzer::process_execution_results()
         trace_index_type  trace_index = 0;
         for (; true; ++trace_index)
         {
-            branching_coverage_info const&  info = trace->at(trace_index);
+            trace_item const&  info = trace->at(trace_index);
 
             INVARIANT(construction_props.leaf->get_location_id() == info.id);
 
@@ -1541,23 +1541,23 @@ execution_record::execution_flags  fuzzer::process_execution_results()
             // It would be better, if fuzzer and analyses could deal with bad floats, but that is complicated. 
             if (!std::isfinite(info.value) || std::isnan(info.value))
             {
-                branching_function_value_type&  value_ref{ const_cast<branching_function_value_type&>(info.value) };
+                branching_value&  value_ref{ const_cast<branching_value&>(info.value) };
                 switch (info.predicate)
                 {
-                    case BRANCHING_PREDICATE::BP_EQUAL:
-                        value_ref = info.direction ? 0.0 : std::numeric_limits<branching_function_value_type>::max();
+                    case atomic_predicate::EQUAL:
+                        value_ref = info.direction ? 0.0 : std::numeric_limits<branching_value>::max();
                         break;
-                    case BRANCHING_PREDICATE::BP_UNEQUAL:
-                        value_ref = info.direction ? std::numeric_limits<branching_function_value_type>::max() : 0.0;
+                    case atomic_predicate::UNEQUAL:
+                        value_ref = info.direction ? std::numeric_limits<branching_value>::max() : 0.0;
                         break;
-                    case BRANCHING_PREDICATE::BP_LESS_EQUAL:
-                    case BRANCHING_PREDICATE::BP_LESS:
-                        value_ref = (info.direction ? -1.0 : 1.0) * std::numeric_limits<branching_function_value_type>::max();
+                    case atomic_predicate::LESS_EQUAL:
+                    case atomic_predicate::LESS:
+                        value_ref = (info.direction ? -1.0 : 1.0) * std::numeric_limits<branching_value>::max();
                         break;
                         break;
-                    case BRANCHING_PREDICATE::BP_GREATER:
-                    case BRANCHING_PREDICATE::BP_GREATER_EQUAL:
-                        value_ref = (info.direction ? 1.0 : -1.0) * std::numeric_limits<branching_function_value_type>::max();
+                    case atomic_predicate::GREATER:
+                    case atomic_predicate::GREATER_EQUAL:
+                        value_ref = (info.direction ? 1.0 : -1.0) * std::numeric_limits<branching_value>::max();
                         break;
                     default: UNREACHABLE(); break;
                 }
@@ -1569,7 +1569,7 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                 dead_nodes_buffer.insert(construction_props.leaf);
             }
             else if (std::fabs(info.value) < std::fabs(construction_props.leaf->get_best_value()))
-                construction_props.leaf->update_best_data(bits_and_types, trace, num_driver_executions);
+                construction_props.leaf->update_best_data(current_input, trace, num_driver_executions);
 
             construction_props.leaf->set_max_successors_trace_index(std::max(
                     construction_props.leaf->get_max_successors_trace_index(),
@@ -1584,7 +1584,7 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                 for (branching_node*  node = construction_props.leaf; node != nullptr && node->is_closed(); node = node->get_predecessor())
                     node->set_closed(false);
 
-                branching_coverage_info const&  succ_info = trace->at(trace_index + 1);
+                trace_item const&  succ_info = trace->at(trace_index + 1);
                 construction_props.leaf->set_successor(info.direction, {
                     branching_node::successor_pointer::VISITED,
                     new branching_node(
@@ -1594,7 +1594,7 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                         succ_info.xor_like_branching_function,
                         succ_info.predicate,
                         construction_props.leaf,
-                        bits_and_types,
+                        current_input,
                         trace,
                         num_driver_executions
                         )
@@ -1611,7 +1611,7 @@ execution_record::execution_flags  fuzzer::process_execution_results()
 
         construction_props.leaf->set_successor(trace->back().direction, {
             std::max(
-                iomodels::iomanager::instance().get_termination() == instrumentation::target_termination::normal ?
+                results->get_termination() == target_termination::NORMAL ?
                     branching_node::successor_pointer::END_NORMAL :
                     branching_node::successor_pointer::END_EXCEPTIONAL,
                 construction_props.leaf->successor(trace->back().direction).label
@@ -1641,71 +1641,30 @@ execution_record::execution_flags  fuzzer::process_execution_results()
             statistics.max_input_width = max_input_width;
         }
 
-        recorder().on_trace_mapped_to_tree(construction_props.leaf);
-
-        if (iomodels::iomanager::instance().get_termination() == instrumentation::target_termination::crash)
-        {
-            ++statistics.traces_to_crash;
-
-            auto const  it_and_state = branchings_to_crashes.insert(construction_props.leaf->get_location_id());
-            if (it_and_state.second)
-                exe_flags |= execution_record::EXECUTION_CRASHES;
-        }
-
-        if (iomodels::iomanager::instance().get_termination() == instrumentation::target_termination::boundary_condition_violation)
-        {
-            ++statistics.traces_to_boundary_violation;
-            exe_flags |= execution_record::BOUNDARY_CONDITION_VIOLATION;
-        }
-
-        if (iomodels::iomanager::instance().get_termination() == instrumentation::target_termination::medium_overflow)
-        {
-            ++statistics.traces_to_medium_overflow;
-            exe_flags |= execution_record::MEDIUM_OVERFLOW;
-        }
-
-        if (construction_props.any_location_discovered)
-            exe_flags |= execution_record::BRANCH_DISCOVERED;
-
-        if (!construction_props.covered_locations.empty())
-            exe_flags |= execution_record::BRANCH_COVERED;
+        test.any_location_discovered = construction_props.any_location_discovered;
+        test.covered_locations.assign(construction_props.covered_locations.begin(), construction_props.covered_locations.end());
     }
-    else
+
+    switch (results->get_termination())
     {
-        recorder().on_trace_mapped_to_tree(nullptr);
-
-        if (iomodels::iomanager::instance().get_termination() == instrumentation::target_termination::crash)
-        {
-            ++statistics.traces_to_crash;
-            exe_flags |= execution_record::EXECUTION_CRASHES;
-        }
-
-        if (iomodels::iomanager::instance().get_termination() == instrumentation::target_termination::boundary_condition_violation)
-        {
-            ++statistics.traces_to_boundary_violation;
-            exe_flags |= execution_record::BOUNDARY_CONDITION_VIOLATION;
-        }
-
-        if (iomodels::iomanager::instance().get_termination() == instrumentation::target_termination::medium_overflow)
-        {
-            ++statistics.traces_to_medium_overflow;
-            exe_flags |= execution_record::MEDIUM_OVERFLOW;
-        }
-
-        if (state == STARTUP)
-            exe_flags |= execution_record::EMPTY_STARTUP_TRACE;
+        case target_termination::CRASH: ++statistics.crashes; break;
+        case target_termination::TIMEOUT: ++statistics.target_timeouts; break;
+        case target_termination::BOUNDARY_CONDITION_VIOLATION: ++statistics.boundary_violations; break;
+        case target_termination::MEDIUM_OVERFLOW: ++statistics.medium_overflows; break;
+        case target_termination::ERROR_IN_DATA: ++statistics.data_errors_in_medium; break;
+        default: break;
     }
 
     switch (state)
     {
         case STARTUP:
             INVARIANT(bitshare.is_ready() && local_search.is_ready());
-            recorder().on_execution_results_available();
+            recorder().on_execution_results_available(test, construction_props.leaf);
             break;
 
         case BITSHARE:
             INVARIANT(bitshare.is_busy() && local_search.is_ready());
-            recorder().on_execution_results_available();
+            recorder().on_execution_results_available(test, construction_props.leaf);
             bitshare.process_execution_results(trace);
             if (!bitshare.get_node()->has_unexplored_direction())
                 bitshare.stop();
@@ -1713,18 +1672,18 @@ execution_record::execution_flags  fuzzer::process_execution_results()
 
         case LOCAL_SEARCH:
             INVARIANT(bitshare.is_ready() && local_search.is_busy());
-            recorder().on_execution_results_available();
-            local_search.process_execution_results(trace, bits_and_types);
+            recorder().on_execution_results_available(test, construction_props.leaf);
+            local_search.process_execution_results(trace, current_input);
             if (!local_search.get_node()->has_unexplored_direction())
             {
                 local_search.stop();
-                bitshare.bits_available_for_branching(local_search.get_node(), trace, bits_and_types);
+                bitshare.bits_available_for_branching(local_search.get_node(), trace, current_input);
             }
             break;
 
         case BITFLIP:
             INVARIANT(bitflip.is_busy());
-            recorder().on_execution_results_available();
+            recorder().on_execution_results_available(test, construction_props.leaf);
             break;
 
         default:
@@ -1732,7 +1691,7 @@ execution_record::execution_flags  fuzzer::process_execution_results()
             break;
     }
 
-    return exe_flags;
+    return true;
 }
 
 

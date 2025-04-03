@@ -1,19 +1,13 @@
+#include <connection/target_executor.hpp>
 #include <boost/process.hpp>
 
-#include <connection/target_executor.hpp>
-
-
-namespace bp = boost::process;
-using namespace instrumentation;
-
-
-namespace connection {
 
 /* boost process wait_for waits for the full duration if the process exited 
 before wait_for (https://github.com/boostorg/process/issues/69) 
 the wrapper is a workaround for this issue */
 template <typename Rep, typename Period>
-static bool wait_for_wrapper(bp::child& process, const std::chrono::duration<Rep, Period>& rel_time) {
+static bool wait_for_wrapper(boost::process::child& process, const std::chrono::duration<Rep, Period>& rel_time)
+{
     if (process.running()) {
         return process.wait_for(rel_time);
     }
@@ -21,43 +15,37 @@ static bool wait_for_wrapper(bp::child& process, const std::chrono::duration<Rep
 }
 
 
-target_executor::target_executor(std::string target_invocation)
-    : timeout_ms{ 0 }
-    , target_invocation(std::move(target_invocation))
-    , shm{}
+namespace connection {
+
+
+target_executor::target_executor(std::string const&  path_to_target, natural_16_bit const  max_exec_milliseconds)
+    : m_path_to_target{ path_to_target }
+    , m_max_exec_milliseconds{ max_exec_milliseconds }
 {}
 
-void target_executor::init_shared_memory(std::size_t const size) {
-    get_shared_memory().open_or_create();
-    get_shared_memory().set_size((natural_32_bit)size);
-    get_shared_memory().map_region();
-}
+
+target_executor::~target_executor()
+{}
 
 
-void target_executor::set_timeout(natural_16_bit const timeout_ms_)
+process_termination  target_executor::run()
 {
-    timeout_ms = timeout_ms_;
-}
-
-
-void target_executor::execute_target() {
-    using namespace std::chrono_literals;
-    bp::child target = bp::child(target_invocation, bp::std_out > bp::null, bp::std_err > bp::null);
-    if (!wait_for_wrapper(target, std::chrono::milliseconds(timeout_ms))) {
-        target.terminate();
-        get_shared_memory().set_termination(target_termination::timeout);
-    }
-
-    if (!get_shared_memory().get_termination()) {
-        if (target.exit_code() == 0) {
-            get_shared_memory().set_termination(target_termination::normal);
+    process_termination  info;
+    {
+        namespace bp = boost::process;
+        using namespace std::chrono_literals;
+        bp::child target = bp::child(m_path_to_target, bp::std_out > bp::null, bp::std_err > bp::null);
+        if (!wait_for_wrapper(target, std::chrono::milliseconds(m_max_exec_milliseconds)))
+        {
+            target.terminate();
+            info.killed = true;
         }
-        else {
-            get_shared_memory().set_termination(target_termination::crash);
-        }
+        else
+            info.killed = false;
+        info.exit_code = target.exit_code();
     }
+    return info;
 }
-
 
 
 }

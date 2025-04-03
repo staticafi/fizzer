@@ -130,7 +130,7 @@ bool llvm_instrumenter::instrumentCond(Instruction *inst, bool const xor_like_br
     }
     IRBuilder<> builder(inst->getNextNode());
 
-    // We emulate the 'enum BRANCHING_PREDICATE' (see instrumentation_types.hpp) as follows: 
+    // We emulate the 'enum atomic_predicate' (see instrumentation_types.hpp) as follows: 
     natural_8_bit constexpr BP_EQUAL{ 0 };
     natural_8_bit constexpr BP_UNEQUAL{ 1 };
     natural_8_bit constexpr BP_LESS{ 2 };
@@ -254,7 +254,45 @@ bool llvm_instrumenter::runOnFunction(Function &F) {
     DependenciesFPM->run(F);
 
     if (F.getName() == "main") {
-        F.setName("__fizzer_method_under_test");
+        llvm::Function *func;
+        if (F.getFunctionType()->params().size() == 0ULL)
+        {
+            mut_name = "__fizzer_method_under_test";
+            F.setName(mut_name);
+            func = llvm::Function::Create(
+                llvm::FunctionType::get(
+                    llvm::IntegerType::get(module->getContext(), 32),
+                    {
+                        llvm::IntegerType::get(module->getContext(), 32),
+                        llvm::PointerType::get(module->getContext(), 0)
+                    },
+                    false
+                    ),
+                llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+                "__fizzer_method_under_test_with_params",
+                module
+                );
+        }
+        else
+        {
+            mut_name = "__fizzer_method_under_test_with_params";
+            F.setName(mut_name);
+            func = llvm::Function::Create(
+                llvm::FunctionType::get(
+                    llvm::IntegerType::get(module->getContext(), 32),
+                    {
+                    },
+                    false
+                    ),
+                llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+                "__fizzer_method_under_test",
+                module
+                );
+
+        }
+        llvm::IRBuilder<> builder(module->getContext());
+        builder.SetInsertPoint(llvm::BasicBlock::Create(module->getContext(), "entry", func));
+        builder.CreateRet(llvm::ConstantInt::get(llvm::IntegerType::get(module->getContext(), 32), "0", 10));
     }
 
     for (BasicBlock &BB : F) {

@@ -14,7 +14,7 @@ namespace  fuzzing {
 local_search_analysis::local_search_analysis()
     : state{ READY }
     , node{ nullptr }
-    , bits_and_types{ nullptr }
+    , current_input{ nullptr }
     , execution_id{ 0 }
     , full_path{}
     , path{}
@@ -50,7 +50,7 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
 
     state = BUSY;
     node = node_ptr;
-    bits_and_types = node->get_best_stdin();
+    current_input = node->get_best_stdin();
     execution_id = execution_id_;
     full_path.clear();
     path.clear();
@@ -83,7 +83,7 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
         full_path_nodes.push_back(n);
     std::reverse(full_path_nodes.begin(), full_path_nodes.end());
 
-    std::map<natural_32_bit, std::pair<type_of_input_bits, std::unordered_set<natural_8_bit> > >  start_bits_to_bit_indices;
+    std::map<natural_32_bit, std::pair<data_type, std::unordered_set<natural_8_bit> > >  start_bits_to_bit_indices;
     std::vector<std::size_t>  path_node_indices;
     {
         std::set<natural_32_bit>  included{};
@@ -122,16 +122,16 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
         }
 
         auto const&  collect_sensitive_bits = [&start_bits_to_bit_indices, this](std::unordered_set<natural_32_bit> const&  sensitive_bits) {
-            for (stdin_bit_index  idx : sensitive_bits)
+            for (natural_32_bit  idx : sensitive_bits)
             {
-                natural_32_bit const  type_index = bits_and_types->type_index(idx);
-                natural_32_bit const  start_bit_idx = bits_and_types->type_start_bit_index(type_index);
-                type_of_input_bits  type{ bits_and_types->types.at(type_index) };
+                natural_32_bit const  type_index = current_input->type_index(idx);
+                natural_32_bit const  start_bit_idx = current_input->type_start_bit_index(type_index);
+                data_type  type{ current_input->types()->at(type_index) };
                 switch (type) {
-                    case type_of_input_bits::UNTYPED8: type = type_of_input_bits::SINT8; break;
-                    case type_of_input_bits::UNTYPED16: type = type_of_input_bits::SINT16; break;
-                    case type_of_input_bits::UNTYPED32: type = type_of_input_bits::SINT32; break;
-                    case type_of_input_bits::UNTYPED64: type = type_of_input_bits::SINT64; break;
+                    case data_type::UNTYPED8: type = data_type::SINT8; break;
+                    case data_type::UNTYPED16: type = data_type::SINT16; break;
+                    case data_type::UNTYPED32: type = data_type::SINT32; break;
+                    case data_type::UNTYPED64: type = data_type::SINT64; break;
                     default: break;
                 }
                 auto const  it_and_state = start_bits_to_bit_indices.insert({ start_bit_idx, { type, {} } });
@@ -178,7 +178,7 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
                 n,
                 node->get_best_trace()->at(n->get_trace_index()).value,
                 n->successor_direction(s),
-                n->successor_direction(s) ? n->get_branching_predicate() : opposite_predicate(n->get_branching_predicate()),
+                n->successor_direction(s) ? n->get_atomic_predicate() : opposite_predicate(n->get_atomic_predicate()),
                 n->get_xor_like_branching_function(),
                 {}
                 });
@@ -188,7 +188,7 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
             node,
             node->get_best_trace()->at(node->get_trace_index()).value,
             node->is_direction_unexplored(false) ? false : true,
-            node->is_direction_unexplored(false) ? opposite_predicate(node->get_branching_predicate()) : node->get_branching_predicate(),
+            node->is_direction_unexplored(false) ? opposite_predicate(node->get_atomic_predicate()) : node->get_atomic_predicate(),
             node->get_xor_like_branching_function(),
             {}
             });
@@ -196,10 +196,10 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
     for (natural_32_bit  i = 0U, i_end = (natural_32_bit)path.size(); i != i_end; ++i)
     {
         branching_info&  info = path.at(i);
-        for (stdin_bit_index  idx : info.node_ptr->get_sensitive_stdin_bits())
+        for (natural_32_bit  idx : info.node_ptr->get_sensitive_stdin_bits())
         {
-            natural_32_bit const  type_index = bits_and_types->type_index(idx);
-            natural_32_bit const  start_bit_idx = bits_and_types->type_start_bit_index(type_index);
+            natural_32_bit const  type_index = current_input->type_index(idx);
+            natural_32_bit const  start_bit_idx = current_input->type_start_bit_index(type_index);
             info.variable_indices.insert(start_bits_to_variable_indices.at(start_bit_idx));
         }
     }
@@ -223,7 +223,7 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
         max_executions = std::min(max_num_commits * num_inputs_per_commit, 10000U);
     }
 
-    bits_to_point(bits_and_types->bits, origin);
+    bits_to_point(current_input->bits(), origin);
 
     insert_first_local_space();
 
@@ -276,7 +276,7 @@ void  local_search_analysis::stop_with_failure()
 }
 
 
-bool  local_search_analysis::generate_next_input(vecb&  bits_ref)
+bool  local_search_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  types_ref, input_metadata_ptr&  metadata_ref)
 {
     TMPROF_BLOCK();
 
@@ -400,11 +400,15 @@ bool  local_search_analysis::generate_next_input(vecb&  bits_ref)
 
             auto const it{ tested_origins.find(execution_props.sample_overlay) };
             if (it == tested_origins.end())
+            {
+                types_ref = current_input->types();
+                metadata_ref = current_input->meta();
                 break;
+            }
 
             ++statistics.cache_hits;
 
-            execution_props.bits_and_types_ptr = it->second.bits_and_types_ptr;
+            execution_props.current_input_ptr = it->second.current_input_ptr;
             execution_props.values = it->second.values;
             process_execution_results();
         }
@@ -417,8 +421,8 @@ bool  local_search_analysis::generate_next_input(vecb&  bits_ref)
 
 
 void  local_search_analysis::process_execution_results(
-        execution_trace_pointer const  trace_ptr,
-        stdin_bits_and_types_pointer const  bits_and_types_ptr
+        execution_trace_ptr const  trace_ptr,
+        typed_input_ptr const  current_input_ptr
         )
 {
     TMPROF_BLOCK();
@@ -428,7 +432,7 @@ void  local_search_analysis::process_execution_results(
 
     ++num_executions;
 
-    execution_props.bits_and_types_ptr = bits_and_types_ptr;
+    execution_props.current_input_ptr = current_input_ptr;
     execution_props.values.clear();
 
     for (std::size_t  i = 0UL, n = std::min({ full_path.size(), trace_ptr->size() }); i != n; ++i)
@@ -443,7 +447,7 @@ void  local_search_analysis::process_execution_results(
             break;
     }
 
-    tested_origins.insert(execution_props.sample_overlay, { execution_props.bits_and_types_ptr, execution_props.values });
+    tested_origins.insert(execution_props.sample_overlay, { execution_props.current_input_ptr, execution_props.values });
 
     process_execution_results();
 }
@@ -465,7 +469,7 @@ void  local_search_analysis::process_execution_results()
             if (execution_props.values.size() == path.size()
                     && isfinite(execution_props.values)
                     && is_improving_value(execution_props.values.back()))
-                commit_execution_results(execution_props.bits_and_types_ptr, execution_props.values);
+                commit_execution_results(execution_props.current_input_ptr, execution_props.values);
             break;
         default: { UNREACHABLE(); } break;
     }
@@ -502,7 +506,7 @@ void  local_search_analysis::compute_shifts_of_next_partial()
 
     vector_overlay const origin_overlay{ make_vector_overlay(origin, types_of_variables) };
     auto const& is_excluded = [&origin_overlay, this](vector_overlay const v) {
-        return compare(v, origin_overlay, types_of_variables, BRANCHING_PREDICATE::BP_EQUAL);
+        return compare(v, origin_overlay, types_of_variables, atomic_predicate::EQUAL);
     };
 
     std::vector<vecf64>  shifts;
@@ -688,7 +692,7 @@ void  local_search_analysis::insert_next_local_space()
     }
 
     branching_info const&  src_info{ path.at(src_space_index) };
-    if (src_info.predicate != BRANCHING_PREDICATE::BP_EQUAL)
+    if (src_info.predicate != atomic_predicate::EQUAL)
     {
         INVARIANT(size(dst_space.orthonormal_basis) < size(src_space.orthonormal_basis));
         dst_space.orthonormal_basis.push_back(scale_cp(src_space.gradient, g_len_inv));
@@ -728,23 +732,23 @@ bool  local_search_analysis::are_constraints_satisfied(std::vector<spatial_const
         float_64_bit const  param{ dot_product(shift, constraint.normal) / dot_product(constraint.normal, constraint.normal) };
         switch (constraint.predicate)
         {
-            case BRANCHING_PREDICATE::BP_UNEQUAL:
+            case atomic_predicate::UNEQUAL:
                 if (!(param != constraint.param))
                     return false;
                 break;
-            case BRANCHING_PREDICATE::BP_LESS:
+            case atomic_predicate::LESS:
                 if (!(param < constraint.param))
                     return false;
                 break;
-            case BRANCHING_PREDICATE::BP_LESS_EQUAL:
+            case atomic_predicate::LESS_EQUAL:
                 if (!(param <= constraint.param))
                     return false;
                 break;
-            case BRANCHING_PREDICATE::BP_GREATER:
+            case atomic_predicate::GREATER:
                 if (!(param > constraint.param))
                     return false;
                 break;
-            case BRANCHING_PREDICATE::BP_GREATER_EQUAL:
+            case atomic_predicate::GREATER_EQUAL:
                 if (!(param >= constraint.param))
                     return false;
                 break;
@@ -784,35 +788,35 @@ bool  local_search_analysis::clip_shift_by_constraints(
             float_64_bit const  epsilon{ small_delta_around(cast_float_value<float_64_bit>(param)) };
             switch (constraint.predicate)
             {
-                case BRANCHING_PREDICATE::BP_UNEQUAL:
+                case atomic_predicate::UNEQUAL:
                     if (!(constraint.param != param))
                     {
                         add_scaled(shift, (constraint.param + epsilon) - param, direction);
                         clipped = true;
                     }
                     break;
-                case BRANCHING_PREDICATE::BP_LESS:
+                case atomic_predicate::LESS:
                     if (!(param < constraint.param))
                     {
                         add_scaled(shift, (constraint.param - epsilon) - param, direction);
                         clipped = true;
                     }
                     break;
-                case BRANCHING_PREDICATE::BP_LESS_EQUAL:
+                case atomic_predicate::LESS_EQUAL:
                     if (!(param <= constraint.param))
                     {
                         add_scaled(shift, constraint.param - param, direction);
                         clipped = true;
                     }
                     break;
-                case BRANCHING_PREDICATE::BP_GREATER:
+                case atomic_predicate::GREATER:
                     if (!(param > constraint.param))
                     {
                         add_scaled(shift, (constraint.param + epsilon) - param, direction);
                         clipped = true;
                     }
                     break;
-                case BRANCHING_PREDICATE::BP_GREATER_EQUAL:
+                case atomic_predicate::GREATER_EQUAL:
                     if (!(param >= constraint.param))
                     {
                         add_scaled(shift, constraint.param - param, direction);
@@ -880,35 +884,35 @@ void  local_search_analysis::compute_descent_shifts(
 
         vector_overlay const origin_overlay{ make_vector_overlay(ray_start, types_of_variables) };
         auto const& is_excluded = [&origin_overlay, this](vector_overlay const v) {
-            return compare(v, origin_overlay, types_of_variables, BRANCHING_PREDICATE::BP_EQUAL) ||
+            return compare(v, origin_overlay, types_of_variables, atomic_predicate::EQUAL) ||
                    tested_origins.contains(v);
         };
 
         switch (path.at(space_index).predicate)
         {
-            case BRANCHING_PREDICATE::BP_EQUAL:
+            case atomic_predicate::EQUAL:
                 //ASSUMPTION(value != 0.0);// && lambda0 != 0.0);
                 lambdas.push_back(lambda0);
                 break;
-            case BRANCHING_PREDICATE::BP_UNEQUAL:
+            case atomic_predicate::UNEQUAL:
                 //ASSUMPTION(value == 0.0);
                 lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, +param, is_excluded));
                 lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, -param, is_excluded));
                 break;
-            case BRANCHING_PREDICATE::BP_LESS:
+            case atomic_predicate::LESS:
                 //ASSUMPTION(value >= 0.0);// && lambda0 <= 0.0);
                 lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, -param, is_excluded));
                 break;
-            case BRANCHING_PREDICATE::BP_LESS_EQUAL:
+            case atomic_predicate::LESS_EQUAL:
                 //ASSUMPTION(value > 0.0);// && lambda0 < 0.0);
                 lambdas.push_back(lambda0);
                 lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, -param, is_excluded));
                 break;
-            case BRANCHING_PREDICATE::BP_GREATER:
+            case atomic_predicate::GREATER:
                 //ASSUMPTION(value <= 0.0);// && lambda0 >= 0.0);
                 lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, +param, is_excluded));
                 break;
-            case BRANCHING_PREDICATE::BP_GREATER_EQUAL:
+            case atomic_predicate::GREATER_EQUAL:
                 //ASSUMPTION(value < 0.0);// && lambda0 > 0.0);
                 lambdas.push_back(lambda0);
                 lambdas.push_back(lambda0 + compute_best_shift_along_ray(ray_start, ray_dir, +param, is_excluded));
@@ -1083,7 +1087,7 @@ void  local_search_analysis::compute_mutations_shifts()
     for (std::size_t  i = 0UL; i < variable_indices.size(); ++i)
     {
         natural_32_bit const  var_idx{ variable_indices.at(i) };
-        type_of_input_bits const var_type{ types_of_variables.at(var_idx) };
+        data_type const var_type{ types_of_variables.at(var_idx) };
         INVARIANT(is_known_type(var_type));
 
         for (natural_8_bit  bit_idx = 0U, bit_end = min_num_bits(var_type); bit_idx != bit_end; ++ bit_idx)
@@ -1104,7 +1108,7 @@ void  local_search_analysis::compute_mutations_shifts()
         {
             natural_32_bit const  i{ (natural_32_bit)get_random_natural_64_bit_in_range(0UL, variable_indices.size() - 1UL, rnd_generator) };
             natural_32_bit const  var_idx{ variable_indices.at(i) };
-            type_of_input_bits const var_type{ types_of_variables.at(var_idx) };
+            data_type const var_type{ types_of_variables.at(var_idx) };
             natural_8_bit const  bit_idx{ (natural_8_bit)get_random_natural_64_bit_in_range(0UL, min_num_bits(var_type) - 1UL, rnd_generator) };
             float_64_bit const sign{ bit_value(origin_overlay.at(var_idx), var_type, bit_idx) ? -1.0 : 1.0 };
             float_64_bit const magnitude{ (float_64_bit)(1UL << bit_idx) };
@@ -1241,7 +1245,7 @@ void  local_search_analysis::compute_random_shifts(
                 std::size_t const  var_idx{
                     var_indices.at(i).at(get_random_natural_64_bit_in_range(0UL, var_indices.at(i).size() - 1UL, rnd_generator))
                     };
-                type_of_input_bits const  var_type{ types_of_variables.at(var_idx) };
+                data_type const  var_type{ types_of_variables.at(var_idx) };
 
                 if (node->get_num_coverage_failure_resets() == 0)
                 {
@@ -1301,15 +1305,15 @@ bool  local_search_analysis::is_improving_value(float_64_bit const  value) const
 {
     switch (path.back().predicate)
     {
-        case BRANCHING_PREDICATE::BP_EQUAL:
+        case atomic_predicate::EQUAL:
             return std::fabs(value) < std::fabs(path.back().value);
-        case BRANCHING_PREDICATE::BP_UNEQUAL:
+        case atomic_predicate::UNEQUAL:
             return std::fabs(value) > std::fabs(path.back().value);
-        case BRANCHING_PREDICATE::BP_LESS:
-        case BRANCHING_PREDICATE::BP_LESS_EQUAL:
+        case atomic_predicate::LESS:
+        case atomic_predicate::LESS_EQUAL:
             return value < path.back().value;
-        case BRANCHING_PREDICATE::BP_GREATER:
-        case BRANCHING_PREDICATE::BP_GREATER_EQUAL:
+        case atomic_predicate::GREATER:
+        case atomic_predicate::GREATER_EQUAL:
             return value > path.back().value;
         default: { UNREACHABLE(); } return false;
     }
@@ -1317,12 +1321,12 @@ bool  local_search_analysis::is_improving_value(float_64_bit const  value) const
 
 
 void  local_search_analysis::commit_execution_results(
-        stdin_bits_and_types_pointer const  bits_and_types_ptr,
+        typed_input_ptr const  current_input_ptr,
         vecf64 const&  values
         )
 {
-    bits_and_types = bits_and_types_ptr;
-    bits_to_point(bits_and_types->bits, origin);
+    current_input = current_input_ptr;
+    bits_to_point(current_input->bits(), origin);
 
     for (std::size_t  i = 0UL; i != path.size(); ++i)
         path.at(i).value = values.at(i);
@@ -1354,7 +1358,7 @@ void  local_search_analysis::bits_to_point(vecb const&  bits, vecf64&  point)
 vector_overlay  local_search_analysis::point_to_bits(vecf64 const&  point, vecb&  bits)
 {
     vector_overlay const  point_overlay{ make_vector_overlay(point, types_of_variables) };
-    bits = bits_and_types->bits;
+    bits = current_input->bits();
     for (std::size_t  i = 0ULL; i != point_overlay.size(); ++i)
     {
         mapping_to_input_bits const&  mapping = from_variables_to_input.at(i);

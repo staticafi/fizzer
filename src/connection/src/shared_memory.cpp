@@ -1,102 +1,89 @@
 #include <connection/shared_memory.hpp>
-#include <iomodels/models_map.hpp>
-#include <iomodels/configuration.hpp>
-#include <instrumentation/data_record_id.hpp>
-
-namespace bip = boost::interprocess;
-using namespace instrumentation;
 
 namespace  connection {
 
 
-void shared_memory::open_or_create() {
-    shm = bip::shared_memory_object(bip::open_or_create, segment_name, bip::read_write);
+shared_memory::shared_memory(std::size_t const  size)
+    : medium()
+    , m_object{}
+    , m_region{}
+    , m_cursor{ 0ULL }
+    , m_memory{ nullptr }
+    , m_saved{ nullptr }
+{
+    set_size(size);
 }
 
 
-natural_32_bit shared_memory::get_size() const {
-    std::size_t size = region.get_size();
-    if (size != 0) {
-        return (natural_32_bit)(size - sizeof(*saved));
-    }
-    return (natural_32_bit)size;
+void  shared_memory::shut_down()
+{
+    boost::interprocess::shared_memory_object::remove(segment_name);
 }
 
 
-void shared_memory::set_size(natural_32_bit size) {
-    shm.truncate(size + sizeof(*saved));
+void  shared_memory::clear()
+{
+    m_cursor = 0ULL;
+    *m_saved = 0ULL;
+    std::memset(get_address(), 0xCD, get_size());
 }
 
-void shared_memory::clear() {
-    cursor = 0;
-    *saved = 0;
+
+bool  shared_memory::can_accept_bytes(std::size_t const n) const
+{
+    return m_memory != nullptr && get_size() >= *m_saved + n;
 }
 
 
-void shared_memory::map_region() {
-    region = bip::mapped_region(shm, bip::read_write);
-    cursor = 0;
-    saved = static_cast<natural_32_bit*>(region.get_address());
-    memory = static_cast<natural_8_bit*>(region.get_address()) + sizeof(*saved);
-}   
-
-void shared_memory::remove() {
-    bip::shared_memory_object::remove(segment_name);
+bool  shared_memory::can_deliver_bytes(std::size_t const n) const
+{
+    return m_memory != nullptr && *m_saved >= m_cursor + n;
 }
 
-bool shared_memory::can_accept_bytes(std::size_t const n) const {
-    return memory != nullptr && get_size() >= *saved + n;
+
+void  shared_memory::accept_bytes(const void* src, std::size_t n)
+{
+    std::memcpy(m_memory + *m_saved, src, n);
+    *m_saved += (natural_32_bit)n;
 }
 
-bool shared_memory::can_deliver_bytes(std::size_t const n) const {
-    return memory != nullptr && *saved >= cursor + n;
+
+void  shared_memory::deliver_bytes(void* dest, std::size_t n)
+{
+    std::memcpy(dest, m_memory + m_cursor, n);
+    m_cursor += (natural_32_bit)n;
 }
 
-void shared_memory::accept_bytes(const void* src, std::size_t n) {
-    memcpy(memory + *saved, src, n);
-    *saved += (natural_32_bit)n;
+
+bool  shared_memory::exhausted() const
+{
+    return m_cursor >= *m_saved;
 }
 
-void shared_memory::deliver_bytes(void* dest, std::size_t n) {
-    memcpy(dest, memory + cursor, n);
-    cursor += (natural_32_bit)n;
+
+std::size_t  shared_memory::get_size() const
+{
+    std::size_t size = m_region.get_size();
+    if (size != 0ULL)
+        return size - sizeof(*m_saved);
+    return size;
 }
 
-shared_memory& shared_memory::operator<<(const std::string& src) {
-    *this << (natural_32_bit) src.size();
-    accept_bytes(src.data(), (natural_32_bit) src.size());
-    return *this;
-}
 
-shared_memory& shared_memory::operator>>(std::string& dest) {
-    natural_32_bit size;
-    *this >> size;
-    dest.resize(size);
-    deliver_bytes(dest.data(), (size));
-    return *this;
-}
-
-std::optional<target_termination> shared_memory::get_termination() const {
-    data_record_id id = static_cast<data_record_id>(*memory);
-    if (id != data_record_id::termination) {
-        return std::nullopt;
-    }
-
-    target_termination termination = static_cast<target_termination>(*(memory + 1));
-    if (!valid_termination(termination)) {
-        return std::nullopt;
-    }
-
-    return termination;
-}
-
-void shared_memory::set_termination(target_termination termination) {
-    *memory = static_cast<natural_8_bit>(data_record_id::termination);
-    *(memory + 1) = static_cast<natural_8_bit>(termination);
-}
-
-bool shared_memory::exhausted() const {
-    return cursor >= *saved;
+void  shared_memory::set_size(std::size_t const  size)
+{
+    m_object = boost::interprocess::shared_memory_object(
+                    boost::interprocess::open_or_create,
+                    segment_name,
+                    boost::interprocess::read_write
+                    );
+    if (size > 0ULL)
+        m_object.truncate(size + sizeof(*m_saved));
+    m_region = boost::interprocess::mapped_region(m_object, boost::interprocess::read_write);
+    m_saved = static_cast<natural_64_bit*>(m_region.get_address());
+    m_memory = static_cast<natural_8_bit*>(m_region.get_address()) + sizeof(*m_saved);
+    if (size > 0ULL)
+        clear();
 }
 
 

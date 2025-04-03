@@ -4,67 +4,37 @@
 #   include <connection/medium.hpp>
 #   include <boost/interprocess/shared_memory_object.hpp>
 #   include <boost/interprocess/mapped_region.hpp>
-#   include <utility/endian.hpp>
-#   include <utility/assumptions.hpp>
-#   include <instrumentation/target_termination.hpp>
-#   include <optional>
-#   include <stdexcept>
 
 namespace  connection {
 
 
-class shared_memory : public medium {
+struct  shared_memory final : public medium
+{
+    explicit  shared_memory(std::size_t  size = 0ULL);
+    static void  shut_down();
+
+    void  clear() override;
+    bool  can_accept_bytes(std::size_t  n) const override;
+    bool  can_deliver_bytes(std::size_t  n) const override;
+    void  accept_bytes(const void*  src, std::size_t  n) override;
+    void  deliver_bytes(void*  dest, std::size_t  n) override;
+    bool  exhausted() const override;
+    natural_8_bit*  get_address() const override { return m_memory; }
+    std::size_t get_size() const override;
+    void set_size(std::size_t  bytes) override;
+    natural_64_bit  get_num_stored() const override { return *m_saved; }
+    natural_64_bit  get_cursor() const override { return m_cursor; }
+    void  set_cursor(natural_64_bit const  c) override { m_cursor = c; }
+
+private:
+
     inline static const char* segment_name = "Fizzer_Shared_Memory";
 
-    boost::interprocess::shared_memory_object shm{};
-    boost::interprocess::mapped_region region{};
-    natural_32_bit cursor = 0;
-    natural_8_bit* memory = nullptr;
-    natural_32_bit* saved = nullptr;
-
-public:
-
-    shared_memory() : medium() {}
-
-    natural_32_bit get_size() const;
-    void set_size(natural_32_bit bytes);
-    void clear() override;
-
-    void open_or_create();
-    void map_region();
-    static void remove();
-
-    bool can_accept_bytes(std::size_t n) const override;
-    bool can_deliver_bytes(std::size_t n) const override;
-
-    void accept_bytes(const void* src, std::size_t n) override;
-    void deliver_bytes(void* dest, std::size_t n) override;
-
-    bool exhausted() const;
-
-    /*Interprets the first two bytes as termination type*/
-    std::optional<instrumentation::target_termination> get_termination() const;
-    /*Overwrites the first two bytes to set termination type*/
-    void set_termination(instrumentation::target_termination termination) override;
-
-    template<typename T, typename std::enable_if<std::is_trivially_copyable<T>::value, int>::type = 0>
-    shared_memory& operator<<(const T& src)
-    {
-        accept_bytes(&src, sizeof(T));
-        return *this;
-    }
-
-    shared_memory& operator<<(const std::string& src);
-
-    template<typename T, typename std::enable_if<std::is_trivially_copyable<T>::value, int>::type = 0>
-    shared_memory& operator>>(T& dest)
-    {
-        deliver_bytes(&dest, sizeof(T));
-        return *this;
-    }
-
-    shared_memory& operator>>(std::string& dest);
-
+    boost::interprocess::shared_memory_object  m_object;
+    boost::interprocess::mapped_region  m_region;
+    natural_64_bit  m_cursor;
+    natural_8_bit*  m_memory;
+    natural_64_bit*  m_saved;
 };
 
 

@@ -68,6 +68,8 @@ struct llvm_instrumenter {
 
     void propagateMissingBasicBlockDbgInfo();
 
+    std::string const&  mut() const { return mut_name; }
+
     basic_block_dbg_info_map const&  getBasicBlockDbgInfo() const { return basicBlockDbgInfo; }
     instruction_dbg_info_vector const&  getCondInstrDbgInfo() const { return condInstrDbgInfo; }
     instruction_dbg_info_vector const&  getBrInstrDbgInfo() const { return brInstrDbgInfo; }
@@ -94,6 +96,8 @@ private:
     unsigned int basicBlockCounter;
     unsigned int condCounter;
     unsigned int callSiteCounter;
+
+    std::string  mut_name;
 
     basic_block_dbg_info_map basicBlockDbgInfo;
     instruction_dbg_info_vector condInstrDbgInfo;

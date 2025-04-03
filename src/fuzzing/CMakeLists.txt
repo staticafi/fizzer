@@ -1,59 +1,11 @@
 set(THIS_TARGET_NAME fuzzing)
 
+file(GLOB "${THIS_TARGET_NAME}_HPP" "./include/${THIS_TARGET_NAME}/*.hpp")
+file(GLOB "${THIS_TARGET_NAME}_CPP" "./src/*.cpp")
+
 add_library(${THIS_TARGET_NAME}
-    ./include/fuzzing/stdin_bits.hpp
-    ./src/stdin_bits.cpp
-
-    ./include/fuzzing/instrumentation_types.hpp
-
-    ./include/fuzzing/branching_node.hpp
-    ./src/branching_node.cpp
-    ./include/fuzzing/fuzzer.hpp
-    ./src/fuzzer.cpp
-    ./src/renderer.cpp
-
-    ./include/fuzzing/input_flow_analysis.hpp
-    ./src/input_flow_analysis.cpp
-
-    ./include/fuzzing/bitshare_analysis.hpp
-    ./src/bitshare_analysis.cpp
-
-    ./include/fuzzing/local_search_analysis.hpp
-    ./src/local_search_analysis.cpp
-
-    ./include/fuzzing/bitflip_analysis.hpp
-    ./src/bitflip_analysis.cpp
-
-    ./include/fuzzing/execution_trace.hpp
-    ./src/execution_trace.cpp
-
-    ./include/fuzzing/termination_info.hpp
-    ./include/fuzzing/analysis_outcomes.hpp
-    ./include/fuzzing/analysis_outcomes.hpp
-
-    ./include/fuzzing/fuzzing_loop.hpp
-    ./src/fuzzing_loop.cpp
-
-    ./include/fuzzing/optimization_outcomes.hpp
-    ./include/fuzzing/optimizer.hpp
-    ./src/optimizer.cpp
-
-    ./include/fuzzing/dump.hpp
-    ./src/dump.cpp
-    ./include/fuzzing/dump_native.hpp
-    ./src/dump_native.cpp
-    ./include/fuzzing/dump_testcomp.hpp
-    ./src/dump_testcomp.cpp
-
-    ./include/fuzzing/progress_recorder.hpp
-    ./src/progress_recorder.cpp
-
-    ./include/fuzzing/execution_record.hpp
-    ./include/fuzzing/execution_record_writer.hpp
-    ./src/execution_record_writer.cpp
-
-    ./include/fuzzing/number_overlay.hpp
-    ./src/number_overlay.cpp
+    "${${THIS_TARGET_NAME}_HPP}"
+    "${${THIS_TARGET_NAME}_CPP}"
     )
 
 set_target_properties(${THIS_TARGET_NAME} PROPERTIES
