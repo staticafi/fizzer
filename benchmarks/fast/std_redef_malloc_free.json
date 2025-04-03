@@ -20,8 +20,13 @@
             1, 2
         ],
         "output_statistics": {
+            "local_search": {
+                "num_generated_tests": 1,
+                "num_crashes": 0,
+                "num_boundary_violations": 0
+            },
             "bitflip": {
-                "num_generated_tests": 2,
+                "num_generated_tests": 1,
                 "num_crashes": 0,
                 "num_boundary_violations": 0
             },
