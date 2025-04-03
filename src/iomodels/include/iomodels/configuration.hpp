@@ -13,7 +13,6 @@ struct  configuration
 
     void save_target_config(connection::shared_memory& dest) const;
     void load_target_config(connection::shared_memory& src);
-    void save_client_config(connection::shared_memory& dest) const;
 
     bool operator==(configuration const&  other) const;
     bool operator!=(configuration const&  other) const { return !(*this == other);}

@@ -89,10 +89,5 @@ void configuration::load_target_config(connection::shared_memory& src) {
     src >> stdout_model_name;
 }
 
-void configuration::save_client_config(connection::shared_memory& dest) const {
-    dest << required_shared_memory_size();
-    dest << max_exec_milliseconds;
-}
-
 
 }
