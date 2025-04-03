@@ -21,7 +21,7 @@ fuzzing_outcomes  run(
     TMPROF_BLOCK();
 
     fuzzing_outcomes  outcomes;
-    std::unordered_set<natural_64_bit>  hashes_of_crashes;
+    std::unordered_set<natural_64_bit>  hashes_of_crashes{ 0ULL };
     std::unordered_set<location_id>  exit_locations_of_boundary_violations;
     bool  any_test_saved{ false };
 
@@ -60,8 +60,8 @@ fuzzing_outcomes  run(
 
                 if (results->get_termination() == target_termination::CRASH)
                 {
-                    hashes_of_crashes.insert(com::compute_weak_path_hash(*results->get_trace()));
-                    ++outcomes.output_statistics[test_ptr->analysis_name].num_crashes;
+                    if (hashes_of_crashes.insert(com::compute_weakest_path_hash(*results->get_trace())).second)
+                        ++outcomes.output_statistics[test_ptr->analysis_name].num_crashes;
                 }
                 else if (results->get_termination() == target_termination::BOUNDARY_CONDITION_VIOLATION)
                 {
@@ -73,7 +73,7 @@ fuzzing_outcomes  run(
             }
             else if (results->get_termination() == target_termination::CRASH)
             {
-                if (hashes_of_crashes.insert(com::compute_weak_path_hash(*results->get_trace())).second)
+                if (hashes_of_crashes.insert(com::compute_weakest_path_hash(*results->get_trace())).second)
                 {
                     save_test(*test_ptr);
                     any_test_saved = true;

@@ -52,4 +52,10 @@ natural_64_bit  compute_weak_path_hash(execution_trace const&  trace)
 }
 
 
+natural_64_bit  compute_weakest_path_hash(execution_trace const&  trace)
+{
+    return trace.empty() ? 0ULL : (natural_64_bit)trace.back().id;
+}
+
+
 }
