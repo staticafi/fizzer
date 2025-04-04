@@ -134,7 +134,8 @@ com::target_termination  cmdline::on_arguments_requested(int&  argc, char**&  ar
         m_args.push_back({ 0U });
     for (vecu8&  arg : m_args)
         m_argv.push_back((char*)arg.data());
-    argc = (int)m_argv.size();
+    m_argv.push_back(nullptr);
+    argc = (int)m_args.size();
     argv = m_argv.data();
 
     if (dst == nullptr)
