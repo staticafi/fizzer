@@ -77,6 +77,19 @@ void fuzzer::render() const
     RENDER("    \"covered_branchings\": " << covered_branchings.size() << ",");
     RENDER("    \"uncovered_branchings\": " << uncovered_branchings.size() << ",");
     RENDER("    \"state\": \"" << get_analysis_name_from_state(state) << "\",");
+    RENDER("    \"location\": " << 
+        [this]() {
+            branching_node* node;
+            switch (state)
+            {
+                case BITSHARE: node = bitshare.get_node(); break;
+                case LOCAL_SEARCH: node = local_search.get_node(); break;
+                case BITFLIP: node = bitflip.get_node(); break;
+                default: node = nullptr; break;
+            }
+            return node == nullptr ? "N/A" : std::to_string(node->get_location_id());
+        }()
+        << ",");
     RENDER("    \"coverage_control\": {");
     RENDER("        \"interrupted\": " << coverage_control.is_analysis_interrupted() << ",");
     RENDER("        \"time\": " << get_elapsed_seconds() - coverage_control.get_phase_start_time() << ",");
