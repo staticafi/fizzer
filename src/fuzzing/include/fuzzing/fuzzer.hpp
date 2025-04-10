@@ -116,7 +116,7 @@ private:
         float_64_bit  get_phase_start_time() const { return phase_start_time; }
         natural_32_bit  get_num_covered_branchings() const { return num_covered_branchings; }
         void  increment_num_covered_branchings() { ++num_covered_branchings; }
-        void  interruption_enter();
+        bool  interruption_enter();
         void  interruption_exit();
     private:
         static float_64_bit constexpr TIME_PERIOD{ 10.0 };
@@ -410,6 +410,10 @@ private:
 
     void  remove_leaf_branching_node(branching_node*  node);
     bool  apply_coverage_failures_with_hope();
+
+    void  recording_interrupt();
+    void  recording_resume();
+    void  recording_send_taint_response(branching_node const*  node_ptr);
 
     sala::Program const* sala_program_ptr;
 
