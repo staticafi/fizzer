@@ -267,6 +267,8 @@ void  progress_recorder::on_analysis_start(ANALYSIS const  analysis_, analysis_c
     if (!is_started())
         return;
 
+    ASSUMPTION(analysis == ANALYSIS::STARTUP);
+
     analysis = analysis_;
     ++counter_analysis;
     counter_results = 0;
