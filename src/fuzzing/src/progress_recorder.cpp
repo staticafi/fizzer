@@ -74,10 +74,9 @@ void  progress_recorder::start(std::filesystem::path const&  path_to_target_, st
     std::filesystem::path const  input_dir{ path_to_target_.parent_path() };
     std::string const  executable_name{ path_to_target_.filename().string() };
 
-    program_name = executable_name.substr(0, executable_name.find("_fizzer_target"));
+    program_name = executable_name.substr(0, executable_name.find("_target"));
 
-    if (!copy_file(input_dir, program_name + ".i", "source.c", output_dir, false))
-        copy_file(input_dir, program_name + ".c", "source.c", output_dir);
+    copy_file(input_dir, program_name + "_source.c", "source.c", output_dir);
     copy_file(input_dir, program_name + "_instrumented.ll", "source.ll", output_dir);
     copy_file(input_dir, program_name + "_dbg_cond_map.json", "cond_map.json", output_dir);
 

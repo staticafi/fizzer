@@ -46,7 +46,7 @@ class Benchmark:
             "opt_max_bytes"
             ]), "Benchmark's JSON file does not contain all required options for running the tool.")
 
-        self.fuzz_target_file = os.path.join(self.work_dir, self.name + "_fizzer_target")
+        self.fuzz_target_file = os.path.join(self.work_dir, self.name + "_target")
         self.aux_files = [
             os.path.join(self.work_dir, self.name + ".ll"),
             os.path.join(self.work_dir, self.name + "_instrumented.ll"),

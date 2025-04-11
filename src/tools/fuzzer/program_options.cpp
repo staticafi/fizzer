@@ -13,8 +13,6 @@ program_options::program_options(int argc, char* argv[])
     add_option("output_dir", "A directory where to store generated tests.", "1");
     add_value("output_dir", ".");
 
-    add_option("clear_output_dir", "Erase the content of the output directory, if there is some.", "0");
-
     fuzzing::termination_info const  terminator{};
 
     add_option("max_executions", "Max number of executions for fuzzing the benchmark.", "1");
@@ -39,16 +37,6 @@ program_options::program_options(int argc, char* argv[])
     add_value("max_exec_milliseconds", std::to_string(connection::target_executor::default_max_exec_milliseconds));
     add_option("opt_max_exec_milliseconds", "Max number of milliseconds for target execution during optimization of tests violating fuzzing boundaries.", "1");
     add_value("opt_max_exec_milliseconds", std::to_string(connection::target_executor::default_opt_max_exec_milliseconds));
-
-    add_option("max_num_options", "Max number of command line options in the 'cmdline' IO model during fuzzing.", "1");
-    add_value("max_num_options", std::to_string(iomodels::cmdline::default_max_num_options));
-    add_option("opt_max_num_options", "Max number of command line options in the 'cmdline' IO model during optimization.", "1");
-    add_value("opt_max_num_options", std::to_string(iomodels::cmdline::default_opt_max_num_options));
-
-    add_option("max_option_size", "Max number of characters in a command line option of the 'cmdline' IO model during fuzzing.", "1");
-    add_value("max_option_size", std::to_string(iomodels::cmdline::default_max_option_size));
-    add_option("opt_max_option_size", "Max number of characters in a command line option of the 'cmdline' IO model during optimization.", "1");
-    add_value("opt_max_option_size", std::to_string(iomodels::cmdline::default_opt_max_option_size));
 
     add_option("max_bytes", "Max number of input bytes produced by the 'simple' IO model during fuzzing.", "1");
     add_value("max_bytes", std::to_string(iomodels::simple::default_max_bytes));

@@ -118,4 +118,6 @@ if(FIZZ_BUILD_LIBS_32_BIT STREQUAL "No")
     install(FILES ./LICENSE.txt DESTINATION .)
 endif()
 
+install(DIRECTORY ./data DESTINATION .)
+
 message("Generating build files ...")

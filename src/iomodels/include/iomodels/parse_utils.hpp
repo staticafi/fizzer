@@ -60,7 +60,9 @@ template<typename T> inline bool  append_metadata(com::execution_results&  dst, 
 /////////////////////////////////////////////////////////////////////////////////////
 // Utility functions useful in implementation of data collection 'on_*' methods in target's driver.
 
-bool  append_metadata(connection::medium&  dst, com::record_type  rec_type);
+bool  append_metadata(connection::medium&  dst, void*  data, natural_64_bit  count);
+template<typename T> inline bool  append_metadata(connection::medium&  dst, T value) { return append_metadata(dst, &value, sizeof(value)); }
+inline bool  append_metadata(connection::medium&  dst, com::record_type const  rec_type) { return append_metadata(dst, com::to_record_id(rec_type)); }
 bool  append_typed_bytes(connection::medium&  dst, com::data_type  type, void*  bytes);
 
 

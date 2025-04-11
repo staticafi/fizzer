@@ -139,12 +139,11 @@ bool  append_metadata(com::execution_results&  dst, natural_64_bit const  count,
 }
 
 
-bool  append_metadata(connection::medium&  dst, com::record_type const  rec_type)
+bool  append_metadata(connection::medium&  dst, void* const  data, natural_64_bit const  count)
 {
-    if (!dst.can_accept_bytes(sizeof(natural_8_bit)))
+    if (!dst.can_accept_bytes(count))
         return false;
-    natural_8_bit const record_id{ com::to_record_id(rec_type) };
-    dst.accept_bytes(&record_id, sizeof(record_id));
+    dst.accept_bytes((natural_8_bit*)data, count);
     return true;
 }
 

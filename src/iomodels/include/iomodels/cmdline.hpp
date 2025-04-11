@@ -13,24 +13,15 @@ using  cmdline_ptr = std::unique_ptr<cmdline>;
 
 struct  cmdline final : public iomodel
 {
-    static constexpr natural_16_bit  default_max_num_options { 255 };
-    static constexpr natural_16_bit  default_max_option_size { 1024 };
+    static inline constexpr natural_8_bit  max_num_options() { return 64; }
+    static inline constexpr natural_16_bit  max_num_chars() { return 4096; }
 
-    static constexpr natural_16_bit  default_opt_max_num_options { default_max_num_options };
-    static constexpr natural_16_bit  default_opt_max_option_size { default_max_option_size };
-
-    static cmdline_ptr  create(natural_16_bit  max_num_options, natural_16_bit  max_option_size);
+    static cmdline_ptr  create();
     static cmdline_ptr  create(connection::medium&  src);
 
     cmdline_ptr  clone() const;
 
-    cmdline(natural_16_bit  max_num_options, natural_16_bit  max_option_size);
-
-    natural_16_bit  max_num_options() const { return m_max_num_options; }
-    natural_16_bit  max_option_size() const { return m_max_option_size; }
-
-    void  set_max_num_options(natural_16_bit const count) { m_max_num_options = count; }
-    void  set_max_option_size(natural_16_bit const size) { m_max_option_size = size; }
+    cmdline();
 
     void  clear() override;
 
@@ -46,13 +37,13 @@ struct  cmdline final : public iomodel
             ) override;
     bool  parse_record(com::execution_results&  dst, connection::medium&  src) const override;
 
-    com::target_termination  on_arguments_requested(int&  argc, char**&  argv, connection::medium*  dst = nullptr);
+    com::target_termination  on_argc(natural_8_bit*  argc, connection::medium*  dst = nullptr);
+    com::target_termination  on_len(natural_16_bit*  len, natural_8_bit  i, connection::medium*  dst = nullptr);
+    com::target_termination  on_char(natural_8_bit*  c, natural_8_bit  i, natural_16_bit  j, connection::medium*  dst = nullptr);
 
 private:
-    natural_16_bit  m_max_num_options;
-    natural_16_bit  m_max_option_size;
     std::vector<vecu8>  m_args;
-    std::vector<char*>  m_argv;
+    natural_16_bit  m_num_chars;
 };
 
 

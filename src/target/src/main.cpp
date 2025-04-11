@@ -7,8 +7,8 @@
 #endif
 
 extern "C" {
-    void __fizzer_method_under_test();
-    void __fizzer_method_under_test_with_params(int argc, char* argv[]);
+    void  __fizzer_entry_function();
+    void  __fizzer_entry_function_with_params();
 }
 
 int main(int argc, char* argv[])
@@ -34,26 +34,15 @@ int main(int argc, char* argv[])
 
     switch (mut())
     {
-        case com::mut_type::RET_Y_ARGS_Y:
-            {
-                int argc_;
-                char** argv_;
-                check(io_cmdline().on_arguments_requested(argc_, argv_, medium()));
-                __fizzer_method_under_test_with_params(argc_, argv_);
-            }
+        case com::mut_type::WITH_ARGS:
+            __fizzer_entry_function_with_params();
             break;
-        case com::mut_type::RET_Y_ARGS_N:
-            __fizzer_method_under_test();
+        case com::mut_type::NO_ARGS:
+            __fizzer_entry_function();
             break;
-        case com::mut_type::RET_N_ARGS_Y: // TODO!
-            set_termination(com::target_termination::ERROR_IN_DATA);
-            return 2;
-        case com::mut_type::RET_N_ARGS_N: // TODO!
-            set_termination(com::target_termination::ERROR_IN_DATA);
-            return 3;
         default:
             set_termination(com::target_termination::ERROR_IN_DATA);
-            return 4;
+            return 2;
     }
 
     set_termination(com::target_termination::NORMAL);

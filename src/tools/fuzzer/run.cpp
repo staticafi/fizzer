@@ -49,26 +49,6 @@ void run(int argc, char* argv[])
             return;
         }
     }
-    if (get_program_options()->has("clear_output_dir"))
-    {
-        for (const auto&  entry : std::filesystem::directory_iterator(output_dir))
-            if (entry.is_regular_file())
-            {
-                auto const name{ entry.path().filename().string() };
-                for (auto const& suffix : {
-                        "_config.json", "_outcomes.json",
-                        "_LOG.html", "_TMPROF.html",
-                        "0.json", "1.json", "2.json", "3.json", "4.json", "5.json", "6.json", "7.json", "8.json", "9.json",
-                         })
-                    if (name.ends_with(suffix))
-                        std::filesystem::remove(entry);
-            }
-        if (std::filesystem::is_directory(output_dir / "test-suite"))
-            for (const auto&  entry : std::filesystem::directory_iterator(output_dir / "test-suite"))
-                std::filesystem::remove(entry);
-        if (std::filesystem::is_directory(output_dir / "progress_recording"))
-            std::filesystem::remove_all(output_dir / "progress_recording");
-    }
     if (!get_program_options()->has("path_to_target")) {
         std::cerr << "ERROR: The path to target is empty.\n";
         return;
@@ -94,9 +74,9 @@ void run(int argc, char* argv[])
         std::filesystem::path  sala_program_path;
         if (get_program_options()->has("path_to_sala"))
             sala_program_path = get_program_options()->value("path_to_sala");
-        else if (get_program_options()->value("path_to_target").ends_with("_fizzer_target"))
+        else if (get_program_options()->value("path_to_target").ends_with("_target"))
             sala_program_path = get_program_options()->value("path_to_target").substr(0,
-                    get_program_options()->value("path_to_target").rfind("_fizzer_target")
+                    get_program_options()->value("path_to_target").rfind("_target")
                     ) + "_instrumented.json";
         if (sala_program_path.empty())
             std::cerr << "WARNING: The path to sala program is empty.\n";
@@ -116,10 +96,10 @@ void run(int argc, char* argv[])
     com::mut_type  mut_type;
     {
         std::string const mut_name{ sala_program_ptr->functions().at(sala_program_ptr->entry_function()).name() };
-        if (mut_name == "__fizzer_method_under_test")
-            mut_type = com::mut_type::RET_Y_ARGS_N;
-        else if (mut_name == "__fizzer_method_under_test_with_params")    
-            mut_type = com::mut_type::RET_Y_ARGS_Y;
+        if (mut_name == "__fizzer_entry_function")
+            mut_type = com::mut_type::NO_ARGS;
+        else if (mut_name == "__fizzer_entry_function_with_params")    
+            mut_type = com::mut_type::WITH_ARGS;
         else
         {
             std::cerr << "ERROR: Unsupported format of program's entry function.\n";
@@ -140,7 +120,7 @@ void run(int argc, char* argv[])
 
     std::string  target_name = std::filesystem::path(get_program_options()->value("path_to_target")).filename().string();
     {
-        std::string const  target_suffix = "_fizzer_target";
+        std::string const  target_suffix = "_target";
         std::string::size_type const  suffix_i = target_name.find(target_suffix);
         if (suffix_i != std::string::npos) {
             target_name.erase(suffix_i, target_suffix.length());
@@ -153,10 +133,7 @@ void run(int argc, char* argv[])
             (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_exec_megabytes"))),
             (natural_32_bit)std::max(0UL, std::stoul(get_program_options()->value("max_trace_length"))),
             mut_type,
-            iomodels::cmdline::create(
-                (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_num_options"))),
-                (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_option_size")))
-                ),
+            iomodels::cmdline::create(),
             iomodels::simple::create(
                 (natural_64_bit)std::max(0ULL, std::stoull(get_program_options()->value("max_bytes")))
                 )
@@ -220,12 +197,6 @@ void run(int argc, char* argv[])
 
     if (!inputs_leading_to_boundary_violation.empty() && opt_max_seconds > 0)
     {
-        target_executor.io_cmdline().set_max_num_options(
-            (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("opt_max_num_options")))
-            );
-        target_executor.io_cmdline().set_max_option_size(
-            (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("opt_max_option_size")))
-            );
         target_executor.io_simple().set_max_bytes(
             (natural_64_bit)std::max(0ULL, std::stoull(get_program_options()->value("opt_max_bytes")))
             );

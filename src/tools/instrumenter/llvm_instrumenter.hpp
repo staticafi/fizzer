@@ -50,11 +50,8 @@ struct llvm_instrumenter {
     bool doInitialization(llvm::Module *M);
 
     void renameFunctions();
+    void wrapMain();
 
-    void replaceCalls(
-        llvm::Function &F, 
-        std::unordered_map<std::string, llvm::FunctionCallee> replacements
-    );
     bool runOnFunction(llvm::Function &F);
 
     void printErrCond(llvm::Value *cond);
@@ -69,6 +66,7 @@ struct llvm_instrumenter {
     void propagateMissingBasicBlockDbgInfo();
 
     std::string const&  mut() const { return mut_name; }
+    std::string const&  entry_function() const { return entry_function_name; }
 
     basic_block_dbg_info_map const&  getBasicBlockDbgInfo() const { return basicBlockDbgInfo; }
     instruction_dbg_info_vector const&  getCondInstrDbgInfo() const { return condInstrDbgInfo; }
@@ -98,6 +96,7 @@ private:
     unsigned int callSiteCounter;
 
     std::string  mut_name;
+    std::string  entry_function_name;
 
     basic_block_dbg_info_map basicBlockDbgInfo;
     instruction_dbg_info_vector condInstrDbgInfo;

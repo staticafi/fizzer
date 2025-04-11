@@ -9,8 +9,23 @@
 #include <utility/timeprof.hpp>
 #include <algorithm>
 #include <unordered_set>
+#include <string>
 
 using namespace llvm;
+
+
+namespace SpecialFunction
+{
+    static std::string const  main{ "main"};
+    static std::string const  entry_function{ "__fizzer_entry_function" };
+    static std::string const  entry_function_with_params{ "__fizzer_entry_function_with_params" };
+    static std::string const  method_under_test{ "__fizzer_method_under_test" };
+    static std::string const  method_under_test_with_params{ "__fizzer_method_under_test_with_params" };
+    static std::string const  cmdline_read_argc{ "__fizzer_io_model_cmdline_read_argc" };
+    static std::string const  cmdline_read_len{ "__fizzer_io_model_cmdline_read_len" };
+    static std::string const  cmdline_read_char{ "__fizzer_io_model_cmdline_read_char" };
+};
+
 
 bool llvm_instrumenter::doInitialization(Module *M) {
     TMPROF_BLOCK();
@@ -47,13 +62,72 @@ void llvm_instrumenter::renameFunctions()
 {
     TMPROF_BLOCK();
 
+    static std::unordered_set<std::string> const excluded{
+        SpecialFunction::main,
+        SpecialFunction::entry_function,
+        SpecialFunction::entry_function_with_params,
+        SpecialFunction::method_under_test,
+        SpecialFunction::method_under_test_with_params
+    };
+
     std::string const  renamePrefix{ "__fizzer_rename_prefix__" };
     for (auto it = module->begin(); it != module->end(); ++it)
     {
         Function&  fn = *it;
-        if (!fn.isDeclaration() && fn.getName() != "main")
+        if (!fn.isDeclaration() && !excluded.contains(fn.getName().str()))
             fn.setName(renamePrefix + fn.getName());
     }
+}
+
+void llvm_instrumenter::wrapMain() {
+    llvm::Function* const  main_function = module->getFunction(SpecialFunction::main);
+    if (main_function == nullptr)
+        return;
+    std::vector<std::string>  erase_function_names;
+    std::string  other_entry_function_name;
+    if (main_function->getFunctionType()->params().size() == 0ULL)
+    {
+        mut_name = SpecialFunction::method_under_test;
+        entry_function_name = SpecialFunction::entry_function;
+
+        other_entry_function_name = SpecialFunction::entry_function_with_params;
+        erase_function_names.push_back(SpecialFunction::entry_function_with_params);
+        erase_function_names.push_back(SpecialFunction::method_under_test_with_params);
+        erase_function_names.push_back(SpecialFunction::cmdline_read_argc);
+        erase_function_names.push_back(SpecialFunction::cmdline_read_len);
+        erase_function_names.push_back(SpecialFunction::cmdline_read_char);
+    }
+    else
+    {
+        mut_name = SpecialFunction::method_under_test_with_params;
+        entry_function_name = SpecialFunction::entry_function_with_params;
+
+        other_entry_function_name = SpecialFunction::entry_function;
+        erase_function_names.push_back(SpecialFunction::entry_function);
+        erase_function_names.push_back(SpecialFunction::method_under_test);
+    }
+
+    llvm::Function* const old_mut = module->getFunction(mut_name);
+    old_mut->replaceAllUsesWith(main_function);
+    old_mut->eraseFromParent();
+    main_function->setName(mut_name);
+
+    for (std::string const&  name : erase_function_names)
+        module->getFunction(name)->eraseFromParent();
+    llvm::Function* const  other_entry_function = llvm::Function::Create(
+        llvm::FunctionType::get(
+            llvm::Type::getVoidTy(module->getContext()),
+            {
+            },
+            false
+            ),
+        llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+        other_entry_function_name,
+        module
+        );
+    llvm::IRBuilder<> builder(module->getContext());
+    builder.SetInsertPoint(llvm::BasicBlock::Create(module->getContext(), "entry", other_entry_function));
+    builder.CreateRetVoid();
 }
 
 void llvm_instrumenter::printErrCond(Value *cond) {
@@ -217,33 +291,6 @@ bool llvm_instrumenter::instrumentCond(Instruction *inst, bool const xor_like_br
     return true;
 }
 
-void llvm_instrumenter::replaceCalls(
-    Function &F,
-    std::unordered_map<std::string, FunctionCallee> replacements
-    ) {
-    TMPROF_BLOCK();
-
-    std::vector<std::pair<CallInst*, FunctionCallee>> replaceCalls;
-
-    for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-        if (auto *callInst = dyn_cast<CallInst>(&*I)) {
-            Function* callee = callInst->getCalledFunction();
-            if (!callee) {
-                continue;
-            }
-            auto it = replacements.find(callee->getName().str());
-            if (it != replacements.end()) {
-                replaceCalls.emplace_back(callInst, it->second);
-            }
-            
-        }
-    }
-    
-    for (auto [callInst, replacement]: replaceCalls) {
-        ReplaceInstWithInst(callInst, CallInst::Create(replacement));
-    }
-}
-
 bool llvm_instrumenter::runOnFunction(Function &F) {
     TMPROF_BLOCK();
 
@@ -252,48 +299,6 @@ bool llvm_instrumenter::runOnFunction(Function &F) {
     }
 
     DependenciesFPM->run(F);
-
-    if (F.getName() == "main") {
-        llvm::Function *func;
-        if (F.getFunctionType()->params().size() == 0ULL)
-        {
-            mut_name = "__fizzer_method_under_test";
-            F.setName(mut_name);
-            func = llvm::Function::Create(
-                llvm::FunctionType::get(
-                    llvm::IntegerType::get(module->getContext(), 32),
-                    {
-                        llvm::IntegerType::get(module->getContext(), 32),
-                        llvm::PointerType::get(module->getContext(), 0)
-                    },
-                    false
-                    ),
-                llvm::GlobalValue::LinkageTypes::ExternalLinkage,
-                "__fizzer_method_under_test_with_params",
-                module
-                );
-        }
-        else
-        {
-            mut_name = "__fizzer_method_under_test_with_params";
-            F.setName(mut_name);
-            func = llvm::Function::Create(
-                llvm::FunctionType::get(
-                    llvm::IntegerType::get(module->getContext(), 32),
-                    {
-                    },
-                    false
-                    ),
-                llvm::GlobalValue::LinkageTypes::ExternalLinkage,
-                "__fizzer_method_under_test",
-                module
-                );
-
-        }
-        llvm::IRBuilder<> builder(module->getContext());
-        builder.SetInsertPoint(llvm::BasicBlock::Create(module->getContext(), "entry", func));
-        builder.CreateRet(llvm::ConstantInt::get(llvm::IntegerType::get(module->getContext(), 32), "0", 10));
-    }
 
     for (BasicBlock &BB : F) {
         ++basicBlockCounter;

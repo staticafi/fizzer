@@ -26,8 +26,6 @@ void  print_fuzzing_configuration(
          << shift << "\"max_exec_milliseconds\": " << executor.executor().get_max_exec_milliseconds() << ",\n"
          << shift << "\"max_exec_megabytes\": " << executor.max_exec_megabytes() << ",\n"
          << shift << "\"max_trace_length\": " << executor.max_trace_length() << ",\n"
-         << shift << "\"max_num_options\": " << executor.io_cmdline().max_num_options() << ",\n"
-         << shift << "\"max_option_size\": " << executor.io_cmdline().max_option_size() << ",\n"
          << shift << "\"max_bytes\": " << executor.io_simple().max_bytes() << ",\n"
          << "}"
          ;
@@ -288,8 +286,6 @@ void  print_optimization_configuration(
         << shift << "\"opt_max_exec_milliseconds\": " << executor.executor().get_max_exec_milliseconds() << ",\n"
         << shift << "\"opt_max_exec_megabytes\": " << executor.max_exec_megabytes() << ",\n"
         << shift << "\"opt_max_trace_length\": " << executor.max_trace_length() << ",\n"
-        << shift << "\"opt_max_num_options\": " << executor.io_cmdline().max_num_options() << ",\n"
-        << shift << "\"opt_max_option_size\": " << executor.io_cmdline().max_option_size() << ",\n"
         << shift << "\"opt_max_bytes\": " << executor.io_simple().max_bytes() << ",\n"
         << "}"
         ;

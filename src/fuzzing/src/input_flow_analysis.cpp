@@ -25,11 +25,17 @@ struct extern_code : public sala::ExternCodeCStd
     extern_code(
         sala::ExecState*  state,
         sala::Sanitizer*  sanitizer,
+        iomodels::cmdline*  io_cmdline,
         iomodels::simple*  io_simple
         );
+    iomodels::cmdline&  io_cmdline() { return *io_cmdline_; }
     iomodels::simple&  io_simple() { return *io_simple_; }
 private:
-    sala::MemPtr  read(std::size_t count);
+    void  cmdline_read_argc();
+    void  cmdline_read_len();
+    void  cmdline_read_char();
+    sala::MemPtr  simple_read(std::size_t count);
+    iomodels::cmdline*  io_cmdline_;
     iomodels::simple*  io_simple_;
 };
 
@@ -37,28 +43,88 @@ private:
 extern_code::extern_code(
         sala::ExecState* const  state,
         sala::Sanitizer* const  sanitizer,
+        iomodels::cmdline*  io_cmdline,
         iomodels::simple* const  io_simple
         )
     : sala::ExternCodeCStd{ state, sanitizer }
+    , io_cmdline_{ io_cmdline }
     , io_simple_{ io_simple }
 {
-    register_code("__VERIFIER_nondet_bool", [this]() { auto const ptr = this->read(sizeof(bool)); *(bool*)ptr = *ptr != 0; });
-    register_code("__VERIFIER_nondet_char", [this]() { this->read(sizeof(std::int8_t)); });
-    register_code("__VERIFIER_nondet_short", [this]() { this->read(sizeof(std::int16_t)); });
-    register_code("__VERIFIER_nondet_int", [this]() { this->read(sizeof(std::int32_t)); });
-    register_code("__VERIFIER_nondet_long", [this]() { this->read(program().num_cpu_bits() == 32U ? sizeof(std::int32_t) : sizeof(std::int64_t)); });
-    register_code("__VERIFIER_nondet_longlong", [this]() { this->read(sizeof(std::int64_t)); });
-    register_code("__VERIFIER_nondet_uchar", [this]() { this->read(sizeof(std::uint8_t)); });
-    register_code("__VERIFIER_nondet_ushort", [this]() { this->read(sizeof(std::uint16_t)); });
-    register_code("__VERIFIER_nondet_uint", [this]() { this->read(sizeof(std::uint32_t)); });
-    register_code("__VERIFIER_nondet_ulong", [this]() { this->read(program().num_cpu_bits() == 32U ? sizeof(std::uint32_t) : sizeof(std::uint64_t)); });
-    register_code("__VERIFIER_nondet_ulonglong", [this]() { this->read(sizeof(std::uint64_t)); });
-    register_code("__VERIFIER_nondet_float", [this]() { this->read(sizeof(float)); });
-    register_code("__VERIFIER_nondet_double", [this]() { this->read(sizeof(double)); });
+    register_code("__fizzer_io_model_cmdline_read_argc", [this]() { this->cmdline_read_argc(); });
+    register_code("__fizzer_io_model_cmdline_read_len", [this]() { this->cmdline_read_len(); });
+    register_code("__fizzer_io_model_cmdline_read_char", [this]() { this->cmdline_read_char(); });
+
+    register_code("__VERIFIER_nondet_bool", [this]() { auto const ptr = this->simple_read(sizeof(bool)); *(bool*)ptr = *ptr != 0; });
+    register_code("__VERIFIER_nondet_char", [this]() { this->simple_read(sizeof(std::int8_t)); });
+    register_code("__VERIFIER_nondet_short", [this]() { this->simple_read(sizeof(std::int16_t)); });
+    register_code("__VERIFIER_nondet_int", [this]() { this->simple_read(sizeof(std::int32_t)); });
+    register_code("__VERIFIER_nondet_long", [this]() { this->simple_read(program().num_cpu_bits() == 32U ? sizeof(std::int32_t) : sizeof(std::int64_t)); });
+    register_code("__VERIFIER_nondet_longlong", [this]() { this->simple_read(sizeof(std::int64_t)); });
+    register_code("__VERIFIER_nondet_uchar", [this]() { this->simple_read(sizeof(std::uint8_t)); });
+    register_code("__VERIFIER_nondet_ushort", [this]() { this->simple_read(sizeof(std::uint16_t)); });
+    register_code("__VERIFIER_nondet_uint", [this]() { this->simple_read(sizeof(std::uint32_t)); });
+    register_code("__VERIFIER_nondet_ulong", [this]() { this->simple_read(program().num_cpu_bits() == 32U ? sizeof(std::uint32_t) : sizeof(std::uint64_t)); });
+    register_code("__VERIFIER_nondet_ulonglong", [this]() { this->simple_read(sizeof(std::uint64_t)); });
+    register_code("__VERIFIER_nondet_float", [this]() { this->simple_read(sizeof(float)); });
+    register_code("__VERIFIER_nondet_double", [this]() { this->simple_read(sizeof(double)); });
 }
 
 
-sala::MemPtr  extern_code::read(std::size_t const count)
+void  extern_code::cmdline_read_argc()
+{
+    sala::MemPtr const  ptr{ parameters().front().read<sala::MemPtr>() };
+    if (io_cmdline().on_argc(ptr) != target_termination::NORMAL)
+    {
+        state().set_stage(sala::ExecState::Stage::FINISHED);
+        state().set_termination(
+            sala::ExecState::Termination::ERROR,
+            "input_flow_analysis[extern_code]",
+            state().current_location_message() + ": Call to 'io_cmdline().on_argc()' has failed."
+            );
+    }
+}
+
+
+void  extern_code::cmdline_read_len()
+{
+    sala::MemPtr const  ptr{ parameters().front().read<sala::MemPtr>() };
+    natural_8_bit const  i{ parameters().at(1).read<natural_8_bit>() };
+    if (io_cmdline().on_len((natural_16_bit*)ptr, i) != target_termination::NORMAL)
+    {
+        state().set_stage(sala::ExecState::Stage::FINISHED);
+        state().set_termination(
+            sala::ExecState::Termination::ERROR,
+            "input_flow_analysis[extern_code]",
+            state().current_location_message() +
+                ": Call to 'io_cmdline().on_len(" +
+                std::to_string((int)i) +
+                ")' has failed."
+            );
+    }
+}
+
+
+void  extern_code::cmdline_read_char()
+{
+    sala::MemPtr const  ptr{ parameters().front().read<sala::MemPtr>() };
+    natural_8_bit const  i{ parameters().at(1).read<natural_8_bit>() };
+    natural_16_bit const  j{ parameters().at(2).read<natural_16_bit>() };
+    if (io_cmdline().on_char(ptr, i, j) != target_termination::NORMAL)
+    {
+        state().set_stage(sala::ExecState::Stage::FINISHED);
+        state().set_termination(
+            sala::ExecState::Termination::ERROR,
+            "input_flow_analysis[extern_code]",
+            state().current_location_message() +
+                ": Call to 'io_cmdline().on_char(" +
+                std::to_string((int)i) + ',' + std::to_string((int)j) +
+                ")' has failed."
+            );
+    }
+}
+
+
+sala::MemPtr  extern_code::simple_read(std::size_t const count)
 {
     data_type  type;
     switch (count)
@@ -76,7 +142,10 @@ sala::MemPtr  extern_code::read(std::size_t const count)
         state().set_termination(
             sala::ExecState::Termination::ERROR,
             "input_flow_analysis[extern_code]",
-            state().current_location_message() + ": Call to 'io_manager().get_simple().on_bytes_requested()' has failed."
+            state().current_location_message() +
+                ": Call to 'io_simple().on_bytes_requested(" +
+                com::to_string(type) +
+                ")' has failed."
             );
     }
     return ptr;
@@ -89,7 +158,6 @@ struct input_flow_analysis::input_flow : public sala::InputFlow
     computation_io_data&  data() { return *data_; }
 
 private:
-    void on_stack_initialized() override;
     void start_input_flow(sala::MemPtr ptr, std::size_t count);
     void start_input_flow(std::size_t const count) { start_input_flow(parameters().front().read<sala::MemPtr>(), count);}
     void do_ret() override;
@@ -109,6 +177,10 @@ input_flow_analysis::input_flow::input_flow(
     , fresh_descriptor_{ 0U }
     , some_input_was_read_{ false }
 {
+    REGISTER_EXTERN_FUNCTION_PROCESSOR(__fizzer_io_model_cmdline_read_argc, this->start_input_flow(sizeof(std::int8_t)) );
+    REGISTER_EXTERN_FUNCTION_PROCESSOR(__fizzer_io_model_cmdline_read_len, this->start_input_flow(sizeof(std::int16_t)) );
+    REGISTER_EXTERN_FUNCTION_PROCESSOR(__fizzer_io_model_cmdline_read_char, this->start_input_flow(sizeof(std::int8_t)) );
+
     REGISTER_EXTERN_FUNCTION_PROCESSOR(__VERIFIER_nondet_bool, this->start_input_flow(sizeof(bool)) );
     REGISTER_EXTERN_FUNCTION_PROCESSOR(__VERIFIER_nondet_char, this->start_input_flow(sizeof(std::int8_t)) );
     REGISTER_EXTERN_FUNCTION_PROCESSOR(__VERIFIER_nondet_short, this->start_input_flow(sizeof(std::int16_t)) );
@@ -122,28 +194,6 @@ input_flow_analysis::input_flow::input_flow(
     REGISTER_EXTERN_FUNCTION_PROCESSOR(__VERIFIER_nondet_ulonglong, this->start_input_flow(sizeof(std::uint64_t)) );
     REGISTER_EXTERN_FUNCTION_PROCESSOR(__VERIFIER_nondet_float, this->start_input_flow(sizeof(float)) );
     REGISTER_EXTERN_FUNCTION_PROCESSOR(__VERIFIER_nondet_double, this->start_input_flow(sizeof(double)) );
-}
-
-
-void input_flow_analysis::input_flow::on_stack_initialized()
-{
-    if (state().stage() == sala::ExecState::Stage::EXECUTING && !state().argv_c_strings().empty())
-    {
-        sala::MemBlock const* argc;
-        {
-            auto const& params{ state().stack_top().parameters() };
-            if (params.size() == 2ULL)
-                argc = &params.front();
-            else
-            {
-                ASSUMPTION(params.size() == 3ULL);
-                argc = &params.at(1ULL);
-            }
-        }
-        start_input_flow(argc->start(), 2ULL); // IO model cmdline defines argc only in 2 bytes (not in all 4).
-        for (sala::MemBlock const& str : state().argv_c_strings())
-            start_input_flow(str.start(), str.count());
-    }
 }
 
 
@@ -252,20 +302,12 @@ void  input_flow_analysis::run(computation_io_data* const  data_ptr_, std::funct
         m_io_simple.get()
         });
 
-    int  argc{ 0 };
-    char**  argv{ nullptr };
-    if (program_ptr->functions().at(program_ptr->entry_function()).parameters().size() > 1ULL)
-    {
-        auto const termination{ m_io_cmdline->on_arguments_requested(argc, argv) };
-        ASSUMPTION(termination == com::target_termination::NORMAL);
-    }
-
     std::chrono::system_clock::time_point const  start_time = std::chrono::system_clock::now();
 
-    sala::ExecState  state{ program_ptr, argc, argv, m_max_exec_megabytes * 1024ULL * 1024ULL };
+    sala::ExecState  state{ program_ptr, m_max_exec_megabytes * 1024ULL * 1024ULL };
     sala::Sanitizer  sanitizer{ &state };
     input_flow  flow{ data_ptr, &state };
-    extern_code  externals{ &state, &sanitizer, m_io_simple.get() };
+    extern_code  externals{ &state, &sanitizer, m_io_cmdline.get(), m_io_simple.get() };
     sala::Interpreter  interpreter{ &state, &externals, { &sanitizer, &flow } };
 
     interpreter.run(terminator);

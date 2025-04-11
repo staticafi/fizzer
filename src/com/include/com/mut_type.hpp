@@ -8,10 +8,8 @@ namespace com {
 
 enum struct  mut_type : natural_8_bit
 {
-    RET_Y_ARGS_Y    = 0,    // int main(int, char*[])
-    RET_Y_ARGS_N    = 1,    // int main(void)
-    RET_N_ARGS_Y    = 2,    // void main(int, char*[])
-    RET_N_ARGS_N    = 3,    // void main(void)
+    WITH_ARGS   = 0,    // int main(int, char*[])
+    NO_ARGS     = 1,    // int main(void)
 };
 
 static_assert(sizeof(mut_type) == 1);

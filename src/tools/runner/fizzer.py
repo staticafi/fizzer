@@ -21,6 +21,10 @@ def  benchmark_name(input_file):
     return os.path.splitext(benchmark_file_name(input_file))[0]
 
 
+def  benchmark_c_name(input_file):
+    return benchmark_name(input_file) + "_source.c"
+
+
 def  benchmark_ll_name(input_file):
     return benchmark_name(input_file) + ".ll"
 
@@ -29,8 +33,12 @@ def  benchmark_instrumented_ll_name(input_file):
     return benchmark_name(input_file) + "_instrumented.ll"
 
 
+def  benchmark_entry_function_name(input_file):
+    return benchmark_name(input_file) + "_entry_function.txt"
+
+
 def  benchmark_target_name(input_file):
-    return benchmark_name(input_file) + "_fizzer_target"
+    return benchmark_name(input_file) + "_target"
 
 
 def  benchmark_sala_name(input_file):
@@ -43,10 +51,15 @@ def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, si
     if silent_mode is False: print("\"build_times\": {", flush=True)
     if silent_mode is False: print("    \"Compiling[C->LLVM]\": ", end='', flush=True)
     t0 = time.time()
+    benchmark_file = os.path.join(output_dir, benchmark_c_name(input_file))
+    shutil.copyfile(input_file, benchmark_file)
+    with open(benchmark_file, "a") as fw:
+        with open(os.path.join(self_dir, "data", "fizzer_entry_function.c"), "r") as fr:
+            shutil.copyfileobj(fr, fw)
     if _execute(
             [ "clang" ] +
                 (["-m32"] if use_m32 is True else []) +
-                [ "-O0", "-g", "-S", "-emit-llvm", "-Wno-everything", "-fbracket-depth=1024", input_file, "-o", ll_file],
+                [ "-O0", "-g", "-S", "-emit-llvm", "-Wno-everything", "-fbracket-depth=1024", benchmark_file, "-o", ll_file],
             None).returncode:
         raise Exception("Compilation[C->LLVM] has failed: " + input_file)
     t1 = time.time()
@@ -86,15 +99,15 @@ def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, si
 
     if silent_mode is False: print("    \"Compiling[LLVM->sala]\": ", end='', flush=True)
     t0 = time.time()
-    with open(os.path.join(output_dir, benchmark_name(input_file) + "_mut.txt"), "r") as f:
-        mut_name = f.read()
+    with open(os.path.join(output_dir, benchmark_entry_function_name(input_file)), "r") as f:
+        entry_function_name = f.read()
     if _execute(
             [ os.path.join(self_dir, "tools", "salac", "salac.py") ] +
                 (["--jsonc"] if generate_jsonc is True else []) + [
                 "--input", instrumented_ll_file,
                 "--output", output_dir,
                 "--rename", os.path.splitext(benchmark_sala_name(input_file))[0],
-                "--entry", mut_name ],
+                "--entry", entry_function_name ],
             None).returncode:
         if silent_mode is False: print("},", flush=True)
         return 

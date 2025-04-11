@@ -114,6 +114,7 @@ void run(int argc, char* argv[])
     llvm_instrumenter  instrumenter;
     instrumenter.doInitialization(M.get());
     instrumenter.renameFunctions();
+    instrumenter.wrapMain();
     for (auto it = M->begin(); it != M->end(); ++it)
         instrumenter.runOnFunction(*it);
 
@@ -129,9 +130,9 @@ void run(int argc, char* argv[])
     {
         std::filesystem::path const output_dir{ std::filesystem::path(get_program_options()->value("output")).parent_path() };
         std::filesystem::path const input_file_name { std::filesystem::path(get_program_options()->value("input")).filename().replace_extension("") };
-        std::filesystem::path pathname = output_dir / (input_file_name.string() + "_mut.txt");
+        std::filesystem::path pathname = output_dir / (input_file_name.string() + "_entry_function.txt");
         std::ofstream  ostr(pathname.c_str(), std::ios::binary);
-        ostr << instrumenter.mut();
+        ostr << instrumenter.entry_function();
     }
 
     if (get_program_options()->has("save_mapping"))
