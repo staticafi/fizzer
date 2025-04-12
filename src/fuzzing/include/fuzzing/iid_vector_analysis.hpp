@@ -45,7 +45,12 @@ enum generation_state {
     STATE_COVERED_BY_OTHER
 };
 
-enum failed_generation_method { METHOD_GENERATE_FROM_OTHER_NODE, METHOD_GENERATE_ARTIFICIAL_DATA };
+enum failed_generation_method {
+    METHOD_NONE,
+    METHOD_GENERATE_FROM_OTHER_NODE,
+    METHOD_GENERATE_ARTIFICIAL_DATA,
+    METHOD_DO_NOT_GENERATE
+};
 
 struct iid_node_generations_stats {
     int method_calls = 0;
@@ -69,10 +74,11 @@ struct iid_node_generations_stats {
     int generate_artificial_data = 0;
     int generate_artificial_data_max = 0;
 
+    int do_not_generate_counter = 0;
 
     generation_state state = generation_state::STATE_NOT_COVERED;
 
-    failed_generation_method last_failed_method = METHOD_GENERATE_ARTIFICIAL_DATA;
+    failed_generation_method last_failed_method = METHOD_NONE;
 };
 
 struct loaded_bits_props {
@@ -98,6 +104,7 @@ struct loop_properties {
     const std::unordered_set< location_id::id_type >& get_all_ids() const;
     const std::unordered_set< location_id::id_type >& get_loop_head_ids() const;
     location_id::id_type get_smallest_loop_head_id() const;
+    std::optional< location_id::id_type > get_smallest_body_id() const;
     location_id::id_type get_smallest_id() const;
     void set_chosen_loop_head();
     void update_stored_ids();
@@ -231,6 +238,7 @@ struct equation {
 
     equation add_to_positive( int value ) const;
     equation add_to_values( const equation& other ) const;
+    int simplify_by_gcd();
     int get_vector_size() const;
     int get_one_way_branching_count() const;
     int get_biggest_value() const;
@@ -320,6 +328,11 @@ struct equation_matrix {
     void print_matrix();
 
     BRANCHING_PREDICATE get_branching_predicate() const;
+    int get_number_of_different_branchings() const { return branching_values.size(); }
+
+    std::map< double, int, FloatComparator > branching_values;
+
+    std::vector< std::map< int, int > > vector_counts_histogram;
 
 private:
     void add_path( branching_node* end_node,
@@ -327,13 +340,13 @@ private:
                    bool add_columns,
                    std::size_t max_directions_in_path_index );
 
-    std::map< double, int, FloatComparator > branching_values;
     std::vector< equation > matrix;
     std::unordered_set< equation > unique_rows;
     std::vector< branching_node* > all_paths;
     std::vector< node_id_with_direction > nodes;
     std::unordered_set< location_id::id_type > node_ids;
 
+    std::unordered_set< equation > vectors;
     std::unordered_map< equation, int > vectors_with_hits;
     int computed_vectors = 0;
 };
@@ -347,11 +360,12 @@ struct iid_node_dependence_props {
     const equation_matrix& get_matrix() const { return matrix; }
     const iid_node_generations_stats& get_generations_stats() const { return stats; }
 
-    bool should_generate( const loop_dependencies& loop_to_properties ) const;
-    bool too_much_failed_in_row( int max_failed_generations_in_row ) const;
+    bool is_covered() const;
+    bool should_generate_new( const loop_dependencies& loop_to_properties ) const;
+    failed_generation_method determine_recovery_strategy();
+    bool too_much_failed_in_row();
     void set_as_generating_for_other_node( int minimal_max_generation_for_other_node );
     void set_as_generating_artificial_data( int minimal_max_generation_artificial_data );
-    failed_generation_method get_method_for_failed_generation( bool is_first );
     bool is_equal_branching_predicate() const;
     bool is_matrix_generated() const { return matrix_generated; }
 
@@ -359,7 +373,7 @@ struct iid_node_dependence_props {
 
 
 private:
-    void generate_vectors_if_not_enough_data( std::vector< equation >& best_vectors, equation_matrix& submatrix );
+    std::optional< std::vector< equation > > generate_vectors_if_not_enough_data( equation_matrix& submatrix );
     std::optional< std::vector< equation > > get_best_vectors( equation_matrix& submatrix, int number_of_vectors );
     generated_path return_empty_path();
     generated_path return_path( const generated_path& path );
@@ -451,17 +465,23 @@ public:
     // Configurations
     inline static bool random_nested_loop_counts = false;
     inline static bool random_direction_in_path = true;
+    inline static bool random_node_selection = true;
     inline static bool generate_more_data_after_coverage = true;
+    inline static bool generate_for_bad_nodes = true;
     inline static int max_failed_generations_in_row = 2;
     inline static int minimal_max_generation_after_covered = 10;
     inline static int minimal_max_generation_for_other_node = 10;
     inline static int minimal_max_generation_artificial_data = 5;
-    inline static int maximal_number_of_equations_with_same_branching_value = 2000;
+    inline static int maximal_number_of_equations_with_same_branching_value = 250;
+    inline static int maximal_number_of_branching_values = 250;
     inline static float percentage_to_add_to_path = 0.4;
     inline static bool create_artificial_data = true;
+    inline static int biggest_value_in_difference_vector = 10;
 
     inline static bool verbose = false;
+    // inline static bool verbose = true;
 };
+
 
 
 std::pair< path_id_direction_count, std::size_t > get_directions_in_path( branching_node* node );

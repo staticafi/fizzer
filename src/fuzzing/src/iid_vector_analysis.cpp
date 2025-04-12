@@ -222,6 +222,32 @@ equation fuzzing::equation::add_to_values( const equation& other ) const
 }
 
 // ------------------------------------------------------------------------------------------------
+int fuzzing::equation::simplify_by_gcd()
+{
+    if ( values.empty() ) {
+        return 1;
+    }
+
+    int gcd = std::abs( best_value );
+    for ( int i = 0; i < values.size(); ++i ) {
+        gcd = std::gcd( gcd, values[ i ] );
+    }
+
+    if ( gcd == 0 || std::abs( gcd ) == 1 ) {
+        return 1;
+    }
+
+    for ( int i = 0; i < values.size(); ++i ) {
+        values[ i ] /= gcd;
+    }
+
+    best_value /= gcd;
+
+    return gcd;
+}
+
+
+// ------------------------------------------------------------------------------------------------
 int equation::get_vector_size() const
 {
     return std::accumulate( values.begin(), values.end(), 0, []( int sum, int val ) { return sum + val; } );
@@ -340,6 +366,22 @@ location_id::id_type fuzzing::loop_properties::get_smallest_loop_head_id() const
     for ( const auto& id : loop_head_ids ) {
         if ( id < smallest_id ) {
             smallest_id = id;
+        }
+    }
+
+    return smallest_id;
+}
+
+// ------------------------------------------------------------------------------------------------
+std::optional< location_id::id_type > fuzzing::loop_properties::get_smallest_body_id() const
+{
+    TMPROF_BLOCK();
+
+    std::optional< location_id::id_type > smallest_id;
+
+    for ( const auto& body : bodies ) {
+        if ( !smallest_id.has_value() || body.node_id < smallest_id.value() ) {
+            smallest_id = body.node_id;
         }
     }
 
@@ -638,6 +680,7 @@ equation_matrix equation_matrix::get_submatrix( std::set< node_id_with_direction
         if ( inserted ) {
             result.matrix.push_back( new_row );
             result.all_paths.push_back( all_paths[ i ] );
+            result.branching_values[ row.best_value ]++;
         }
     }
 
@@ -653,11 +696,17 @@ void fuzzing::equation_matrix::process_node( branching_node* end_node,
 {
     TMPROF_BLOCK();
 
-    int& branching_value_count = branching_values[ end_node->best_coverage_value ];
-    if ( branching_value_count >= iid_dependencies::maximal_number_of_equations_with_same_branching_value )
-        return;
+    auto it = branching_values.find( end_node->best_coverage_value );
 
-    branching_value_count++;
+    if ( it != branching_values.end() &&
+         branching_values.size() >= iid_dependencies::maximal_number_of_branching_values ) {
+        return;
+    }
+
+    if ( it != branching_values.end() &&
+         it->second >= iid_dependencies::maximal_number_of_equations_with_same_branching_value ) {
+        return;
+    }
 
     all_paths.push_back( end_node );
 
@@ -691,7 +740,7 @@ bool equation_matrix::contains( node_id_with_direction const& node ) const
 // ------------------------------------------------------------------------------------------------
 std::pair< std::size_t, std::size_t > equation_matrix::get_dimensions() const
 {
-    return { matrix.size(), nodes.size() };
+    return { unique_rows.size(), nodes.size() };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -710,25 +759,24 @@ const std::unordered_map< equation, int >& equation_matrix::compute_vectors_with
 
             equation difference = matrix[ i ] - matrix[ j ];
 
-            if ( difference.is_any_negative() || difference.best_value == 0 )
+            if ( difference.is_any_negative() || difference.best_value == 0 || difference.get_biggest_value() > iid_dependencies::biggest_value_in_difference_vector )
                 continue;
 
-            vectors_with_hits[ difference ];
+            vectors.insert( difference );
         }
 
         computed_vectors++;
     }
 
-    for ( auto& [ vector, hits ] : vectors_with_hits ) {
-        hits = 0;
-    }
+    vectors_with_hits.clear();
 
-    for ( const auto& [ vector, hits ] : vectors_with_hits ) {
+    for ( const auto& vector : vectors ) {
         for ( const auto& row : matrix ) {
             equation new_possible_equation = row + vector;
-
             if ( std::find( unique_rows.begin(), unique_rows.end(), new_possible_equation ) != unique_rows.end() ) {
-                vectors_with_hits[ vector ]++;
+                equation vector_copy = vector;
+                int gcd = vector_copy.simplify_by_gcd();
+                vectors_with_hits[ vector_copy ] += gcd;
             }
         }
     }
@@ -872,6 +920,18 @@ void fuzzing::equation_matrix::add_path( branching_node* end_node,
                                          bool add_columns,
                                          std::size_t max_directions_in_path_index )
 {
+    auto branching_values_it = branching_values.find( end_node->best_coverage_value );
+
+    if ( branching_values.size() >= iid_dependencies::maximal_number_of_branching_values &&
+         branching_values_it == branching_values.end() ) {
+        return;
+    }
+
+    if ( branching_values_it != branching_values.end() &&
+         branching_values_it->second >= iid_dependencies::maximal_number_of_equations_with_same_branching_value ) {
+        return;
+    }
+
     TMPROF_BLOCK();
 
     if ( add_columns ) {
@@ -915,6 +975,7 @@ void fuzzing::equation_matrix::add_path( branching_node* end_node,
     auto [ it, inserted ] = unique_rows.insert( row );
     if ( inserted ) {
         matrix.push_back( row );
+        branching_values[ end_node->best_coverage_value ]++;
     }
 }
 
@@ -969,21 +1030,22 @@ generated_path iid_node_dependence_props::generate_probabilities( const loop_dep
     if ( iid_dependencies::verbose ) {
         print_stats( false );
         loop_to_properties.print_dependencies();
-        // computation_submatrix.print_matrix();
+        computation_submatrix.print_matrix();
     }
 
-    std::optional< std::vector< equation > > best_vectors = get_best_vectors( computation_submatrix, 1 );
+    std::optional< std::vector< equation > > best_vectors;
+
+    if ( stats.state == generation_state::STATE_GENERATING_ARTIFICIAL_DATA ) {
+        best_vectors = generate_vectors_if_not_enough_data( computation_submatrix );
+    } else {
+        best_vectors = get_best_vectors( computation_submatrix, 1 );
+    }
 
     if ( !best_vectors.has_value() ) {
-        if ( stats.state != generation_state::STATE_GENERATING_ARTIFICIAL_DATA ) {
-            if ( iid_dependencies::verbose )
-                std::cout << "No vectors" << std::endl;
+        if ( iid_dependencies::verbose )
+            std::cout << "No vectors" << std::endl;
 
-            return return_empty_path();
-        }
-
-        best_vectors = std::vector< equation >();
-        generate_vectors_if_not_enough_data( *best_vectors, computation_submatrix );
+        return return_empty_path();
     }
 
     std::optional< equation > new_subset_counts =
@@ -992,7 +1054,7 @@ generated_path iid_node_dependence_props::generate_probabilities( const loop_dep
     if ( !new_subset_counts.has_value() ) {
         if ( iid_dependencies::verbose )
             std::cout << "No new subset counts" << std::endl;
-    
+
         return return_empty_path();
     }
 
@@ -1022,27 +1084,71 @@ void fuzzing::iid_node_dependence_props::process_path_effective( branching_node*
 }
 
 // ------------------------------------------------------------------------------------------------
-bool iid_node_dependence_props::should_generate( const loop_dependencies& loop_to_properties ) const
+bool iid_node_dependence_props::is_covered() const
 {
+    return stats.state == generation_state::STATE_COVERED ||
+           stats.state == generation_state::STATE_COVERED_BY_OTHER;
+}
+
+// ------------------------------------------------------------------------------------------------
+bool iid_node_dependence_props::should_generate_new( const loop_dependencies& loop_to_properties ) const
+{
+    if ( stats.state == generation_state::STATE_COVERED ||
+         stats.state == generation_state::STATE_COVERED_BY_OTHER ) {
+        return false;
+    }
+
     if ( !matrix_generated ) {
         return true;
     }
 
-    // if ( !loop_to_properties.get_node_subsets_for_computation( get_matrix().get_node_ids() ).empty() ) {
-    //     return true;
-    // }
+    if ( stats.state == generation_state::STATE_GENERATING_ARTIFICIAL_DATA ||
+         stats.state == generation_state::STATE_GENERATION_DATA_FOR_NEXT_NODE ||
+         stats.state == generation_state::STATE_GENERATION_MORE ) {
+        return true;
+    }
 
-    return stats.state != generation_state::STATE_COVERED;
+    if ( matrix.get_number_of_different_branchings() <= 1 ) {
+        return false;
+    }
+
+    std::set< fuzzing::node_id_with_direction > computation_subset;
+    loop_to_properties.compute_node_subsets_for_computation( computation_subset, matrix.get_node_ids() );
+
+    if ( !computation_subset.empty() ) {
+        return true;
+    }
+
+    return false;
 }
 
 // ------------------------------------------------------------------------------------------------
-bool iid_node_dependence_props::too_much_failed_in_row( int max_failed_generations_in_row ) const
+failed_generation_method fuzzing::iid_node_dependence_props::determine_recovery_strategy()
+{
+    switch ( stats.last_failed_method ) {
+        case failed_generation_method::METHOD_NONE:
+            return failed_generation_method::METHOD_GENERATE_ARTIFICIAL_DATA;
+        case failed_generation_method::METHOD_GENERATE_ARTIFICIAL_DATA:
+            return failed_generation_method::METHOD_GENERATE_FROM_OTHER_NODE;
+        case failed_generation_method::METHOD_GENERATE_FROM_OTHER_NODE:
+            return failed_generation_method::METHOD_DO_NOT_GENERATE;
+        case failed_generation_method::METHOD_DO_NOT_GENERATE:
+            return failed_generation_method::METHOD_GENERATE_ARTIFICIAL_DATA;
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+bool iid_node_dependence_props::too_much_failed_in_row()
 {
     if ( stats.state != generation_state::STATE_NOT_COVERED ) {
         return false;
     }
 
-    if ( stats.failed_generations_in_row > max_failed_generations_in_row ) {
+    if ( stats.failed_generations_in_row > iid_dependencies::max_failed_generations_in_row ) {
+        return true;
+    }
+
+    if ( stats.do_not_generate_counter > 3 ) {
         return true;
     }
 
@@ -1065,8 +1171,6 @@ void iid_node_dependence_props::set_as_generating_for_other_node( int minimal_ma
 // ------------------------------------------------------------------------------------------------
 void fuzzing::iid_node_dependence_props::set_as_generating_artificial_data( int minimal_max_generation_artificial_data )
 {
-    INVARIANT( stats.state == generation_state::STATE_NOT_COVERED );
-
     stats.state = generation_state::STATE_GENERATING_ARTIFICIAL_DATA;
     stats.generate_artificial_data_max = minimal_max_generation_artificial_data;
     stats.generate_artificial_data = 0;
@@ -1074,39 +1178,10 @@ void fuzzing::iid_node_dependence_props::set_as_generating_artificial_data( int 
 }
 
 // ------------------------------------------------------------------------------------------------
-failed_generation_method fuzzing::iid_node_dependence_props::get_method_for_failed_generation( bool is_first )
-{
-    failed_generation_method new_method;
-
-    if ( !iid_dependencies::create_artificial_data ) {
-        return failed_generation_method::METHOD_GENERATE_FROM_OTHER_NODE;
-    } else if ( is_first ) {
-        new_method = failed_generation_method::METHOD_GENERATE_ARTIFICIAL_DATA;
-    } else {
-        switch ( stats.last_failed_method ) {
-            case failed_generation_method::METHOD_GENERATE_ARTIFICIAL_DATA:
-                new_method = failed_generation_method::METHOD_GENERATE_FROM_OTHER_NODE;
-                break;
-            case failed_generation_method::METHOD_GENERATE_FROM_OTHER_NODE:
-                new_method = failed_generation_method::METHOD_GENERATE_ARTIFICIAL_DATA;
-                break;
-        }
-    }
-
-    if ( new_method == failed_generation_method::METHOD_GENERATE_ARTIFICIAL_DATA ) {
-        set_as_generating_artificial_data( iid_dependencies::minimal_max_generation_artificial_data );
-    }
-
-    stats.last_failed_method = new_method;
-    return new_method;
-}
-
-// ------------------------------------------------------------------------------------------------
 bool iid_node_dependence_props::is_equal_branching_predicate() const
 {
     return matrix.get_branching_predicate() == BRANCHING_PREDICATE::BP_EQUAL;
 }
-
 
 // ------------------------------------------------------------------------------------------------
 void iid_node_dependence_props::print_stats( bool only_state ) const
@@ -1148,12 +1223,12 @@ void iid_node_dependence_props::print_stats( bool only_state ) const
 }
 
 // ------------------------------------------------------------------------------------------------
-void fuzzing::iid_node_dependence_props::generate_vectors_if_not_enough_data( std::vector< equation >& best_vectors,
-                                                                              equation_matrix& submatrix )
+std::optional< std::vector< equation > >
+fuzzing::iid_node_dependence_props::generate_vectors_if_not_enough_data( equation_matrix& submatrix )
 {
     TMPROF_BLOCK();
 
-    best_vectors = std::vector< equation >();
+    std::vector< equation > best_vectors;
     int desired_direction = submatrix.get_desired_vector_direction();
     const std::unordered_map< equation, int >& vectors = submatrix.compute_vectors_with_hits();
 
@@ -1182,6 +1257,12 @@ void fuzzing::iid_node_dependence_props::generate_vectors_if_not_enough_data( st
             add_to_best_vectors( modified_vector.values );
         }
     }
+
+    if ( best_vectors.empty() ) {
+        return std::nullopt;
+    }
+
+    return best_vectors;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -1195,6 +1276,17 @@ fuzzing::iid_node_dependence_props::get_best_vectors( equation_matrix& submatrix
         return std::nullopt;
     }
 
+    if ( iid_dependencies::verbose ) {
+        for ( const auto& [ vector, hits ] : vectors ) {
+            std::cout << "Vector: ";
+            for ( const auto& value : vector.values ) {
+                std::cout << value << " ";
+            }
+            std::cout << "-> Best Value: " << vector.best_value << " (" << hits << ")" << std::endl;
+        }
+    }
+
+
     int desired_vector_direction = submatrix.get_desired_vector_direction();
     float biggest_branching_value = submatrix.get_biggest_branching_value();
     std::vector< equation > best_vectors =
@@ -1202,6 +1294,17 @@ fuzzing::iid_node_dependence_props::get_best_vectors( equation_matrix& submatrix
 
     if ( best_vectors.empty() ) {
         return std::nullopt;
+    }
+
+
+    if ( iid_dependencies::verbose ) {
+        for ( const auto& vector : best_vectors ) {
+            std::cout << "Vector: ";
+            for ( const auto& value : vector.values ) {
+                std::cout << value << " ";
+            }
+            std::cout << "-> Best Value: " << vector.best_value << std::endl;
+        }
     }
 
     return best_vectors;
@@ -1488,7 +1591,7 @@ iid_node_dependence_props::compute_node_counts( const equation& path,
     }
 
     for ( const auto& loop_props : std::ranges::views::reverse( loop_to_properties.loops ) ) {
-        if ( loop_props.bodies.empty() || !subset_ids.contains( loop_props.get_smallest_loop_head_id() ) ) {
+        if ( !subset_ids.contains( loop_props.get_smallest_loop_head_id() ) ) {
             continue;
         }
 
@@ -1496,6 +1599,14 @@ iid_node_dependence_props::compute_node_counts( const equation& path,
 
         for ( const auto& body : loop_props.bodies ) {
             loop_count = std::max( loop_count, path_counts[ body.node_id ].get_total_count() );
+        }
+
+        for ( const auto& head : loop_props.heads ) {
+            loop_count = std::max( loop_count, path_counts[ head.first.node_id ].get_total_count() );
+        }
+
+        if ( loop_count == 0 ) {
+            continue;
         }
 
         for ( const auto& [ head, _ ] : loop_props.heads ) {
@@ -1564,23 +1675,19 @@ iid_node_dependence_props::compute_best_vectors( const std::unordered_map< equat
         return a.second > b.second;
     } );
 
-    bool use_linear_dependency = true;
-    std::vector< equation > best_vectors;
-    for ( int i = 0; i < number_of_vectors && i < sorted_vectors.size(); ++i ) {
-        if ( use_linear_dependency ) {
-            std::unordered_map< equation, int > dependent_vectors_with_hits =
-                get_linear_dependent_vector( filtered_vectors_with_hits, sorted_vectors[ i ].first );
-
-            auto it = std::min_element( dependent_vectors_with_hits.begin(),
-                                        dependent_vectors_with_hits.end(),
-                                        []( const auto& a, const auto& b ) {
-                                            return a.first.get_vector_size() < b.first.get_vector_size();
-                                        } );
-            best_vectors.push_back( it->first );
-        } else {
-            best_vectors.push_back( sorted_vectors[ i ].first );
-        }
+    if ( sorted_vectors.size() > 5 ) {
+        sorted_vectors.erase( sorted_vectors.begin() + 5, sorted_vectors.end() );
     }
+
+    std::sort( sorted_vectors.begin(), sorted_vectors.end(), []( const auto& a, const auto& b ) {
+        if ( a.first.get_vector_size() == b.first.get_vector_size() )
+            return a.second > b.second;
+
+        return a.first.get_vector_size() < b.first.get_vector_size();
+    } );
+
+    std::vector< equation > best_vectors;
+    best_vectors.push_back( sorted_vectors[ 0 ].first );
 
     return best_vectors;
 }
@@ -1716,34 +1823,70 @@ std::optional< location_id > iid_dependencies::get_next_iid_node()
 {
     TMPROF_BLOCK();
 
-    bool previous_needs_more_data = false;
-    for ( auto it = node_id_to_equation_map.rbegin(); it != node_id_to_equation_map.rend(); ++it ) {
+    std::vector< location_id > all_non_covered;
+    std::vector< location_id > possible_nodes;
+
+    for ( auto it = node_id_to_equation_map.begin(); it != node_id_to_equation_map.end(); ++it ) {
         iid_node_dependence_props& props = it->second;
 
-        if ( previous_needs_more_data ) {
-            props.set_as_generating_for_other_node( iid_dependencies::minimal_max_generation_for_other_node );
-            previous_needs_more_data = false;
+        auto& stats = props.get_generations_stats();
+
+        if ( !props.is_covered() )
+            all_non_covered.push_back( it->first );
+
+        if ( stats.last_failed_method == failed_generation_method::METHOD_DO_NOT_GENERATE ) {
+            stats.do_not_generate_counter++;
         }
 
-        if ( props.too_much_failed_in_row( iid_dependencies::max_failed_generations_in_row ) ) {
-            props.get_generations_stats().failed_generations_in_row = 0;
-            bool is_first = std::next( it ) == node_id_to_equation_map.rend();
+        if ( props.too_much_failed_in_row() ) {
+            stats.failed_generations_in_row = 0;
+            stats.do_not_generate_counter = 0;
 
-            failed_generation_method method = props.get_method_for_failed_generation( is_first );
+            failed_generation_method recovery_method = props.determine_recovery_strategy();
+            auto prev_it = std::prev( it );
 
-            if ( method == failed_generation_method::METHOD_GENERATE_FROM_OTHER_NODE ) {
-                previous_needs_more_data = true;
+            if ( recovery_method == failed_generation_method::METHOD_GENERATE_ARTIFICIAL_DATA ) {
+                props.set_as_generating_artificial_data( iid_dependencies::minimal_max_generation_artificial_data );
+                stats.last_failed_method = failed_generation_method::METHOD_GENERATE_ARTIFICIAL_DATA;
+            } else if ( prev_it != node_id_to_equation_map.end() &&
+                        recovery_method == failed_generation_method::METHOD_GENERATE_FROM_OTHER_NODE ) {
+                iid_node_dependence_props& prev_props = prev_it->second;
+                prev_props.set_as_generating_for_other_node(
+                    iid_dependencies::minimal_max_generation_for_other_node );
+                possible_nodes.push_back( prev_it->first );
+                stats.last_failed_method = failed_generation_method::METHOD_GENERATE_FROM_OTHER_NODE;
+            } else {
+                stats.last_failed_method = failed_generation_method::METHOD_DO_NOT_GENERATE;
             }
         }
-    }
 
-    for ( const auto& [ id, props ] : node_id_to_equation_map ) {
-        if ( props.should_generate( loop_to_properties ) ) {
-            return id;
+        if ( props.should_generate_new( loop_to_properties ) ) {
+            possible_nodes.push_back( it->first );
         }
     }
 
-    return std::nullopt;
+    if ( possible_nodes.empty() ) {
+        if ( verbose )
+            std::cout << "No more nodes to generate." << std::endl;
+        
+        if ( generate_for_bad_nodes && !all_non_covered.empty() ) {
+            return random_node_selection ? all_non_covered[ rand() % all_non_covered.size() ] :
+                   all_non_covered[ 0 ];
+        }
+
+        return std::nullopt;
+    }
+
+    if ( verbose ) {
+        std::cout << "Possible nodes to generate: ";
+        for ( const auto& node : possible_nodes ) {
+            std::cout << node << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    return iid_dependencies::random_node_selection ? possible_nodes[ rand() % possible_nodes.size() ] :
+                                                     possible_nodes[ 0 ];
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -1754,6 +1897,13 @@ void fuzzing::iid_dependencies::compute_dependencies()
     dependencies_computed++;
 
     for ( branching_node* end_node : end_nodes ) {
+        auto it = node_id_to_equation_map.find( end_node->get_location_id() );
+        if ( it != node_id_to_equation_map.end() &&
+             ( it->second.get_generations_stats().state == generation_state::STATE_COVERED ||
+               it->second.get_generations_stats().state == generation_state::STATE_COVERED_BY_OTHER ) ) {
+            continue;
+        }
+
         loop_head_to_bodies_t loop_heads_to_bodies;
         loop_endings loop_heads_ending = get_loop_heads_ending( end_node, loop_heads_to_bodies );
 
