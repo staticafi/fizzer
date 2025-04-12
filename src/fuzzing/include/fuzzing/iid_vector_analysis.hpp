@@ -483,7 +483,6 @@ public:
 };
 
 
-
 std::pair< path_id_direction_count, std::size_t > get_directions_in_path( branching_node* node );
 bool should_generate_more_data( const generation_state& state );
 } // namespace fuzzing

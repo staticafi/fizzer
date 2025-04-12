@@ -759,7 +759,8 @@ const std::unordered_map< equation, int >& equation_matrix::compute_vectors_with
 
             equation difference = matrix[ i ] - matrix[ j ];
 
-            if ( difference.is_any_negative() || difference.best_value == 0 || difference.get_biggest_value() > iid_dependencies::biggest_value_in_difference_vector )
+            if ( difference.is_any_negative() || difference.best_value == 0 ||
+                 difference.get_biggest_value() > iid_dependencies::biggest_value_in_difference_vector )
                 continue;
 
             vectors.insert( difference );
@@ -1868,10 +1869,10 @@ std::optional< location_id > iid_dependencies::get_next_iid_node()
     if ( possible_nodes.empty() ) {
         if ( verbose )
             std::cout << "No more nodes to generate." << std::endl;
-        
+
         if ( generate_for_bad_nodes && !all_non_covered.empty() ) {
             return random_node_selection ? all_non_covered[ rand() % all_non_covered.size() ] :
-                   all_non_covered[ 0 ];
+                                           all_non_covered[ 0 ];
         }
 
         return std::nullopt;
