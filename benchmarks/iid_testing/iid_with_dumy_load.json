@@ -1,6 +1,6 @@
 {
     "args": {
-        "max_executions": 100000,
+        "max_executions": 20000,
         "max_seconds": 300,
         "max_trace_length": 10000,
         "max_stack_size": 25,
@@ -11,13 +11,14 @@
         "stdout_model": "stdout_void",
         "optimizer_max_seconds": 10,
         "optimizer_max_trace_length": 1000000,
-        "optimizer_max_stdin_bytes": 1000000
+        "optimizer_max_stdin_bytes": 1000000,
+        "m32": false
     },
     "results": {
         "termination_type": "NORMAL",
         "termination_reason": "ALL_REACHABLE_BRANCHINGS_COVERED",
-        "num_executions": 5316,
-        "num_covered_branchings": 8,
+        "num_executions": 13558,
+        "num_covered_branchings": 7,
         "covered_branchings": [
             1,
             0,
@@ -32,8 +33,6 @@
             6,
             0,
             7,
-            0,
-            8,
             0
         ],
         "output_statistics": {
@@ -43,7 +42,7 @@
                 "num_boundary_violations": 0
             },
             "sensitivity_analysis": {
-                "num_generated_tests": 5,
+                "num_generated_tests": 4,
                 "num_crashes": 0,
                 "num_boundary_violations": 0
             },

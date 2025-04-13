@@ -84,6 +84,7 @@ struct iid_node_generations_stats {
 struct loaded_bits_props {
     mean_counter< float > average_bits_read;
     natural_32_bit minimal_bit_offset = std::numeric_limits< natural_32_bit >::max();
+    mean_counter< float > average_bits_used;
 };
 
 struct loop_head_properties {
@@ -289,6 +290,8 @@ struct loaded_bits_counter {
     natural_32_bit min;
     natural_32_bit max;
     int loop_count;
+
+    std::set< std::pair< natural_32_bit, natural_32_bit > > loaded_intervals;
 };
 
 struct FloatComparator {
