@@ -29,6 +29,8 @@ bool load_models(
         if (it == models_map.end() || !it->second->parse_record(it_bytes, it_types, it_meta))
             return false;
     }
+    for (auto model : models)
+        model->on_load_complete();
     return it_bytes == bytes.end() && it_types == types.end();
 }
 

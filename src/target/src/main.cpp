@@ -7,8 +7,8 @@
 #endif
 
 extern "C" {
-    void  __fizzer_entry_function();
-    void  __fizzer_entry_function_with_params();
+    int  __fizzer_private_entry_function();
+    int  __fizzer_private_entry_function_with_params();
 }
 
 int main(int argc, char* argv[])
@@ -35,10 +35,10 @@ int main(int argc, char* argv[])
     switch (mut())
     {
         case com::mut_type::WITH_ARGS:
-            __fizzer_entry_function_with_params();
+            __fizzer_private_entry_function_with_params();
             break;
         case com::mut_type::NO_ARGS:
-            __fizzer_entry_function();
+            __fizzer_private_entry_function();
             break;
         default:
             set_termination(com::target_termination::ERROR_IN_DATA);

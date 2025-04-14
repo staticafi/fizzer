@@ -32,7 +32,6 @@ struct extern_code : public sala::ExternCodeCStd
     iomodels::simple&  io_simple() { return *io_simple_; }
 private:
     void  cmdline_read_argc();
-    void  cmdline_read_len();
     void  cmdline_read_char();
     sala::MemPtr  simple_read(std::size_t count);
     iomodels::cmdline*  io_cmdline_;
@@ -50,9 +49,8 @@ extern_code::extern_code(
     , io_cmdline_{ io_cmdline }
     , io_simple_{ io_simple }
 {
-    register_code("__fizzer_io_model_cmdline_read_argc", [this]() { this->cmdline_read_argc(); });
-    register_code("__fizzer_io_model_cmdline_read_len", [this]() { this->cmdline_read_len(); });
-    register_code("__fizzer_io_model_cmdline_read_char", [this]() { this->cmdline_read_char(); });
+    register_code("__fizzer_private_io_model_cmdline_read_argc", [this]() { this->cmdline_read_argc(); });
+    register_code("__fizzer_private_io_model_cmdline_read_char", [this]() { this->cmdline_read_char(); });
 
     register_code("__VERIFIER_nondet_bool", [this]() { auto const ptr = this->simple_read(sizeof(bool)); *(bool*)ptr = *ptr != 0; });
     register_code("__VERIFIER_nondet_char", [this]() { this->simple_read(sizeof(std::int8_t)); });
@@ -85,40 +83,16 @@ void  extern_code::cmdline_read_argc()
 }
 
 
-void  extern_code::cmdline_read_len()
-{
-    sala::MemPtr const  ptr{ parameters().front().read<sala::MemPtr>() };
-    natural_8_bit const  i{ parameters().at(1).read<natural_8_bit>() };
-    if (io_cmdline().on_len((natural_16_bit*)ptr, i) != target_termination::NORMAL)
-    {
-        state().set_stage(sala::ExecState::Stage::FINISHED);
-        state().set_termination(
-            sala::ExecState::Termination::ERROR,
-            "input_flow_analysis[extern_code]",
-            state().current_location_message() +
-                ": Call to 'io_cmdline().on_len(" +
-                std::to_string((int)i) +
-                ")' has failed."
-            );
-    }
-}
-
-
 void  extern_code::cmdline_read_char()
 {
     sala::MemPtr const  ptr{ parameters().front().read<sala::MemPtr>() };
-    natural_8_bit const  i{ parameters().at(1).read<natural_8_bit>() };
-    natural_16_bit const  j{ parameters().at(2).read<natural_16_bit>() };
-    if (io_cmdline().on_char(ptr, i, j) != target_termination::NORMAL)
+    if (io_cmdline().on_char((char*)ptr) != target_termination::NORMAL)
     {
         state().set_stage(sala::ExecState::Stage::FINISHED);
         state().set_termination(
             sala::ExecState::Termination::ERROR,
             "input_flow_analysis[extern_code]",
-            state().current_location_message() +
-                ": Call to 'io_cmdline().on_char(" +
-                std::to_string((int)i) + ',' + std::to_string((int)j) +
-                ")' has failed."
+            state().current_location_message() + ": Call to 'io_cmdline().on_char()' has failed."
             );
     }
 }
@@ -177,9 +151,8 @@ input_flow_analysis::input_flow::input_flow(
     , fresh_descriptor_{ 0U }
     , some_input_was_read_{ false }
 {
-    REGISTER_EXTERN_FUNCTION_PROCESSOR(__fizzer_io_model_cmdline_read_argc, this->start_input_flow(sizeof(std::int8_t)) );
-    REGISTER_EXTERN_FUNCTION_PROCESSOR(__fizzer_io_model_cmdline_read_len, this->start_input_flow(sizeof(std::int16_t)) );
-    REGISTER_EXTERN_FUNCTION_PROCESSOR(__fizzer_io_model_cmdline_read_char, this->start_input_flow(sizeof(std::int8_t)) );
+    REGISTER_EXTERN_FUNCTION_PROCESSOR(__fizzer_private_io_model_cmdline_read_argc, this->start_input_flow(sizeof(natural_8_bit)) );
+    REGISTER_EXTERN_FUNCTION_PROCESSOR(__fizzer_private_io_model_cmdline_read_char, this->start_input_flow(sizeof(char)) );
 
     REGISTER_EXTERN_FUNCTION_PROCESSOR(__VERIFIER_nondet_bool, this->start_input_flow(sizeof(bool)) );
     REGISTER_EXTERN_FUNCTION_PROCESSOR(__VERIFIER_nondet_char, this->start_input_flow(sizeof(std::int8_t)) );

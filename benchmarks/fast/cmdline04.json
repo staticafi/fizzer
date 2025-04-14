@@ -14,19 +14,20 @@
     "results": {
         "termination_type": "NORMAL",
         "termination_reason": "ALL_REACHABLE_BRANCHINGS_COVERED",
-        "num_executions": 14,
-        "num_covered_branchings": 3,
+        "num_executions": 407,
+        "num_covered_branchings": 5,
         "covered_branchings": [
-            1,    2,    3
+            1,    2,    3,    4,    
+            5
         ],
         "output_statistics": {
             "local_search": {
-                "num_generated_tests": 2,
+                "num_generated_tests": 3,
                 "num_crashes": 0,
                 "num_boundary_violations": 0
             },
             "bitflip": {
-                "num_generated_tests": 1,
+                "num_generated_tests": 2,
                 "num_crashes": 0,
                 "num_boundary_violations": 0
             },

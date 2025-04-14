@@ -96,9 +96,9 @@ void run(int argc, char* argv[])
     com::mut_type  mut_type;
     {
         std::string const mut_name{ sala_program_ptr->functions().at(sala_program_ptr->entry_function()).name() };
-        if (mut_name == "__fizzer_entry_function")
+        if (mut_name == "__fizzer_private_entry_function")
             mut_type = com::mut_type::NO_ARGS;
-        else if (mut_name == "__fizzer_entry_function_with_params")    
+        else if (mut_name == "__fizzer_private_entry_function_with_params")    
             mut_type = com::mut_type::WITH_ARGS;
         else
         {

@@ -13,22 +13,21 @@
     },
     "results": {
         "termination_type": "NORMAL",
-        "termination_reason": "ALL_REACHABLE_BRANCHINGS_COVERED",
-        "num_executions": 665,
-        "num_covered_branchings": 9,
+        "termination_reason": "EXECUTIONS_BUDGET_DEPLETED",
+        "num_executions": 1000,
+        "num_covered_branchings": 6,
         "covered_branchings": [
-            1,    2,    3,    4,    
-            5,    6,    7,    8,    
-            9
+            1,    3,    4,    8,    
+            10,    11
         ],
         "output_statistics": {
             "local_search": {
-                "num_generated_tests": 5,
+                "num_generated_tests": 4,
                 "num_crashes": 0,
                 "num_boundary_violations": 0
             },
             "bitflip": {
-                "num_generated_tests": 1,
+                "num_generated_tests": 2,
                 "num_crashes": 0,
                 "num_boundary_violations": 0
             },

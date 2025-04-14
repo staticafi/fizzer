@@ -13,8 +13,8 @@ using  cmdline_ptr = std::unique_ptr<cmdline>;
 
 struct  cmdline final : public iomodel
 {
-    static inline constexpr natural_8_bit  max_num_options() { return 64; }
-    static inline constexpr natural_16_bit  max_num_chars() { return 4096; }
+    // This value must be equal to enum value MAX_CHARS in data/fizzer_entry_function.c,
+    static constexpr natural_16_bit  MAX_NUM_CHARS{ 4095U };
 
     static cmdline_ptr  create();
     static cmdline_ptr  create(connection::medium&  src);
@@ -37,13 +37,16 @@ struct  cmdline final : public iomodel
             ) override;
     bool  parse_record(com::execution_results&  dst, connection::medium&  src) const override;
 
+    void  on_load_complete() override;
     com::target_termination  on_argc(natural_8_bit*  argc, connection::medium*  dst = nullptr);
-    com::target_termination  on_len(natural_16_bit*  len, natural_8_bit  i, connection::medium*  dst = nullptr);
-    com::target_termination  on_char(natural_8_bit*  c, natural_8_bit  i, natural_16_bit  j, connection::medium*  dst = nullptr);
+    com::target_termination  on_char(char*  c, connection::medium*  dst = nullptr);
 
 private:
-    std::vector<vecu8>  m_args;
-    natural_16_bit  m_num_chars;
+    std::vector<veci8>  m_args;
+    natural_8_bit  m_option;
+    natural_16_bit  m_character;
+    natural_16_bit  m_count;
+    bool  m_ended;
 };
 
 

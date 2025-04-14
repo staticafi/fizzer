@@ -28,6 +28,8 @@ struct  iomodel
             com::input_metadata::const_iterator&  it_metadata
             ) = 0;
     virtual bool  parse_record(com::execution_results&  dst, connection::medium&  src) const = 0;
+
+    virtual void  on_load_complete() {}
 };
 
 

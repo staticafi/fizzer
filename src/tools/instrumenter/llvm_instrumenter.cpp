@@ -7,6 +7,8 @@
 #endif
 #include <llvm/IR/InstIterator.h>
 #include <utility/timeprof.hpp>
+#include <utility/assumptions.hpp>
+#include <utility/invariants.hpp>
 #include <algorithm>
 #include <unordered_set>
 #include <string>
@@ -17,13 +19,18 @@ using namespace llvm;
 namespace SpecialFunction
 {
     static std::string const  main{ "main"};
-    static std::string const  entry_function{ "__fizzer_entry_function" };
-    static std::string const  entry_function_with_params{ "__fizzer_entry_function_with_params" };
-    static std::string const  method_under_test{ "__fizzer_method_under_test" };
-    static std::string const  method_under_test_with_params{ "__fizzer_method_under_test_with_params" };
-    static std::string const  cmdline_read_argc{ "__fizzer_io_model_cmdline_read_argc" };
-    static std::string const  cmdline_read_len{ "__fizzer_io_model_cmdline_read_len" };
-    static std::string const  cmdline_read_char{ "__fizzer_io_model_cmdline_read_char" };
+    static std::string const  entry_function{ "__fizzer_private_entry_function" };
+    static std::string const  entry_function_with_params{ "__fizzer_private_entry_function_with_params" };
+    static std::string const  entry_function_int{ "__fizzer_private_int_entry_function" };
+    static std::string const  entry_function_void{ "__fizzer_private_void_entry_function" };
+    static std::string const  entry_function_int_with_params{ "__fizzer_private_int_entry_function_with_params" };
+    static std::string const  entry_function_void_with_params{ "__fizzer_private_void_entry_function_with_params" };
+    static std::string const  method_under_test_int{ "__fizzer_private_int_method_under_test" };
+    static std::string const  method_under_test_void{ "__fizzer_private_void_method_under_test" };
+    static std::string const  method_under_test_int_with_params{ "__fizzer_private_int_method_under_test_with_params" };
+    static std::string const  method_under_test_void_with_params{ "__fizzer_private_void_method_under_test_with_params" };
+    static std::string const  cmdline_read_argc{ "__fizzer_private_io_model_cmdline_read_argc" };
+    static std::string const  cmdline_read_char{ "__fizzer_private_io_model_cmdline_read_char" };
 };
 
 
@@ -64,10 +71,14 @@ void llvm_instrumenter::renameFunctions()
 
     static std::unordered_set<std::string> const excluded{
         SpecialFunction::main,
-        SpecialFunction::entry_function,
-        SpecialFunction::entry_function_with_params,
-        SpecialFunction::method_under_test,
-        SpecialFunction::method_under_test_with_params
+        SpecialFunction::entry_function_int,
+        SpecialFunction::entry_function_void,
+        SpecialFunction::entry_function_int_with_params,
+        SpecialFunction::entry_function_void_with_params,
+        SpecialFunction::method_under_test_int,
+        SpecialFunction::method_under_test_void,
+        SpecialFunction::method_under_test_int_with_params,
+        SpecialFunction::method_under_test_void_with_params
     };
 
     std::string const  renamePrefix{ "__fizzer_rename_prefix__" };
@@ -83,29 +94,108 @@ void llvm_instrumenter::wrapMain() {
     llvm::Function* const  main_function = module->getFunction(SpecialFunction::main);
     if (main_function == nullptr)
         return;
-    std::vector<std::string>  erase_function_names;
-    std::string  other_entry_function_name;
-    if (main_function->getFunctionType()->params().size() == 0ULL)
-    {
-        mut_name = SpecialFunction::method_under_test;
-        entry_function_name = SpecialFunction::entry_function;
 
-        other_entry_function_name = SpecialFunction::entry_function_with_params;
-        erase_function_names.push_back(SpecialFunction::entry_function_with_params);
-        erase_function_names.push_back(SpecialFunction::method_under_test_with_params);
-        erase_function_names.push_back(SpecialFunction::cmdline_read_argc);
-        erase_function_names.push_back(SpecialFunction::cmdline_read_len);
-        erase_function_names.push_back(SpecialFunction::cmdline_read_char);
+    bool const in_void{ main_function->getFunctionType()->params().size() == 0ULL }; 
+    bool const out_void{ main_function->getFunctionType()->getReturnType()->isVoidTy() }; 
+
+    static std::unordered_map<std::string, std::string> const  entry_function_renaming{
+        { SpecialFunction::entry_function_int, SpecialFunction::entry_function },
+        { SpecialFunction::entry_function_void, SpecialFunction::entry_function },
+        { SpecialFunction::entry_function_int_with_params, SpecialFunction::entry_function_with_params },
+        { SpecialFunction::entry_function_void_with_params, SpecialFunction::entry_function_with_params },
+    };
+
+    std::unordered_set<std::string>  erase_function_names;
+    std::unordered_set<std::string>  the_entry_function_name{
+        SpecialFunction::entry_function_int,
+        SpecialFunction::entry_function_void,
+        SpecialFunction::entry_function_int_with_params,
+        SpecialFunction::entry_function_void_with_params
+    };
+    std::unordered_set<std::string>  other_entry_function_name{
+        SpecialFunction::entry_function_int,
+        SpecialFunction::entry_function_void,
+        SpecialFunction::entry_function_int_with_params,
+        SpecialFunction::entry_function_void_with_params,
+    };
+    std::unordered_set<std::string>  method_under_test_name{
+        SpecialFunction::method_under_test_int,
+        SpecialFunction::method_under_test_void,
+        SpecialFunction::method_under_test_int_with_params,
+        SpecialFunction::method_under_test_void_with_params
+    };
+
+    if (in_void)
+    {
+        erase_function_names.insert(SpecialFunction::entry_function_int_with_params);
+        erase_function_names.insert(SpecialFunction::entry_function_void_with_params);
+        erase_function_names.insert(SpecialFunction::method_under_test_int_with_params);
+        erase_function_names.insert(SpecialFunction::method_under_test_void_with_params);
+        erase_function_names.insert(SpecialFunction::cmdline_read_argc);
+        erase_function_names.insert(SpecialFunction::cmdline_read_char);
+
+        the_entry_function_name.erase(SpecialFunction::entry_function_int_with_params);
+        the_entry_function_name.erase(SpecialFunction::entry_function_void_with_params);
+        other_entry_function_name.erase(SpecialFunction::entry_function_int);
+        other_entry_function_name.erase(SpecialFunction::entry_function_void);
+
+        method_under_test_name.erase(SpecialFunction::method_under_test_int_with_params);
+        method_under_test_name.erase(SpecialFunction::method_under_test_void_with_params);
     }
     else
     {
-        mut_name = SpecialFunction::method_under_test_with_params;
-        entry_function_name = SpecialFunction::entry_function_with_params;
+        erase_function_names.insert(SpecialFunction::entry_function_int);
+        erase_function_names.insert(SpecialFunction::entry_function_void);
+        erase_function_names.insert(SpecialFunction::method_under_test_int);
+        erase_function_names.insert(SpecialFunction::method_under_test_void);
 
-        other_entry_function_name = SpecialFunction::entry_function;
-        erase_function_names.push_back(SpecialFunction::entry_function);
-        erase_function_names.push_back(SpecialFunction::method_under_test);
+        the_entry_function_name.erase(SpecialFunction::entry_function_int);
+        the_entry_function_name.erase(SpecialFunction::entry_function_void);
+        other_entry_function_name.erase(SpecialFunction::entry_function_int_with_params);
+        other_entry_function_name.erase(SpecialFunction::entry_function_void_with_params);
+
+        method_under_test_name.erase(SpecialFunction::method_under_test_int);
+        method_under_test_name.erase(SpecialFunction::method_under_test_void);
     }
+    if (out_void)
+    {
+        erase_function_names.insert(SpecialFunction::entry_function_int);
+        erase_function_names.insert(SpecialFunction::entry_function_int_with_params);
+        erase_function_names.insert(SpecialFunction::method_under_test_int);
+        erase_function_names.insert(SpecialFunction::method_under_test_int_with_params);
+
+        the_entry_function_name.erase(SpecialFunction::entry_function_int);
+        the_entry_function_name.erase(SpecialFunction::entry_function_int_with_params);
+        other_entry_function_name.erase(SpecialFunction::entry_function_void);
+        other_entry_function_name.erase(SpecialFunction::entry_function_void_with_params);
+
+        method_under_test_name.erase(SpecialFunction::method_under_test_int);
+        method_under_test_name.erase(SpecialFunction::method_under_test_int_with_params);
+    }
+    else
+    {
+        erase_function_names.insert(SpecialFunction::entry_function_void);
+        erase_function_names.insert(SpecialFunction::entry_function_void_with_params);
+        erase_function_names.insert(SpecialFunction::method_under_test_void);
+        erase_function_names.insert(SpecialFunction::method_under_test_void_with_params);
+
+        the_entry_function_name.erase(SpecialFunction::entry_function_void);
+        the_entry_function_name.erase(SpecialFunction::entry_function_void_with_params);
+        other_entry_function_name.erase(SpecialFunction::entry_function_int);
+        other_entry_function_name.erase(SpecialFunction::entry_function_int_with_params);
+
+        method_under_test_name.erase(SpecialFunction::method_under_test_void);
+        method_under_test_name.erase(SpecialFunction::method_under_test_void_with_params);
+    }
+    INVARIANT(
+        the_entry_function_name.size() == 1ULL &&
+        other_entry_function_name.size() == 1ULL &&
+        *the_entry_function_name.begin() != *other_entry_function_name.begin() &&
+        method_under_test_name.size() == 1ULL &&
+        (erase_function_names.size() == 6ULL || erase_function_names.size() == 8ULL)
+    );
+
+    mut_name = *method_under_test_name.begin();
 
     llvm::Function* const old_mut = module->getFunction(mut_name);
     old_mut->replaceAllUsesWith(main_function);
@@ -114,20 +204,24 @@ void llvm_instrumenter::wrapMain() {
 
     for (std::string const&  name : erase_function_names)
         module->getFunction(name)->eraseFromParent();
+
+    entry_function_name = entry_function_renaming.at(*the_entry_function_name.begin());
+    module->getFunction(*the_entry_function_name.begin())->setName(entry_function_name);
+
     llvm::Function* const  other_entry_function = llvm::Function::Create(
         llvm::FunctionType::get(
-            llvm::Type::getVoidTy(module->getContext()),
+            llvm::IntegerType::get(module->getContext(), 32),
             {
             },
             false
             ),
         llvm::GlobalValue::LinkageTypes::ExternalLinkage,
-        other_entry_function_name,
+        entry_function_renaming.at(*other_entry_function_name.begin()),
         module
         );
     llvm::IRBuilder<> builder(module->getContext());
     builder.SetInsertPoint(llvm::BasicBlock::Create(module->getContext(), "entry", other_entry_function));
-    builder.CreateRetVoid();
+    builder.CreateRet(llvm::ConstantInt::get(llvm::IntegerType::get(module->getContext(), 32), "0", 10));
 }
 
 void llvm_instrumenter::printErrCond(Value *cond) {

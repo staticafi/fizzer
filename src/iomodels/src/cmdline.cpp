@@ -10,18 +10,7 @@ namespace  iomodels {
 
 
 static_assert(sizeof(int) == sizeof(std::int32_t));
-
-
-enum struct Meta : natural_8_bit
-{
-    ARGC    = 0,
-    LEN     = 1,
-    CHAR    = 2
-};
-static_assert(sizeof(Meta) == sizeof(natural_8_bit));
-
-natural_8_bit  to_meta_id(Meta const  meta) { return (natural_8_bit)meta; }
-Meta  from_meta_id(natural_8_bit const  id) { return id == 0 ? Meta::ARGC : ( id == 1 ? Meta::LEN : Meta::CHAR); }
+static_assert(sizeof(char) == 1 && (int)std::numeric_limits<char>::min() == -128);
 
 
 cmdline_ptr  cmdline::create()
@@ -57,14 +46,19 @@ cmdline_ptr  cmdline::clone() const
 cmdline::cmdline()
     : iomodel{}
     , m_args{}
-    , m_num_chars{ 0U }
-{}
+    , m_option{ 0U }
+    , m_character{ 0U }
+    , m_count{ 0U }
+{
+}
 
 
 void  cmdline::clear()
 {
     m_args.clear();
-    m_num_chars = 0U;
+    m_option = 0U;
+    m_character = 0U;
+    m_count = 0U;
 }
 
 
@@ -73,11 +67,9 @@ natural_64_bit  cmdline::max_data_in_medium() const
     return
         max_construction_data_in_medium() +
         // ARGC
-        sizeof(get_record_type()) + 2ULL * sizeof(natural_8_bit) +
-        // LEN
-        max_num_options() * (sizeof(get_record_type()) + 2ULL * sizeof(natural_8_bit) + sizeof(natural_16_bit)) +
+        sizeof(get_record_type()) + sizeof(natural_8_bit) +
         // CHARS
-        max_num_chars() * (sizeof(get_record_type()) + 2ULL * sizeof(natural_8_bit) + sizeof(natural_16_bit) + sizeof(natural_8_bit))
+        MAX_NUM_CHARS * (sizeof(get_record_type()) + sizeof(natural_8_bit) + sizeof(char))
         ;
 }
 
@@ -88,78 +80,53 @@ bool  cmdline::parse_record(
         com::input_metadata::const_iterator&  it_metadata
         )
 {
-    natural_8_bit  meta_id; if (!read_bytes(&meta_id, it_metadata, com::data_type::UINT8)) return false;
-    switch (from_meta_id(meta_id))
+    if (*it_types == com::data_type::UINT8)
     {
-        case Meta::ARGC:
-            {
-                natural_8_bit  argc; if (!read_expected_bytes(&argc, it_bytes, it_types, com::data_type::UINT8)) return false;
-                argc = std::min(argc, max_num_options());
-                m_args.resize(argc, { 0 });
-                m_num_chars += argc;
-            }
-            return true;
-        case Meta::LEN:
-            {
-                natural_8_bit  i; if (!read_bytes(&i, it_metadata, com::data_type::UINT8)) return false;
-                if (i < m_args.size())
-                {
-                    natural_16_bit  len; if (!read_expected_bytes(&len, it_bytes, it_types, com::data_type::UINT16)) return false;
-                    len = std::max((natural_16_bit)1U, len);
-                    natural_16_bit const  old_len{ (natural_16_bit)m_args.at(i).size() };
-                    if (len < old_len)
-                    {
-                        m_args.at(i).resize(len);
-                        m_num_chars -= old_len - len;
-                    }
-                    else
-                    {
-                        natural_16_bit const  delta{ (natural_16_bit)std::min(len - old_len, max_num_chars() - m_num_chars) };
-                        m_args.at(i).resize(old_len + delta, ' ');
-                        m_num_chars += delta;
-                    }
-                    m_args.at(i).back() = '\0';    
-                }
-            }
-            return true;
-        case Meta::CHAR:
-            {
-                natural_8_bit  i; if (!read_bytes(&i, it_metadata, com::data_type::UINT8)) return false;
-                if (i < m_args.size())
-                {
-                    natural_16_bit  j; if (!read_bytes(&j, it_metadata, com::data_type::UINT16)) return false;
-                    if (j < m_args.at(i).size())
-                    {
-                        if (!read_expected_bytes(&at(m_args, i, j), it_bytes, it_types, com::data_type::UINT8)) return false;
-                        m_args.at(i).back() = '\0';
-                    }
-                }
-            }
-            return true;
-        default: { UNREACHABLE(); return  false; }
+        natural_8_bit  argc;
+        if (!read_bytes(&argc, it_bytes, com::data_type::UINT8)) return false;
+        m_args.resize(argc, { '\0' });
+        m_count += argc;
     }
+    else
+    {
+        char  orig_c, new_c;
+        if (!read_bytes(&orig_c, it_metadata, com::data_type::SINT8)) return false;
+        if (!read_bytes(&new_c, it_bytes, com::data_type::SINT8)) return false;
+        if (m_option < m_args.size())
+        {
+            if (new_c != '\0' && !m_ended && m_count < MAX_NUM_CHARS)
+            {
+                m_args.at(m_option).back() = new_c;
+                m_args.at(m_option).push_back('\0');
+                ++m_count;
+            }
+            else
+                m_ended = true;
+            if (orig_c == '\0')
+            {
+                ++m_option;
+                m_ended = false;
+            }
+        }
+    }
+    ++it_types;
+    return true;
 }
 
 
 bool  cmdline::parse_record(com::execution_results&  dst, connection::medium&  src) const
 {
-    append_metadata(dst, get_record_type());
-    natural_8_bit  meta_id;
-    if (!append_metadata(dst, src, &meta_id))
-        return false;
-    switch (from_meta_id(meta_id))
-    {
-        case Meta::ARGC:
-            return  append_typed_bytes(dst, com::data_type::UINT8, src);
-        case Meta::LEN:
-            return  append_metadata(dst, sizeof(natural_8_bit), src) &&
-                    append_typed_bytes(dst, com::data_type::UINT16, src);
-        case Meta::CHAR:
-            return  append_metadata(dst, sizeof(natural_8_bit), src) &&
-                    append_metadata(dst, sizeof(natural_16_bit), src) &&
-                    append_typed_bytes(dst, com::data_type::UINT8, src);
-        default: { UNREACHABLE(); return  false; }
-    }
+    return  append_metadata(dst, get_record_type())  &&
+            append_typed_bytes(dst, src) &&
+            (dst.get_types()->back() != com::data_type::SINT8 || append_metadata(dst, sizeof(char),src));
+}
+
+
+void  cmdline::on_load_complete()
+{
+    m_option = 0U;
+    m_character = 0U;
+    m_count = 0U;
 }
 
 
@@ -171,41 +138,35 @@ com::target_termination  cmdline::on_argc(natural_8_bit* const  argc, connection
         return com::target_termination::NORMAL;
 
     return  append_metadata(*dst, get_record_type()) &&
-            append_metadata(*dst, to_meta_id(Meta::ARGC)) &&
-            append_bytes(*dst, *argc)
+            append_typed_bytes(*dst, com::data_type::UINT8, argc)
             ? com::target_termination::NORMAL
             : com::target_termination::MEDIUM_OVERFLOW;
 }
 
 
-com::target_termination  cmdline::on_len(natural_16_bit* const  len, natural_8_bit const  i, connection::medium*  dst)
+com::target_termination  cmdline::on_char(char* const  c, connection::medium*  dst)
 {
-    *len = (natural_16_bit)(i < m_args.size() ? m_args.at(i).size() : 0ULL);
+    if (m_option >= m_args.size())
+    {
+        *c = (natural_8_bit)0;
+        return com::target_termination::BOUNDARY_CONDITION_VIOLATION;
+    }
+
+    *c = (char)m_args.at(m_option).at(m_character);
+
+    ++m_character;
+    if (m_character == m_args.at(m_option).size())
+    {
+        ++m_option;
+        m_character = 0U;
+    }
 
     if (dst == nullptr)
         return com::target_termination::NORMAL;
 
     return  append_metadata(*dst, get_record_type()) &&
-            append_metadata(*dst, to_meta_id(Meta::LEN)) &&
-            append_metadata(*dst, i) &&
-            append_bytes(*dst, *len)
-            ? com::target_termination::NORMAL
-            : com::target_termination::MEDIUM_OVERFLOW;
-}
-
-
-com::target_termination  cmdline::on_char(natural_8_bit* const  c, natural_8_bit const  i, natural_16_bit const  j, connection::medium*  dst)
-{
-    *c = i < m_args.size() && j < m_args.at(i).size() ? at(m_args.at(i), j)  : (natural_8_bit)0;
-
-    if (dst == nullptr)
-        return com::target_termination::NORMAL;
-
-    return  append_metadata(*dst, get_record_type()) &&
-            append_metadata(*dst, to_meta_id(Meta::CHAR)) &&
-            append_metadata(*dst, i) &&
-            append_metadata(*dst, j) &&
-            append_bytes(*dst, *c)
+            append_typed_bytes(*dst, com::data_type::SINT8, c) &&
+            append_metadata(*dst, *c)
             ? com::target_termination::NORMAL
             : com::target_termination::MEDIUM_OVERFLOW;
 }
