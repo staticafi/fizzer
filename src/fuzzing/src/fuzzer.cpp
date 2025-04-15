@@ -411,6 +411,10 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best(
                 return true;
             if (count > other.count)
                 return false;
+            if (std::abs(node->get_best_value()) < std::abs(other.node->get_best_value()))
+                return true;
+            if (std::abs(node->get_best_value()) > std::abs(other.node->get_best_value()))
+                return false;
             if (node->get_sensitive_stdin_bits().size() < other.node->get_sensitive_stdin_bits().size())
                 return true;
             if (node->get_sensitive_stdin_bits().size() > other.node->get_sensitive_stdin_bits().size())
