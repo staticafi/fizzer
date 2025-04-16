@@ -261,17 +261,16 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best_others(nat
 
     std::vector<std::function<branching_node*()> > const  best_node_getters {
         [this](){
-            branching_node*  best_node = nullptr;
-            if (!loop_heads_others.empty())
+            branching_node*  best_node{ get_best(loop_heads_others) };
+            if (best_node != nullptr)
             {
-                best_node = *loop_heads_others.begin();
                 ++statistics->strategy_loop_head_others;
                 recorder().on_strategy_turn_loop_head_others();
             }
             return best_node;
         },
         [this, max_input_width](){
-            branching_node*  best_node{ get_best(untouched, untouched_counts, max_input_width) };
+            branching_node*  best_node{ get_best(untouched, untouched_counts) };
             if (best_node != nullptr)
             {
                 ++untouched_counts.at(best_node->get_location_id());
@@ -315,17 +314,16 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best_sensitive(
 
     std::vector<std::function<branching_node*()> > const  best_node_getters {
         [this](){
-            branching_node*  best_node = nullptr;
-            if (!loop_heads_sensitive.empty())
+            branching_node*  best_node{ get_best(loop_heads_sensitive) };
+            if (best_node != nullptr)
             {
-                best_node = *loop_heads_sensitive.begin();
                 ++statistics->strategy_loop_head_sensitive;
                 recorder().on_strategy_turn_loop_head_sensitive();
             }
             return best_node;
         },
         [this, max_input_width](){
-            branching_node*  best_node{ get_best(sensitive, sensitive_counts, max_input_width) };
+            branching_node*  best_node{ get_best(sensitive, sensitive_counts) };
             if (best_node != nullptr)
             {
                 ++sensitive_counts.at(best_node->get_location_id());
@@ -383,8 +381,7 @@ void  fuzzer::primary_coverage_target_branchings::update_counts(
 
 branching_node*  fuzzer::primary_coverage_target_branchings::get_best(
         std::unordered_map<branching_node*, bool>&  targets,
-        std::unordered_map<location_id, natural_32_bit>&  counts,
-        natural_32_bit const  max_input_width
+        std::unordered_map<location_id, natural_32_bit>&  counts
         )
 {
     if (targets.empty())
@@ -394,15 +391,11 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best(
     {
         branching_node_with_less_than(
                 branching_node* const  node_,
-                natural_32_bit const  count_,
-                natural_32_bit const  max_input_width
+                natural_32_bit const  count_
                 )
             : node{ node_ }
             , count{ count_ }
-            , distance_to_central_input_width_class{
-                    std::abs((integer_32_bit)get_input_width_class(max_input_width / 2U) -
-                             (integer_32_bit)get_input_width_class(node->get_num_stdin_bytes()))
-                    }
+            , magnitude{ length(vecf32{ (float_32_bit)node->get_num_stdin_bytes(), (float_32_bit)node->get_trace_index() }) }
         {}
         operator  branching_node*() const { return node; }
         bool  operator<(branching_node_with_less_than const&  other) const
@@ -415,36 +408,20 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best(
                 return true;
             if (std::abs(node->get_best_value()) > std::abs(other.node->get_best_value()))
                 return false;
-            if (node->get_sensitive_stdin_bits().size() < other.node->get_sensitive_stdin_bits().size())
-                return true;
-            if (node->get_sensitive_stdin_bits().size() > other.node->get_sensitive_stdin_bits().size())
-                return false;
-            if (distance_to_central_input_width_class < other.distance_to_central_input_width_class)
-                return true;
-            if (distance_to_central_input_width_class > other.distance_to_central_input_width_class)
-                return false;
-            if (node->get_num_stdin_bytes() < other.node->get_num_stdin_bytes())
-                return true;
-            if (node->get_num_stdin_bytes() > other.node->get_num_stdin_bytes())
-                return false;
-            if (node->get_trace_index() < other.node->get_trace_index())
-                return true;
-            if (node->get_trace_index() > other.node->get_trace_index())
-                return false;
-            return node->get_max_successors_trace_index() > other.node->get_max_successors_trace_index();
+            return magnitude < other.magnitude;
         }
     private:
         branching_node*  node;
         natural_32_bit  count;
-        integer_32_bit  distance_to_central_input_width_class;
+        float_32_bit  magnitude;
     };
 
     update_counts(counts, targets);
 
-    branching_node_with_less_than  best{ targets.begin()->first, counts.at(targets.begin()->first->get_location_id()), max_input_width };
+    branching_node_with_less_than  best{ targets.begin()->first, counts.at(targets.begin()->first->get_location_id()) };
     for (auto  it = std::next(targets.begin()); it != targets.end(); ++it)
     {
-        branching_node_with_less_than const  current{ it->first, counts.at(it->first->get_location_id()), max_input_width };
+        branching_node_with_less_than const  current{ it->first, counts.at(it->first->get_location_id()) };
         if (current < best)
             best = current;
     }
@@ -454,6 +431,39 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best(
     {
         collect_loop_heads_along_path_to_node(it->first);
         it->second = true;
+    }
+
+    return best;
+}
+
+
+branching_node*  fuzzer::primary_coverage_target_branchings::get_best(std::unordered_set<branching_node*> const&  targets)
+{
+    if (targets.empty())
+        return nullptr;
+
+    struct  branching_node_with_less_than
+    {
+        branching_node_with_less_than(branching_node* const  node_)
+            : node{ node_ }
+            , magnitude{ length(vecf32{ (float_32_bit)node->get_num_stdin_bytes(), (float_32_bit)node->get_trace_index() }) }
+        {}
+        operator  branching_node*() const { return node; }
+        bool  operator<(branching_node_with_less_than const&  other) const
+        {
+            return magnitude < other.magnitude;
+        }
+    private:
+        branching_node*  node;
+        float_32_bit  magnitude;
+    };
+
+    branching_node_with_less_than  best{ *targets.begin() };
+    for (auto  it = std::next(targets.begin()); it != targets.end(); ++it)
+    {
+        branching_node_with_less_than const  current{ *it };
+        if (current < best)
+            best = current;
     }
 
     return best;

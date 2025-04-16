@@ -172,9 +172,9 @@ private:
                 );
         branching_node*  get_best(
                 std::unordered_map<branching_node*, bool>&  targets,
-                std::unordered_map<location_id, natural_32_bit>&  counts,
-                natural_32_bit  max_input_width
+                std::unordered_map<location_id, natural_32_bit>&  counts
                 );
+        branching_node*  get_best(std::unordered_set<branching_node*> const&  targets);
 
         std::unordered_set<branching_node*>  loop_heads_sensitive;  // Priority #1 (the highest)
         std::unordered_set<branching_node*>  loop_heads_others;     // Priority #1.1
