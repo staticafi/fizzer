@@ -53,8 +53,7 @@ int  __fizzer_private_void_entry_function_with_params(void)
 { __fizzer_private_io_model_cmdline_read(); __fizzer_private_void_method_under_test_with_params((int)argc, argv); return 0; }
 """
 
-testcomp_testsuite_metadata = """
-<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+testcomp_testsuite_metadata = """<?xml version='1.0' encoding='UTF-8' standalone='no'?>
 <!DOCTYPE test-metadata PUBLIC "+//IDN sosy-lab.org//DTD test-format test-metadata 1.1//EN" "https://sosy-lab.org/test-format/test-metadata-1.1.dtd">
 <test-metadata>
   <sourcecodelang>C</sourcecodelang>
