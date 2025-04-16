@@ -35,9 +35,7 @@
                 "--progress_recording",
                 // "--silent_mode",
                 "--render",
-                "--test_type",
-                    "native",
-                    // "testcomp",
+                //"--testcomp", "branches",
 
                 "--input_file",
                     "fast/_.c"
@@ -65,9 +63,7 @@
                 "--progress_recording",
                 // "--silent_mode",
                 "--render",
-                "--test_type",
-                    "native",
-                    // "testcomp",
+                // "--test_type", "testcomp",
                 "--output_dir", "${workspaceFolder}/dist/output"
             ],
             "stopAtEntry": false,

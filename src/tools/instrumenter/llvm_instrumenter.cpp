@@ -203,7 +203,11 @@ void llvm_instrumenter::wrapMain() {
     main_function->setName(mut_name);
 
     for (std::string const&  name : erase_function_names)
-        module->getFunction(name)->eraseFromParent();
+    {
+        llvm::Function* fn = module->getFunction(name);
+        if (fn != nullptr)
+            fn->eraseFromParent();
+    }
 
     entry_function_name = entry_function_renaming.at(*the_entry_function_name.begin());
     module->getFunction(*the_entry_function_name.begin())->setName(entry_function_name);
