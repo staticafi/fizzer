@@ -1354,8 +1354,8 @@ bool  fuzzer::generate_next_input(
             case STARTUP:
                 if (get_performed_driver_executions() == 0U)
                 {
-                    types = std::make_shared<input_types>();
-                    metadata = std::make_shared<input_metadata>();
+                    types = make_shared_wrapper<input_types>();
+                    metadata = make_shared_wrapper<input_metadata>();
                     return true;
                 }
                 break;

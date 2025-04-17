@@ -92,7 +92,7 @@ natural_64_bit  target_executor::compute_max_medium_size() const
 execution_results_ptr  target_executor::run(input_bytes const&  bytes, com::input_types const&  types, input_metadata const&  metadata)
 {
     auto const error_result = [](){
-        return std::make_shared<execution_results>(target_termination::ERROR_IN_DATA, std::make_shared<com::input_metadata>());
+        return std::make_shared<execution_results>(target_termination::ERROR_IN_DATA, make_shared_wrapper<com::input_metadata>());
     };
 
     get_medium().clear();
@@ -138,7 +138,7 @@ execution_results_ptr  target_executor::run(input_bytes const&  bytes, com::inpu
         }
     }
 
-    execution_results_ptr const  results{ std::make_shared<execution_results>(termination, std::make_shared<com::input_metadata>()) };
+    execution_results_ptr const  results{ std::make_shared<execution_results>(termination, make_shared_wrapper<com::input_metadata>()) };
     while (!get_medium().exhausted())
     {
         if (!get_medium().can_deliver_bytes(1ULL))

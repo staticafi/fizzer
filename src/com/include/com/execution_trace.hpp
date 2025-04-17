@@ -3,6 +3,7 @@
 
 #   include <com/atomic_predicate.hpp>
 #   include <utility/basic_numeric_types.hpp>
+#   include <utility/smart_ptr_wrapper.hpp>
 #   include <vector>
 #   include <memory>
 
@@ -34,7 +35,7 @@ struct  trace_item
 
 
 using  execution_trace = std::vector<trace_item>;
-using  execution_trace_ptr = std::shared_ptr<execution_trace>;
+using  execution_trace_ptr = shared_ptr_wrapper<execution_trace>;
 
 
 inline location_id  invalid_location_id() { return 0U; }
