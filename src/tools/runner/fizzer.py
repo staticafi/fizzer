@@ -15,42 +15,51 @@ void  __fizzer_private_void_method_under_test_with_params(int  argc, char*  argv
 """
 
 empty_cmdline_options = """
-#define __fizzer_private_io_model_cmdline_read() int argc = 0; char* argv[1] = { 0 }
+#define  __FIZZER_PRIVATE_IO_MODEL_CMDLINE_PASS_DATA_TO(PREFIX, ENTRY_FUNCTION_NAME, SUFFIX)    \\
+    char* argv[1] = { 0 }; PREFIX ENTRY_FUNCTION_NAME(0, argv); SUFFIX
 """
 
 reading_cmdline_options = """
 extern unsigned char  __fizzer_private_io_model_cmdline_read_argc(void);
 extern char  __fizzer_private_io_model_cmdline_read_char(void);
-#define __fizzer_private_io_model_cmdline_read()                                                    \\
-    enum {                                                                                          \\
-        MAX_CHARS   = 4095U /* This value must be equal to iomodels::cmdline::MAX_NUM_CHARS. */     \\
-    };                                                                                              \\
-    char*  argv[255];                                                                               \\
-    char  chars[MAX_CHARS];                                                                         \\
-    unsigned short  j = 0U;                                                                         \\
-    unsigned char const  argc = __fizzer_private_io_model_cmdline_read_argc();                      \\
-    for (unsigned char  i = 0U; i < argc; ++i)                                                      \\
-    {                                                                                               \\
-        j = (j & MAX_CHARS);                                                                        \\
-        argv[i] = &chars[j];                                                                        \\
-        do                                                                                          \\
-        {                                                                                           \\
-            j = (j & MAX_CHARS);                                                                    \\
-            chars[j] = __fizzer_private_io_model_cmdline_read_char();                               \\
-            ++j;                                                                                    \\
-        }                                                                                           \\
-        while (chars[j - 1U] != '\\0');                                                              \\
-    }                                                                                               \\
-    argv[argc] = (char*)0
+#define __FIZZER_PRIVATE_IO_MODEL_CMDLINE_MAX_NUM_CHARS  4095U
+static struct  __fizzer_private_io_model_cmdline_data_type
+{
+    char*  argv[255];
+    char  chars[__FIZZER_PRIVATE_IO_MODEL_CMDLINE_MAX_NUM_CHARS];
+    unsigned char  argc;
+} __fizzer_private_io_model_cmdline_data;
+static void  __fizzer_private_io_model_cmdline_read_data(struct __fizzer_private_io_model_cmdline_data_type* const  data)
+{
+    unsigned short  j = 0U;
+    data->argc = __fizzer_private_io_model_cmdline_read_argc();
+    for (unsigned char  i = 0U; i < data->argc; ++i)
+    {
+        j = (j & __FIZZER_PRIVATE_IO_MODEL_CMDLINE_MAX_NUM_CHARS);
+        data->argv[i] = &data->chars[j];
+        do
+        {
+            j = (j & __FIZZER_PRIVATE_IO_MODEL_CMDLINE_MAX_NUM_CHARS);
+            data->chars[j] = __fizzer_private_io_model_cmdline_read_char();
+            ++j;
+        }
+        while (data->chars[j - 1U] != '\\0');
+    }
+    data->argv[data->argc] = (char*)0;
+}
+#define  __FIZZER_PRIVATE_IO_MODEL_CMDLINE_PASS_DATA_TO(PREFIX, ENTRY_FUNCTION_NAME, SUFFIX)                    \\
+    struct __fizzer_private_io_model_cmdline_data_type* const  data = &__fizzer_private_io_model_cmdline_data;  \\
+    __fizzer_private_io_model_cmdline_read_data(data);                                                          \\
+    PREFIX ENTRY_FUNCTION_NAME((int)data->argc, data->argv); SUFFIX
 """
 
 entry_function_versions = """
 int  __fizzer_private_int_entry_function(void) { return __fizzer_private_int_method_under_test(); }
 int  __fizzer_private_void_entry_function(void) { __fizzer_private_void_method_under_test(); return 0; }
 int  __fizzer_private_int_entry_function_with_params(void)
-{ __fizzer_private_io_model_cmdline_read(); return __fizzer_private_int_method_under_test_with_params((int)argc, argv); }
+{ __FIZZER_PRIVATE_IO_MODEL_CMDLINE_PASS_DATA_TO(return, __fizzer_private_int_method_under_test_with_params, ); }
 int  __fizzer_private_void_entry_function_with_params(void)
-{ __fizzer_private_io_model_cmdline_read(); __fizzer_private_void_method_under_test_with_params((int)argc, argv); return 0; }
+{ __FIZZER_PRIVATE_IO_MODEL_CMDLINE_PASS_DATA_TO(, __fizzer_private_void_method_under_test_with_params, return 0); }
 """
 
 testcomp_testsuite_metadata = """<?xml version='1.0' encoding='UTF-8' standalone='no'?>
@@ -117,11 +126,15 @@ def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, te
     benchmark_file = os.path.join(output_dir, benchmark_c_name(input_file))
     shutil.copyfile(input_file, benchmark_file)
     with open(benchmark_file, "a") as fw:
-        fw.write(dummy_mut_versions)
+        fw.write("\n\n")
+        fw.write("/************************************************************************/\n")
+        fw.write("/*   BELOW ARE FIZZER'S PRIVATE IMPLEMENTATION DETAILS - IGNORE THEM    */\n")
+        fw.write("/************************************************************************/\n")
         if testcomp is not None:
             fw.write(empty_cmdline_options)
         else:
             fw.write(reading_cmdline_options)
+        fw.write(dummy_mut_versions)
         fw.write(entry_function_versions)
     if _execute(
             [ "clang" ] +

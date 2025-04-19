@@ -31,6 +31,7 @@ namespace SpecialFunction
     static std::string const  method_under_test_void_with_params{ "__fizzer_private_void_method_under_test_with_params" };
     static std::string const  cmdline_read_argc{ "__fizzer_private_io_model_cmdline_read_argc" };
     static std::string const  cmdline_read_char{ "__fizzer_private_io_model_cmdline_read_char" };
+    static std::string const  cmdline_read_data{ "__fizzer_private_io_model_cmdline_read_data" };
 };
 
 
@@ -78,7 +79,8 @@ void llvm_instrumenter::renameFunctions()
         SpecialFunction::method_under_test_int,
         SpecialFunction::method_under_test_void,
         SpecialFunction::method_under_test_int_with_params,
-        SpecialFunction::method_under_test_void_with_params
+        SpecialFunction::method_under_test_void_with_params,
+        SpecialFunction::cmdline_read_data,
     };
 
     std::string const  renamePrefix{ "__fizzer_rename_prefix__" };
@@ -131,6 +133,7 @@ void llvm_instrumenter::wrapMain() {
         erase_function_names.insert(SpecialFunction::entry_function_void_with_params);
         erase_function_names.insert(SpecialFunction::method_under_test_int_with_params);
         erase_function_names.insert(SpecialFunction::method_under_test_void_with_params);
+        erase_function_names.insert(SpecialFunction::cmdline_read_data);
         erase_function_names.insert(SpecialFunction::cmdline_read_argc);
         erase_function_names.insert(SpecialFunction::cmdline_read_char);
 
@@ -192,7 +195,7 @@ void llvm_instrumenter::wrapMain() {
         other_entry_function_name.size() == 1ULL &&
         *the_entry_function_name.begin() != *other_entry_function_name.begin() &&
         method_under_test_name.size() == 1ULL &&
-        (erase_function_names.size() == 6ULL || erase_function_names.size() == 8ULL)
+        (erase_function_names.size() == 6ULL || erase_function_names.size() == 9ULL)
     );
 
     mut_name = *method_under_test_name.begin();
