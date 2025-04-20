@@ -2053,7 +2053,7 @@ bool  fuzzer::try_start_input_flow_analysis(branching_node*  winner)
     }
     input_flow_thread.start(winner, num_driver_executions, num_remaining_seconds());
 
-    recording_send_taint_response(winner);
+    recording_send_taint_request(winner);
 
     return true;
 }
@@ -2178,6 +2178,15 @@ void  fuzzer::recording_resume()
         default:
             break;
     }
+}
+
+
+void  fuzzer::recording_send_taint_request(branching_node const* const  node_ptr)
+{
+    recording_interrupt();
+    recorder().on_taint_request_start(node_ptr, progress_recorder::START::REGULAR);
+    recorder().on_taint_request_stop(progress_recorder::STOP::INSTANT);
+    recording_resume();
 }
 
 

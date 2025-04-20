@@ -413,6 +413,7 @@ private:
 
     void  recording_interrupt();
     void  recording_resume();
+    void  recording_send_taint_request(branching_node const*  node_ptr);
     void  recording_send_taint_response(branching_node const*  node_ptr);
 
     sala::Program const* sala_program_ptr;
