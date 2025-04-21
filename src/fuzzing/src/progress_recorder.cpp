@@ -368,7 +368,7 @@ void  progress_recorder::on_execution_results_available(test_suite_item const&  
             branching_value const  value{
                     std::isfinite(trace_item.value) ? trace_item.value : std::numeric_limits<branching_value>::max()
                     };
-            if (first) first = false; else ostr << ',';
+            if (first) first = false; else ostr << ", ";
             ostr << trace_item.id << ','
                  << (trace_item.direction ? 1 : 0) << ','
                  << trace_item.num_input_bytes << ','
