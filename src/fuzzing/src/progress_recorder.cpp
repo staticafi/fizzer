@@ -296,7 +296,11 @@ void  progress_recorder::on_analysis_stop()
 }
 
 
-void  progress_recorder::on_execution_results_available(test_suite_item const&  item, branching_node const* const  leaf)
+void  progress_recorder::on_execution_results_available(
+        test_suite_item const&  item,
+        branching_node const* const  leaf,
+        std::string const&  progress_message
+        )
 {
     if (!is_started())
         return;
@@ -333,6 +337,7 @@ void  progress_recorder::on_execution_results_available(test_suite_item const&  
     ostr
         << " ],\n"
         << shift << "\"analysis_name\": \"" << item.analysis_name << "\",\n"
+        << shift << "\"progress_message\": \"" << progress_message << "\",\n"
         << shift << "\"execution_results\": {\n"
         ;
 

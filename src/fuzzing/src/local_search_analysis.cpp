@@ -7,6 +7,7 @@
 #include <map>
 #include <set>
 #include <algorithm>
+#include <sstream>
 
 namespace  fuzzing {
 
@@ -1338,6 +1339,34 @@ vector_overlay  local_search_analysis::point_to_bits(vecf64 const&  point, vecb&
             bits.at(mapping.input_start_bit_index + idx) = get_bit((natural_8_bit const*)&point_overlay.at(i), idx);
     }
     return point_overlay;
+}
+
+
+std::string  local_search_analysis::get_progress_message() const
+{
+    std::stringstream  sstr;
+    sstr << "AllVars: " << types_of_variables.size();
+    sstr << ", |Path|: " << path.size();
+    sstr << ", Stage: ";
+    switch  (progress_stage)
+    {
+        case PARTIALS: sstr << "PARTIALS"; break;
+        case DESCENT: sstr << "DESCENT"; break;
+        case MUTATIONS: sstr << "MUTATIONS"; break;
+        case RANDOM: sstr << "RANDOM"; break;
+    };
+    sstr << ", Spaces: " << local_spaces.size();
+    sstr << ", Vars: " << local_spaces.back().variable_indices.size();;
+    sstr << ", |Basis|: " << local_spaces.back().orthonormal_basis.size();
+    sstr << ", Constraints: " << local_spaces.back().constraints.size();
+    if (progress_stage == PARTIALS)
+    {
+        if (local_spaces.size() > 1ULL)
+            sstr << ", |ParentGrad|: " << length(local_spaces.back().gradient);
+    }
+    else
+        sstr << ", |Grad|: " << length(local_spaces.back().gradient);
+    return sstr.str();
 }
 
 

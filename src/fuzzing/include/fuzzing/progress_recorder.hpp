@@ -53,7 +53,7 @@ struct  progress_recorder
     void  on_taint_response_start(branching_node const*  node_ptr, START attribute);
     void  on_taint_response_stop(STOP  attribute);
 
-    void  on_execution_results_available(test_suite_item const&  item, branching_node const*  leaf);
+    void  on_execution_results_available(test_suite_item const&  item, branching_node const*  leaf, std::string const&  progress_message = "");
 
     void  on_strategy_turn_loop_head_sensitive();
     void  on_strategy_turn_loop_head_others();

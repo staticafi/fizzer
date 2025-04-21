@@ -168,6 +168,7 @@ struct  local_search_analysis
     branching_node*  get_node() const { return node; }
     bool  get_stopped_early() const { return stopped_early; }
 
+    std::string  get_progress_message() const;
     performance_statistics const&  get_statistics() const { return statistics; }
 
 private:

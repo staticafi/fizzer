@@ -1629,7 +1629,7 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
 
         case LOCAL_SEARCH:
             INVARIANT(bitshare.is_ready() && local_search.is_busy());
-            recorder().on_execution_results_available(test, construction_props.leaf);
+            recorder().on_execution_results_available(test, construction_props.leaf, local_search.get_progress_message());
             local_search.process_execution_results(trace, current_input);
             if (!local_search.get_node()->has_unexplored_direction())
             {
