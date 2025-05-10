@@ -13,6 +13,7 @@ int main()
     short size;
     int match_count = 0;
 
+    size = __VERIFIER_nondet_short();
     if ( size <= 0 || size > MAX_SIZE ) {
         return -1;
     }
