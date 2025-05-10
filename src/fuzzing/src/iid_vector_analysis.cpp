@@ -697,10 +697,13 @@ void fuzzing::equation_matrix::process_node( branching_node* end_node,
 {
     TMPROF_BLOCK();
 
+    if ( unique_rows.size() >= iid_dependencies::maximal_number_of_equations_in_matrix ) {
+        return;
+    }
+
     auto it = branching_values.find( end_node->best_coverage_value );
 
-    if ( it != branching_values.end() &&
-         branching_values.size() >= iid_dependencies::maximal_number_of_branching_values ) {
+    if ( branching_values.size() >= iid_dependencies::maximal_number_of_branching_values && it == branching_values.end() ) {
         return;
     }
 
@@ -724,6 +727,10 @@ void fuzzing::equation_matrix::start_compute_matrix()
     TMPROF_BLOCK();
 
     for ( branching_node* node : all_paths ) {
+        if ( unique_rows.size() >= iid_dependencies::maximal_number_of_equations_in_matrix ) {
+            return;
+        }
+
         auto [ directions_in_path, max_directions_in_path_index ] = get_directions_in_path( node );
         add_path( node, directions_in_path, true, max_directions_in_path_index );
     }
@@ -1444,14 +1451,14 @@ int fuzzing::iid_node_dependence_props::compute_loading_loop_interation(
 {
     TMPROF_BLOCK();
 
-    float average_bits = props.bits_read_by_node.at( id ).average_bits_read.mean;
+    float average_bits_read = props.bits_read_by_node.at( id ).average_bits_read.mean;
     natural_32_bit offset = props.bits_read_by_node.at( id ).minimal_bit_offset;
-    float average_used_bits = props.bits_read_by_node.at( id ).average_bits_used.mean;
+    float average_bits_used = props.bits_read_by_node.at( id ).average_bits_used.mean;
 
-    float loaded_per_loop = std::min( props.loaded_bits_per_loop.mean, average_used_bits );
+    float loaded_per_loop = std::min( props.loaded_bits_per_loop.mean, average_bits_used );
     loaded_per_loop = std::max( loaded_per_loop, 8.0f );
 
-    if ( offset == natural_32_bit( props.loaded_bits_per_loop.mean - average_used_bits ) )
+    if ( offset == natural_32_bit( props.loaded_bits_per_loop.mean - average_bits_used ) )
         offset = 0;
 
     bool is_loop_head = true;
@@ -1467,7 +1474,7 @@ int fuzzing::iid_node_dependence_props::compute_loading_loop_interation(
     }
 
     int total_count = is_loop_head ? path_counts[ id ].get_total_count() : path_counts[ id ].get_max_count();
-    float bits_needed = average_bits * total_count + offset;
+    float bits_needed = average_bits_read * total_count + offset;
 
     return std::ceil( bits_needed / loaded_per_loop );
 }

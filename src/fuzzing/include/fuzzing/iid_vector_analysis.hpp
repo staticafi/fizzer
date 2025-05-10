@@ -465,21 +465,23 @@ private:
 public:
     inline static std::size_t biggest_node_id = 0;
 
-    // Configurations
-    inline static bool random_nested_loop_counts = false;
-    inline static bool random_direction_in_path = true;
-    inline static bool random_node_selection = true;
-    inline static bool generate_more_data_after_coverage = true;
-    inline static bool generate_for_bad_nodes = true;
-    inline static int max_failed_generations_in_row = 2;
+    // Set configurations
     inline static int minimal_max_generation_after_covered = 10;
     inline static int minimal_max_generation_for_other_node = 10;
+    inline static bool generate_for_bad_nodes = true;
     inline static int minimal_max_generation_artificial_data = 5;
-    inline static int maximal_number_of_equations_with_same_branching_value = 250;
-    inline static int maximal_number_of_branching_values = 250;
-    inline static float percentage_to_add_to_path = 0.4;
-    inline static bool create_artificial_data = true;
-    inline static int biggest_value_in_difference_vector = 10;
+
+    // Configurations
+    inline static int biggest_value_in_difference_vector = 4;
+    inline static bool generate_more_data_after_coverage = true;
+    inline static int max_failed_generations_in_row = 3;
+    inline static int maximal_number_of_branching_values = 30;
+    inline static int maximal_number_of_equations_in_matrix = 500;
+    inline static int maximal_number_of_equations_with_same_branching_value = 100;
+    inline static float percentage_to_add_to_path = 0.5;
+    inline static bool random_direction_in_path = false;
+    inline static bool random_nested_loop_counts = false;
+    inline static bool random_node_selection = true;
 
     inline static bool verbose = false;
     // inline static bool verbose = true;
