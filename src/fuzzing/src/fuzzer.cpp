@@ -8,10 +8,9 @@
 #include <iostream>
 #include <fstream>
 #include <iterator>
-#include <fuzzing/gradient_descent.hpp>
 
-// constexpr bool use_vector_analysis = false;
-constexpr bool use_vector_analysis = true;
+constexpr bool use_vector_analysis = false;
+// constexpr bool use_vector_analysis = true;
 
 namespace  fuzzing {
 
