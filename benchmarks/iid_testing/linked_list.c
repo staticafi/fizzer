@@ -15,15 +15,14 @@ typedef struct Node {
 
 int main()
 {
-    Node nodes[ MAX_NODES ]; // Pre-allocate nodes for simplicity
+    Node nodes[ MAX_NODES ];
     Node* head = NULL;
     Node* current = NULL;
     short size;
-    int count_gt_10 = 0; // State variable
+    int count_gt_10 = 0;
 
-    // 1. Fill data structure (linked list) in an initial loop
     size = __VERIFIER_nondet_short();
-    if ( size < 0 || size > MAX_NODES ) { // Allow size 0
+    if ( size < 0 || size > MAX_NODES ) {
         return -1;
     }
 
@@ -39,19 +38,16 @@ int main()
         }
     }
 
-    // 2. Core logic in loop iterating through the data structure (linked list)
-    current = head; // Start iteration from head
+    current = head;
     while ( current != NULL ) {
-        // 3. Modify internal state based on data elements
-        // 5. Change is constant (+1)
         if ( current->value == 10 ) {
-            count_gt_10++; // Constant change
+            count_gt_10++;
         }
-        current = current->next; // Move to next node
-    } // Loop completes when end of list is reached
 
-    // 4. Final condition based on internal variable
-    if ( count_gt_10 >= 10 ) { // Non-trivial check
+        current = current->next;
+    }
+
+    if ( count_gt_10 >= 10 ) {
         return 1;
     } else {
         return 0;
