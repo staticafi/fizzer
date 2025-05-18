@@ -80,178 +80,6 @@ void  fuzzer::coverage_progress_control_props::interruption_exit()
 }
 
 
-fuzzer::primary_coverage_target_branchings::primary_coverage_target_branchings(
-        std::function<bool(location_id)> const&  is_covered_,
-        performance_statistics* const  statistics_ptr_
-        )
-    : sensitive{}
-    , untouched{}
-    , sensitive_counts{}
-    , untouched_counts{}
-    , is_covered{ is_covered_ }
-    , statistics{ statistics_ptr_ }
-{}
-
-
-void  fuzzer::primary_coverage_target_branchings::process_potential_coverage_target(branching_node* const  node)
-{
-    ASSUMPTION(node != nullptr);
-    if (node->is_pending() && !is_covered(node->get_location_id()))
-    {
-        if (node->was_sensitivity_performed())
-        {
-            if (!node->get_sensitive_stdin_bits().empty() && !node->was_local_search_performed())
-                sensitive.insert(node);
-        }
-        else
-            untouched.insert(node);
-    }
-}
-
-
-void  fuzzer::primary_coverage_target_branchings::erase(branching_node* const  node)
-{
-    ASSUMPTION(node != nullptr);
-    sensitive.erase(node);
-    untouched.erase(node);
-}
-
-
-bool  fuzzer::primary_coverage_target_branchings::empty() const
-{
-    return sensitive.empty() && untouched.empty();
-}
-
-
-void  fuzzer::primary_coverage_target_branchings::clear()
-{
-    sensitive.clear();
-    untouched.clear();
-}
-
-
-void  fuzzer::primary_coverage_target_branchings::do_cleanup()
-{
-    TMPROF_BLOCK();
-
-    std::unordered_set<branching_node*>  work_set;
-    work_set.swap(sensitive);
-    work_set.insert(untouched.begin(), untouched.end());
-    untouched.clear();
-    while (!work_set.empty())
-    {
-        branching_node* const  node = *work_set.begin();
-        work_set.erase(work_set.begin());
-        process_potential_coverage_target(node);
-    }
-}
-
-
-branching_node*  fuzzer::primary_coverage_target_branchings::get_best_sensitive()
-{
-    branching_node*  best_node{ get_best(sensitive, sensitive_counts) };
-    if (best_node != nullptr)
-    {
-        ++sensitive_counts.at(best_node->get_location_id());
-        ++statistics->strategy_sensitive;
-        recorder().on_strategy_turn_sensitive();
-    }
-    return best_node;
-}
-
-
-branching_node*  fuzzer::primary_coverage_target_branchings::get_best_untouched()
-{
-    branching_node*  best_node{ get_best(untouched, untouched_counts) };
-    if (best_node != nullptr)
-    {
-        ++untouched_counts.at(best_node->get_location_id());
-        ++statistics->strategy_untouched;
-        recorder().on_strategy_turn_untouched();
-    }
-    return best_node;
-}
-
-
-void  fuzzer::primary_coverage_target_branchings::update_counts(
-        std::unordered_map<location_id, natural_32_bit>&  counts,
-        std::unordered_set<branching_node*> const&  data
-        )
-{
-    std::unordered_map<location_id, natural_32_bit>  old_counts;
-    old_counts.swap(counts);
-    natural_32_bit  min_count{ 0U };
-    for (auto const&  id_and_count : old_counts)
-        min_count = std::min(min_count, id_and_count.second);
-    for (auto const  node : data)
-    {
-        auto const  it = old_counts.find(node->get_location_id());
-        counts[node->get_location_id()] = it == old_counts.end() ? 0U : it->second - min_count;
-    }
-}
-
-
-branching_node*  fuzzer::primary_coverage_target_branchings::get_best(
-        std::unordered_set<branching_node*>&  targets,
-        std::unordered_map<location_id, natural_32_bit>&  counts
-        )
-{
-    if (targets.empty())
-        return nullptr;
-
-    struct  branching_node_with_less_than
-    {
-        branching_node_with_less_than(
-                branching_node* const  node_,
-                natural_32_bit const  count_
-                )
-            : node{ node_ }
-            , count{ count_ }
-        {}
-        operator  branching_node*() const { return node; }
-        bool  operator<(branching_node_with_less_than const&  other) const
-        {
-            if (count < other.count)
-                return true;
-            if (count > other.count)
-                return false;
-            if (std::abs(node->get_best_value()) < std::abs(other.node->get_best_value()))
-                return true;
-            if (std::abs(node->get_best_value()) > std::abs(other.node->get_best_value()))
-                return false;
-            if (node->get_sensitive_stdin_bits().size() < other.node->get_sensitive_stdin_bits().size())
-                return true;
-            if (node->get_sensitive_stdin_bits().size() > other.node->get_sensitive_stdin_bits().size())
-                return false;
-            if (node->get_num_stdin_bytes() < other.node->get_num_stdin_bytes())
-                return true;
-            if (node->get_num_stdin_bytes() > other.node->get_num_stdin_bytes())
-                return false;
-            if (node->get_trace_index() < other.node->get_trace_index())
-                return true;
-            if (node->get_trace_index() > other.node->get_trace_index())
-                return false;
-            return node->get_max_successors_trace_index() > other.node->get_max_successors_trace_index();
-        }
-    private:
-        branching_node*  node;
-        natural_32_bit  count;
-    };
-
-    update_counts(counts, targets);
-
-    branching_node_with_less_than  best{ *targets.begin(), counts.at((*targets.begin())->get_location_id()) };
-    for (auto  it = std::next(targets.begin()); it != targets.end(); ++it)
-    {
-        branching_node_with_less_than const  current{ *it, counts.at((*it)->get_location_id()) };
-        if (current < best)
-            best = current;
-    }
-
-    return best;
-}
-
-
 fuzzer::input_flow_analysis_thread::input_flow_analysis_thread(
         sala::Program const* sala_program_ptr,
         target_executor const* const  tgt_exec
@@ -489,13 +317,11 @@ fuzzer::fuzzer(termination_info const&  info, sala::Program const* const  sala_p
     , uncovered_branchings{}
     , branchings_to_crashes{}
 
-    , primary_coverage_targets{
-            [this](location_id const  id) { return covered_branchings.contains(id); },
-            &statistics
-            }
+    , strategy{}
+    , chosen_sensitive_nodes{}
+    , chosen_untouched_nodes{}
 
     , dead_nodes_buffer{}
-    , coverage_failures_with_hope{}
 
     , state{ STARTUP }
     , coverage_control{ this }
@@ -503,8 +329,6 @@ fuzzer::fuzzer(termination_info const&  info, sala::Program const* const  sala_p
     , bitshare{}
     , local_search{}
     , bitflip{}
-
-    , generator_for_generator_selection{ 1U }
 
     , render_state{ RENDER_STATE::DISABLED }
     , statistics{}
@@ -610,6 +434,9 @@ bool  fuzzer::generate_next_input(
                     break;
                 }
 
+            if (!input_flow_thread.get_node()->get_sensitive_stdin_bits().empty())
+                chosen_sensitive_nodes.push_back(input_flow_thread.get_node());
+
             recording_send_taint_response(input_flow_thread.get_node());
 
             if (state == BITFLIP && !coverage_control.is_analysis_interrupted())
@@ -617,15 +444,9 @@ bool  fuzzer::generate_next_input(
                 do_cleanup();
                 select_next_state();
             }
-            else
-                primary_coverage_targets.do_cleanup();
         }
-        if (input_flow_thread.is_ready() && primary_coverage_targets.num_sensitive_targets() < 5000ULL)
-        {
-            branching_node*  winner{ primary_coverage_targets.get_best_untouched() };
-            if (winner != nullptr)
-                try_start_input_flow_analysis(winner);
-        }
+        if (input_flow_thread.is_ready())
+            try_start_input_flow_analysis();
 
         if (coverage_control.is_analysis_interrupted())
         {
@@ -714,7 +535,6 @@ bool  fuzzer::generate_next_input(
                 break;
 
             case FINISHED:
-                if (!apply_coverage_failures_with_hope())
                 {
                     terminate();
                     termination_reason = TERMINATION_REASON::FUZZING_STRATEGY_DEPLETED;
@@ -897,7 +717,8 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
             INVARIANT(it_and_state.second);
 
             for (branching_node*  node = construction_props.leaf; node != construction_props.diverging_node->get_predecessor(); node = node->get_predecessor())
-                primary_coverage_targets.process_potential_coverage_target(node);
+                if (!covered_branchings.contains(node->get_location_id()))
+                    strategy.on_new_uncovered_node(node);
 
             ++statistics.leaf_nodes_created;
             statistics.max_leaf_nodes = std::max(statistics.max_leaf_nodes, leaf_branchings.size());
@@ -967,11 +788,7 @@ void  fuzzer::do_cleanup()
 {
     TMPROF_BLOCK();
 
-    INVARIANT(
-        bitshare.is_ready() &&
-        local_search.is_ready() &&
-        (state != FINISHED || !primary_coverage_targets.empty())
-        );
+    INVARIANT(bitshare.is_ready() && local_search.is_ready());
 
     switch (state)
     {
@@ -980,8 +797,6 @@ void  fuzzer::do_cleanup()
             break;
         case LOCAL_SEARCH:
             update_close_flags_from(local_search.get_node());
-            if (!covered_branchings.contains(local_search.get_node()->get_location_id()))
-                coverage_failures_with_hope.insert(local_search.get_node());
             break;
         default:
             break;
@@ -997,14 +812,6 @@ void  fuzzer::do_cleanup()
         leaves_to_remove.pop_back();
     }
 
-    primary_coverage_targets.do_cleanup();
-
-    for (auto  it = coverage_failures_with_hope.begin(); it != coverage_failures_with_hope.end(); )
-        if (covered_branchings.contains((*it)->get_location_id()))
-            it = coverage_failures_with_hope.erase(it);
-        else
-            ++it;
-
     dead_nodes_buffer.clear();
 }
 
@@ -1015,7 +822,7 @@ void  fuzzer::select_next_state()
 
     INVARIANT(bitshare.is_ready() && local_search.is_ready());
 
-    branching_node*  winner = primary_coverage_targets.get_best_sensitive();
+    branching_node*  winner{ next_sensitive_node() };
 
     if (state == BITFLIP)
         recorder().on_bitflip_stop(progress_recorder::STOP::REGULAR);
@@ -1027,7 +834,14 @@ void  fuzzer::select_next_state()
             state = BITFLIP;
             if (bitflip.is_ready())
             {
-                bitflip.start(leaf_branchings);
+                winner = next_untouched_node();
+                if (winner != nullptr)
+                {
+                    chosen_untouched_nodes.push_back(winner);
+                    bitflip.start(winner);
+                }
+                else
+                    bitflip.start(leaf_branchings);
                 if (bitflip.is_ready()) // The start has failed.
                     state = FINISHED;
             }
@@ -1056,54 +870,86 @@ void  fuzzer::select_next_state()
 }
 
 
-bool  fuzzer::try_start_input_flow_analysis(branching_node*  winner)
+bool  fuzzer::try_start_input_flow_analysis()
 {
-    ASSUMPTION(!winner->was_sensitivity_performed());
-
     if (!input_flow_thread.is_ready())
         return false;
 
-    trace_index_type const  max_trace_index{ 2U * winner->get_trace_index() };
-    natural_64_bit const  max_bytes{ 2ULL * winner->get_best_stdin()->bytes()->size() };
-    auto const&  valid_successor = [max_trace_index, max_bytes](branching_node const* const node) {
-        return
-            node != nullptr
-            && node->get_best_trace() != nullptr
-            && node->get_best_stdin() != nullptr
-            && node->get_trace_index() <= max_trace_index
-            && node->get_best_stdin()->bytes()->size() <= max_bytes
-            ;
-    };
+    branching_node* const  winner{ next_untouched_node() };
+    if (winner == nullptr)
+        return false;
 
-    while (true)
-    {
-        branching_node* const  left = winner->successor(false).pointer;
-        branching_node* const  right = winner->successor(true).pointer;
-
-        bool const  can_go_left = valid_successor(left);
-        bool const  can_go_right = valid_successor(right);
-
-        if (can_go_left && can_go_right)
-        {
-            if (!left->was_sensitivity_performed())
-                winner = left;
-            else if (!right->was_sensitivity_performed())
-                winner = right;
-            else
-                winner = left->get_max_successors_trace_index() >= right->get_max_successors_trace_index() ? left : right;
-        }
-        else if (can_go_left)
-            winner = left;
-        else if (can_go_right)
-            winner = right;
-        else
-            break;
-    }
     input_flow_thread.start(winner, num_driver_executions, num_remaining_seconds());
 
     recording_send_taint_request(winner);
 
     return true;
+}
+
+
+branching_node*  fuzzer::next_sensitive_node()
+{
+    auto const&  is_valid = [](branching_node const* const  node) {
+        return !node->get_sensitive_stdin_bits().empty() &&
+               !node->is_closed() &&
+               node->has_unexplored_direction() &&
+               node->has_pending_analysis();
+    };
+    while (!chosen_sensitive_nodes.empty())
+    {
+        branching_node* const  node = chosen_sensitive_nodes.front();
+        if (is_valid(node))
+            return node;
+        chosen_sensitive_nodes.pop_front();
+    }
+    read_strategy();
+    while (!chosen_sensitive_nodes.empty())
+    {
+        branching_node* const  node = chosen_sensitive_nodes.front();
+        if (is_valid(node))
+            return node;
+        chosen_sensitive_nodes.pop_front();
+    }
+    return nullptr;
+}
+
+
+branching_node*  fuzzer::next_untouched_node()
+{
+    auto const&  is_valid = [](branching_node const* const  node) {
+        return !node->was_sensitivity_performed() &&
+               !node->is_closed() &&
+               node->has_unexplored_direction();
+    };
+    while (!chosen_untouched_nodes.empty())
+    {
+        branching_node* const  node = chosen_untouched_nodes.front();
+        chosen_untouched_nodes.pop_front();
+        if (is_valid(node))
+            return node;
+    }
+    read_strategy();
+    while (!chosen_untouched_nodes.empty())
+    {
+        branching_node* const  node = chosen_untouched_nodes.front();
+        chosen_untouched_nodes.pop_front();
+        if (is_valid(node))
+            return node;
+    }
+    return nullptr;
+}
+
+
+void  fuzzer::read_strategy()
+{
+    branching_node* const  node = strategy.choose(entry_branching);
+    if (node != nullptr)
+    {
+        if (!node->was_sensitivity_performed())
+            chosen_untouched_nodes.push_back(node);
+        if (!node->get_sensitive_stdin_bits().empty())
+            chosen_sensitive_nodes.push_back(node);
+    }
 }
 
 
@@ -1126,8 +972,15 @@ void  fuzzer::remove_leaf_branching_node(branching_node*  node)
 
         branching_node* const  pred = node->get_predecessor();
 
-        primary_coverage_targets.erase(node);
-        coverage_failures_with_hope.erase(node);
+        strategy.on_erase(node);
+        chosen_sensitive_nodes.erase(
+                std::remove(chosen_sensitive_nodes.begin(), chosen_sensitive_nodes.end(), node),
+                chosen_sensitive_nodes.end()
+                );
+        chosen_untouched_nodes.erase(
+                std::remove(chosen_untouched_nodes.begin(), chosen_untouched_nodes.end(), node),
+                chosen_untouched_nodes.end()
+                );
 
         delete node;
 
@@ -1144,23 +997,6 @@ void  fuzzer::remove_leaf_branching_node(branching_node*  node)
 
         node = pred;
     }
-}
-
-
-bool  fuzzer::apply_coverage_failures_with_hope()
-{
-    for (branching_node*  node : coverage_failures_with_hope)
-    {
-        INVARIANT(node->was_local_search_performed());
-
-        node->perform_failure_reset();
-
-        primary_coverage_targets.process_potential_coverage_target(node);
-
-        ++statistics.coverage_failure_resets;
-    }
-    coverage_failures_with_hope.clear();
-    return !primary_coverage_targets.empty();
 }
 
 
