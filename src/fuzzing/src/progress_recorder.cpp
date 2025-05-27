@@ -69,7 +69,7 @@ void  progress_recorder::start(std::filesystem::path const&  path_to_target_, st
     std::filesystem::remove_all(output_dir);
     std::filesystem::create_directories(output_dir);
     if (!std::filesystem::is_directory(output_dir))
-        throw std::runtime_error("Cannot create directory: " + output_dir.string());
+        throw std::runtime_error("Cannot create directory: " + output_dir);
 
     std::filesystem::path const  input_dir{ path_to_target_.parent_path() };
     std::string const  executable_name{ path_to_target_.filename().string() };
@@ -100,7 +100,7 @@ void  progress_recorder::stop()
     if (!is_started())
         return;
 
-    std::filesystem::path const  input_dir{ output_dir.parent_path() };
+    std::filesystem::path const  input_dir{ std::filesystem::path(output_dir).parent_path() };
 
     copy_file(input_dir, program_name + "_config.json", "config.json", output_dir);
     copy_file(input_dir, program_name + "_outcomes.json", "outcomes.json", output_dir);
@@ -141,8 +141,6 @@ void  progress_recorder::on_bitshare_start(branching_node const* const  node_ptr
 
     bitshare.start_type = attribute;
     on_analysis_start(ANALYSIS::BITSHARE, bitshare, node_ptr);
-    if (attribute != START::RESUMED)
-        flush_strategy_data();
 }
 
 
@@ -167,8 +165,6 @@ void  progress_recorder::on_local_search_start(branching_node const* const  node
 
     local_search.start_type = attribute;
     on_analysis_start(ANALYSIS::LOCAL_SEARCH, local_search, node_ptr);
-    if (attribute != START::RESUMED)
-        flush_strategy_data();
 }
 
 
@@ -217,8 +213,6 @@ void  progress_recorder::on_taint_request_start(branching_node const* const  nod
 
     taint_request.start_type = attribute;
     on_analysis_start(ANALYSIS::TAINT_REQUEST, taint_request, node_ptr);
-    if (attribute != START::RESUMED)
-        flush_strategy_data();
 }
 
 
@@ -260,42 +254,6 @@ void  progress_recorder::on_taint_response_stop(STOP const  attribute)
 }
 
 
-
-void  progress_recorder::on_analysis_start(ANALYSIS const  analysis_, analysis_common_info&  info, branching_node const* const  node_ptr)
-{
-    if (!is_started())
-        return;
-
-    ASSUMPTION(analysis == ANALYSIS::STARTUP);
-
-    analysis = analysis_;
-    ++counter_analysis;
-    counter_results = 0;
-
-    info.node = node_ptr;
-    info.analysis_dir = output_dir / (std::to_string(counter_analysis) + '_' + analysis_name(analysis));
-    std::filesystem::create_directories(info.analysis_dir);
-    if (!std::filesystem::is_directory(info.analysis_dir))
-        throw std::runtime_error("Cannot create directory: " + info.analysis_dir.string());
-
-    strategy.set_output_dir(info.analysis_dir);
-}
-
-
-void  progress_recorder::on_analysis_stop()
-{
-    if (!is_started() || analysis == ANALYSIS::STARTUP)
-        return;
-
-    analysis = ANALYSIS::STARTUP;
-    bitshare = {};
-    local_search = {};
-    bitflip = {};
-    taint_request = {};
-    taint_response = {};
-}
-
-
 void  progress_recorder::on_execution_results_available(
         test_suite_item const&  item,
         branching_node const* const  leaf,
@@ -307,7 +265,9 @@ void  progress_recorder::on_execution_results_available(
 
     TMPROF_BLOCK();
 
-    std::filesystem::path const  record_dir = output_dir / (std::to_string(counter_analysis) + '_' + analysis_name(analysis));
+    std::filesystem::path const  record_dir{
+            std::filesystem::path(output_dir) / (std::to_string(counter_analysis) + '_' + analysis_name(analysis))
+            };
     std::filesystem::create_directories(record_dir);
     if (!std::filesystem::is_directory(record_dir))
         throw std::runtime_error("Cannot create directory: " + record_dir.string());
@@ -316,9 +276,6 @@ void  progress_recorder::on_execution_results_available(
     auto  ostr_ptr{ std::make_unique<std::ofstream>(record_pathname.c_str(), std::ios::binary) };
     if (!ostr_ptr->is_open())
         throw std::runtime_error("Cannot open file for writing: " + record_pathname.string());
-
-    if (strategy.output_dir.empty())
-        strategy.output_dir = record_dir;
 
     std::ofstream&  ostr{ *ostr_ptr }; 
 
@@ -387,6 +344,33 @@ void  progress_recorder::on_execution_results_available(
 }
 
 
+void  progress_recorder::on_strategy(std::string const&  strategy_)
+{
+    if (!is_started())
+        return;
+    strategy = strategy_;
+}
+
+
+void  progress_recorder::on_post_node_closed(branching_node const* const  node)
+{
+    if (!is_started())
+        return;
+    analysis_common_info*  info{ nullptr };
+    switch (analysis)
+    {
+        case ANALYSIS::BITSHARE: info = &bitshare; break;
+        case ANALYSIS::LOCAL_SEARCH: info = &local_search; break;
+        case ANALYSIS::BITFLIP: info = &bitflip; break;
+        case ANALYSIS::TAINT_REQUEST: info = &taint_request; break;
+        case ANALYSIS::TAINT_RESPONSE: info = &taint_response; break;
+        default: break;
+    }
+    if (info != nullptr)
+        info->closed_node_guids.insert(node->guid());
+}
+
+
 std::string const&  progress_recorder::analysis_name(ANALYSIS const a)
 {
     static std::string const  names[] { "STARTUP","BITSHARE","LOCAL_SEARCH","BITFLIP","TAINT_REQ","TAINT_RES" };
@@ -400,45 +384,64 @@ void  progress_recorder::analysis_common_info::save() const
     TMPROF_BLOCK();
 
     if (!std::filesystem::is_directory(analysis_dir))
-        throw std::runtime_error("Analysis directory does not exist: " + analysis_dir.string());
-
-    std::filesystem::path const  pathname = analysis_dir / "info.json";
-    std::ofstream  ostr(pathname.c_str(), std::ios::binary);
-    if (!ostr.is_open())
-        throw std::runtime_error("Cannot open file for writing: " + pathname.string());
- 
-    ostr << "{\n";
+        throw std::runtime_error("Analysis directory does not exist: " + analysis_dir);
 
     {
-        auto const pos_old = ostr.tellp();
-        save_info(ostr);
-        auto const pos_new = ostr.tellp();
-        if (pos_new != pos_old)
-            ostr << ",\n";
+        std::filesystem::path const  pathname = std::filesystem::path(analysis_dir) / "info.json";
+        std::ofstream  ostr(pathname.c_str(), std::ios::binary);
+        if (!ostr.is_open())
+            throw std::runtime_error("Cannot open file for writing: " + pathname.string());
+    
+        ostr << "{\n";
+
+        {
+            auto const pos_old = ostr.tellp();
+            save_info(ostr);
+            auto const pos_new = ostr.tellp();
+            if (pos_new != pos_old)
+                ostr << ",\n";
+        }
+
+        ostr << "\"node_guid\": " << (node == nullptr ? 0U : node->guid()) << ",\n";
+
+        ostr << "\"start_attribute\": ";
+        switch (start_type)
+        {
+            case START::REGULAR: ostr << "\"REGULAR\""; break;
+            case START::RESUMED: ostr << "\"RESUMED\""; break;
+            default: UNREACHABLE(); break;
+        }
+        ostr << ",\n\"stop_attribute\": ";
+        switch (stop_type)
+        {
+            case STOP::INSTANT: ostr << "\"INSTANT\""; break;
+            case STOP::EARLY: ostr << "\"EARLY\""; break;
+            case STOP::REGULAR: ostr << "\"REGULAR\""; break;
+            case STOP::INTERRUPTED: ostr << "\"INTERRUPTED\""; break;
+            case STOP::FAILED: ostr << "\"FAILED\""; break;
+            default: UNREACHABLE(); break;
+        }
+        ostr << ",\n\"num_coverage_failure_resets\": " << get_num_coverage_failure_resets() << '\n';
+
+        ostr << "}\n";
     }
-
-    ostr << "\"node_guid\": " << (node == nullptr ? 0U : node->guid()) << ",\n";
-
-    ostr << "\"start_attribute\": ";
-    switch (start_type)
     {
-        case START::REGULAR: ostr << "\"REGULAR\""; break;
-        case START::RESUMED: ostr << "\"RESUMED\""; break;
-        default: UNREACHABLE(); break;
-    }
-    ostr << ",\n\"stop_attribute\": ";
-    switch (stop_type)
-    {
-        case STOP::INSTANT: ostr << "\"INSTANT\""; break;
-        case STOP::EARLY: ostr << "\"EARLY\""; break;
-        case STOP::REGULAR: ostr << "\"REGULAR\""; break;
-        case STOP::INTERRUPTED: ostr << "\"INTERRUPTED\""; break;
-        case STOP::FAILED: ostr << "\"FAILED\""; break;
-        default: UNREACHABLE(); break;
-    }
-    ostr << ",\n\"num_coverage_failure_resets\": " << get_num_coverage_failure_resets() << '\n';
+        std::filesystem::path const  record_pathname = std::filesystem::path(analysis_dir) / "strategy.json";
+        std::ofstream  ostr{ record_pathname.c_str(), std::ios::binary };
+        if (!ostr.is_open())
+            throw std::runtime_error("Cannot open file for writing: " + record_pathname.string());
+        ostr << "{\n";
 
-    ostr << "}\n";
+        ostr << "\"strategy\": \"" << strategy << "\",\n\"closed_node_guids\": [\n";
+        for (auto  it = closed_node_guids.begin(); it != closed_node_guids.end(); ++it)
+        {
+            ostr << *it;
+            if (std::next(it) != closed_node_guids.end()) ostr << ",\n";
+        }
+        ostr << "]\n";
+
+        ostr << "}\n";
+    }
 }
 
 
@@ -491,159 +494,39 @@ void  progress_recorder::taint_response_progress_info::save_info(std::ostream&  
 }
 
 
-void  progress_recorder::on_strategy_turn_loop_head_sensitive()
+void  progress_recorder::on_analysis_start(ANALYSIS const  analysis_, analysis_common_info&  info, branching_node const* const  node_ptr)
 {
     if (!is_started())
         return;
-    strategy.on_strategy_changed(strategy_data::STRATEGY::LOOP_HEAD_SENSITIVE);
+
+    ASSUMPTION(analysis == ANALYSIS::STARTUP);
+
+    analysis = analysis_;
+    ++counter_analysis;
+    counter_results = 0;
+
+    info.node = node_ptr;
+    info.analysis_dir = std::filesystem::path{ output_dir } / (std::to_string(counter_analysis) + '_' + analysis_name(analysis));
+    std::filesystem::create_directories(info.analysis_dir);
+    if (!std::filesystem::is_directory(info.analysis_dir))
+        throw std::runtime_error("Cannot create directory: " + info.analysis_dir);
+    if (info.start_type != START::RESUMED)
+        info.strategy = strategy;
+    info.closed_node_guids.clear();
 }
 
 
-void  progress_recorder::on_strategy_turn_loop_head_others()
+void  progress_recorder::on_analysis_stop()
 {
-    if (!is_started())
+    if (!is_started() || analysis == ANALYSIS::STARTUP)
         return;
-    strategy.on_strategy_changed(strategy_data::STRATEGY::LOOP_HEAD_OTHERS);
-}
 
-
-void  progress_recorder::on_strategy_turn_sensitive()
-{
-    if (!is_started())
-        return;
-    strategy.on_strategy_changed(strategy_data::STRATEGY::SENSITIVE);
-}
-
-
-void  progress_recorder::on_strategy_turn_untouched()
-{
-    if (!is_started())
-        return;
-    strategy.on_strategy_changed(strategy_data::STRATEGY::UNTOUCHED);
-}
-
-
-void  progress_recorder::on_strategy_turn_iid_twins_sensitive()
-{
-    if (!is_started())
-        return;
-    strategy.on_strategy_changed(strategy_data::STRATEGY::IID_TWINS_SENSITIVE);
-}
-
-
-void  progress_recorder::on_strategy_turn_iid_twins_others()
-{
-    if (!is_started())
-        return;
-    strategy.on_strategy_changed(strategy_data::STRATEGY::IID_TWINS_OTHERS);
-}
-
-
-void  progress_recorder::on_strategy_turn_monte_carlo()
-{
-    if (!is_started())
-        return;
-    strategy.on_strategy_changed(strategy_data::STRATEGY::MONTE_CARLO);
-}
-
-
-void  progress_recorder::on_strategy_turn_monte_carlo_backward()
-{
-    if (!is_started())
-        return;
-    strategy.on_strategy_changed(strategy_data::STRATEGY::MONTE_CARLO_BACKWARD);
-}
-
-
-void  progress_recorder::on_post_node_closed(branching_node const* const  node)
-{
-    if (!is_started())
-        return;
-    strategy.on_node_closed(node);
-}
-
-
-void  progress_recorder::flush_strategy_data()
-{
-    if (!is_started())
-        return;
-    if (!strategy.empty() && std::filesystem::is_directory(strategy.output_dir))
-        strategy.save();
-}
-
-
-progress_recorder::strategy_data::strategy_data()
-    : output_dir{}
-    , strategy{ STRATEGY::NONE }
-    , closed_node_guids{}
-{}
-
-
-void  progress_recorder::strategy_data::on_strategy_changed(STRATEGY const  strategy_)
-{
-   strategy = strategy_; 
-}
-
-
-void  progress_recorder::strategy_data::on_node_closed(branching_node const* const  node)
-{
-   closed_node_guids.insert(node->guid()); 
-}
-
-
-void  progress_recorder::strategy_data::set_output_dir(std::filesystem::path const&  dir)
-{
-    output_dir = dir;
-}
-
-
-void  progress_recorder::strategy_data::clear()
-{
-    output_dir.clear();
-    strategy = STRATEGY::NONE;
-    closed_node_guids.clear();
-}
-
-
-bool  progress_recorder::strategy_data::empty() const
-{
-    return strategy == STRATEGY::NONE && closed_node_guids.empty();
-}
-
-
-void  progress_recorder::strategy_data::save() const
-{
-    TMPROF_BLOCK();
-
-    std::filesystem::path const  record_pathname = output_dir / "strategy.json";
-    std::ofstream  ostr{ record_pathname.c_str(), std::ios::binary };
-    if (!ostr.is_open())
-        throw std::runtime_error("Cannot open file for writing: " + record_pathname.string());
-    ostr << "{\n";
-
-    ostr << "\"strategy\": \"";
-    switch (strategy)
-    {
-        case STRATEGY::NONE: ostr << "NONE"; break;
-        case STRATEGY::LOOP_HEAD_SENSITIVE: ostr << "LOOP_HEAD_SENSITIVE"; break;
-        case STRATEGY::LOOP_HEAD_OTHERS: ostr << "LOOP_HEAD_OTHERS"; break;
-        case STRATEGY::SENSITIVE: ostr << "SENSITIVE"; break;
-        case STRATEGY::UNTOUCHED: ostr << "UNTOUCHED"; break;
-        case STRATEGY::IID_TWINS_SENSITIVE: ostr << "IID_TWINS_SENSITIVE"; break;
-        case STRATEGY::IID_TWINS_OTHERS: ostr << "IID_TWINS_OTHERS"; break;
-        case STRATEGY::MONTE_CARLO: ostr << "MONTE_CARLO"; break;
-        case STRATEGY::MONTE_CARLO_BACKWARD: ostr << "MONTE_CARLO_BACKWARD"; break;
-        default: UNREACHABLE(); break;
-    }
-    ostr << "\",\n\"closed_node_guids\": [\n";
-    for (auto  it = closed_node_guids.begin(); it != closed_node_guids.end(); ++it)
-    {
-        ostr << *it;
-        if (std::next(it) != closed_node_guids.end()) ostr << ",\n";
-    }
-    ostr << "]\n";
-
-    ostr << "}\n";
+    analysis = ANALYSIS::STARTUP;
+    bitshare = {};
+    local_search = {};
+    bitflip = {};
+    taint_request = {};
+    taint_response = {};
 }
 
 
