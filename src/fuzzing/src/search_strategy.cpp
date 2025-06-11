@@ -273,6 +273,7 @@ struct  navigator
     bool  valid() const { return !extrapolations.empty(); }
     std::vector<float_32_bit> const&  get_values() const { return values; }
     branching_node*  run(branching_node*  root, float_32_bit  value);
+    bool  are_all_values_same() const { return all_values_are_same; }
 
 private:
     static branching_node*  step_in_tree(branching_node*  node, bool  desired_direction);
@@ -280,6 +281,7 @@ private:
     std::unordered_set<integer_32_bit>  sids;
     std::vector<float_32_bit>  values;
     std::unordered_map<integer_32_bit, id_extra>  extrapolations;
+    bool  all_values_are_same;
 };
 
 void navigator::extrapolation::build(std::vector<vec2> const&  input)
@@ -299,7 +301,9 @@ void navigator::extrapolation::build(std::vector<vec2> const&  input)
 
 navigator::navigator(std::vector<branching_node*> const&  nodes, metric&  metric)
     : sids{}
+    , values{}
     , extrapolations{}
+    , all_values_are_same{ true }
 {
     std::vector<std::unordered_map<integer_32_bit, std::vector<float_32_bit> > >  consumptions;
     for (branching_node*  node : nodes)
@@ -320,17 +324,12 @@ navigator::navigator(std::vector<branching_node*> const&  nodes, metric&  metric
         values.push_back(metric.value(node));
     }
 
-    {
-        bool all_same{ true };
-        for (auto  v : values)
-            if (v != values.front())
-            {
-                all_same = false;
-                break;
-            }
-        if (all_same)
-            return;
-    }
+    for (auto  v : values)
+        if (v != values.front())
+        {
+            all_values_are_same = false;
+            break;
+        }
 
     std::vector<std::unordered_map<integer_32_bit, id_info>>  infos;
     for (auto& con_map : consumptions)
@@ -638,6 +637,26 @@ void  search_strategy::on_erase(branching_node* const  node)
 }
 
 
+struct  best_target_info
+{
+    bool  is_best_already() const { return  target != nullptr && all_values_same == false; }
+    bool  can_accept(bool const  all_values_same_) const { return  target == nullptr || (all_values_same == true && all_values_same_ == false); }
+    void  accept(branching_node*  target_, navigation_cursor const&  cursor_, bool  all_values_same_);
+    branching_node*  target{ nullptr };
+    navigation_cursor  cursor{ nullptr };
+    bool  all_values_same{ true };
+};
+
+
+void  best_target_info::accept(branching_node* const  target_, navigation_cursor const&  cursor_, bool const  all_values_same_)
+{
+    ASSUMPTION(target_ != nullptr && can_accept(all_values_same_));
+    target = target_;
+    cursor = cursor_;
+    all_values_same = all_values_same_;
+}
+
+
 search_strategy::search_strategy()
     : locations{}
     , cursor{ new navigation_cursor(&locations) }
@@ -656,43 +675,36 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
     if (root == nullptr || !cursor->valid())
         return nullptr;
 
+    best_target_info  best_target{};
     navigation_cursor const  start_cursor{ *cursor };
     do
     {
-        branching_node*  target;
+        location_props&  props{ cursor->location->second };
+        auto metric_ptr{ create_metric(cursor->metric) };
+        auto filter_ptr{ create_filter(cursor->filter) };
+        std::vector<branching_node*>  output;
+        filter_ptr->apply({ props.begin(), props.end() }, *metric_ptr, output);
+        navigator  nav{ output, *metric_ptr };
+        if (nav.valid() && best_target.can_accept(nav.are_all_values_same()))
         {
-            location_props&  props{ cursor->location->second };
-            auto metric_ptr{ create_metric(cursor->metric) };
-            auto filter_ptr{ create_filter(cursor->filter) };
-            std::vector<branching_node*>  output;
-            filter_ptr->apply({ props.begin(), props.end() }, *metric_ptr, output);
-            navigator  nav{ output, *metric_ptr };
-            if (nav.valid())
-            {
-                float_32_bit const  value{ choose_target_value(output, nav.get_values(), cursor->metric) };
-                target = nav.run(root, value);
-
-                recorder().on_strategy(
-                    std::to_string(cursor->location->first) + "_" +
-                    to_string(cursor->metric) + "_" +
-                    to_string(cursor->filter) + "_" +
-                    std::to_string(sensitive)
-                );
-            }
-            else
-                target = nullptr;
+            float_32_bit const  value{ choose_target_value(output, nav.get_values(), cursor->metric) };
+            branching_node* const  target{ nav.run(root, value) };
+            if (is_valid_target(target, sensitive))
+                best_target.accept(target, *cursor, nav.are_all_values_same());
         }
-
         cursor->next();
-
-        if (is_valid_target(target, sensitive))
-            return target;
-
-        recorder().on_strategy();
     }
-    while (*cursor != start_cursor);
+    while (!best_target.is_best_already() && *cursor != start_cursor);
 
-    return nullptr;
+    if (best_target.target != nullptr)
+        recorder().on_strategy(
+            std::to_string(best_target.cursor.location->first) + "_" +
+            to_string(best_target.cursor.metric) + "_" +
+            to_string(best_target.cursor.filter) + "_" +
+            std::to_string(sensitive)
+        );
+
+    return best_target.target;
 }
 
 
