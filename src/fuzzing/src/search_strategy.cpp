@@ -597,46 +597,6 @@ void  navigation_cursor::on_erase_location(location_id const  id)
 }
 
 
-bool  search_strategy::is_valid_target(branching_node* const  node, bool const  sensitive) const
-{
-    if (node == nullptr || node->is_closed() || !node->has_unexplored_direction())
-        return false;
-    if (sensitive)
-        return node->was_sensitivity_performed() && node->has_pending_analysis();
-    else 
-        return !node->was_sensitivity_performed();
-}
-
-
-void  search_strategy::on_new_uncovered_node(branching_node* const  node)
-{
-    auto const  it_and_state = locations.insert({ node->get_location_id(), {} });
-    auto&  nodes{ it_and_state.first->second };
-    nodes.push_back(node);
-    while (nodes.size() > MAX_NODES)
-        nodes.pop_front();
-    cursor->on_insert_location(node->get_location_id());
-}
-
-
-void  search_strategy::on_location_covered(location_id const id)
-{
-    cursor->on_erase_location(id);
-    locations.erase(id);
-}
-
-
-void  search_strategy::on_erase(branching_node* const  node)
-{
-    auto const  loc_it = locations.find(node->get_location_id());
-    if (loc_it != locations.end())
-    {
-        auto&  nodes{ loc_it->second };
-        nodes.erase(std::remove(nodes.begin(), nodes.end(), node), nodes.end());
-    }
-}
-
-
 struct  best_target_info
 {
     bool  is_best_already() const { return  target != nullptr && all_values_same == false; }
@@ -705,6 +665,46 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
         );
 
     return best_target.target;
+}
+
+
+bool  search_strategy::is_valid_target(branching_node* const  node, bool const  sensitive) const
+{
+    if (node == nullptr || node->is_closed() || !node->has_unexplored_direction())
+        return false;
+    if (sensitive)
+        return node->was_sensitivity_performed() && node->has_pending_analysis();
+    else 
+        return !node->was_sensitivity_performed();
+}
+
+
+void  search_strategy::on_new_uncovered_node(branching_node* const  node)
+{
+    auto const  it_and_state = locations.insert({ node->get_location_id(), {} });
+    auto&  nodes{ it_and_state.first->second };
+    nodes.push_back(node);
+    while (nodes.size() > MAX_NODES)
+        nodes.pop_front();
+    cursor->on_insert_location(node->get_location_id());
+}
+
+
+void  search_strategy::on_location_covered(location_id const id)
+{
+    cursor->on_erase_location(id);
+    locations.erase(id);
+}
+
+
+void  search_strategy::on_erase(branching_node* const  node)
+{
+    auto const  loc_it = locations.find(node->get_location_id());
+    if (loc_it != locations.end())
+    {
+        auto&  nodes{ loc_it->second };
+        nodes.erase(std::remove(nodes.begin(), nodes.end(), node), nodes.end());
+    }
 }
 
 
