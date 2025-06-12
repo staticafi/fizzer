@@ -1,5 +1,4 @@
 #include <fuzzing/search_navigator.hpp>
-#include <fuzzing/search_metric.hpp>
 #include <fuzzing/branching_node.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
@@ -24,11 +23,17 @@ void  navigator::extrapolation::build(std::vector<vec2> const&  input)
 }
 
 
-navigator::navigator(std::vector<branching_node*> const&  nodes, metric&  metric)
+navigator::navigator(std::vector<branching_node*> const&  nodes, std::vector<float_64_bit> const&  values)
     : sids{}
-    , values{}
     , extrapolations{}
-    , all_values_are_same{ true }
+    , all_values_are_same{
+            [&values]() {
+                for (auto  v : values)
+                    if (v != values.front())
+                        return false;
+                return true;
+            }()
+        }
 {
     std::vector<std::unordered_map<integer_32_bit, std::vector<float_64_bit> > >  consumptions;
     for (branching_node*  node : nodes)
@@ -46,15 +51,7 @@ navigator::navigator(std::vector<branching_node*> const&  nodes, metric&  metric
             std::reverse(it->second.begin(), it->second.end());
             sids.insert(it->first);
         }
-        values.push_back(metric.value(node));
     }
-
-    for (auto  v : values)
-        if (v != values.front())
-        {
-            all_values_are_same = false;
-            break;
-        }
 
     std::vector<std::unordered_map<integer_32_bit, id_info>>  infos;
     for (auto& con_map : consumptions)
