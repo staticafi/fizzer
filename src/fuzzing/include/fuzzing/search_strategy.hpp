@@ -21,12 +21,13 @@ struct search_strategy
     ~search_strategy();
 
     branching_node*  choose_target(branching_node* const  root, bool  sensitive);
-    bool  is_valid_target(branching_node*  node, bool  sensitive) const;
     void  on_new_uncovered_node(branching_node*  node);
     void  on_location_covered(location_id  id);
     void  on_erase(branching_node*  node);
 
     locations_map const&  get_locations_map() const { return locations; }
+
+    static bool  is_valid_target(branching_node*  node, bool  sensitive);
 
 private:
 

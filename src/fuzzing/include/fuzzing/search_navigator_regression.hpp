@@ -1,5 +1,5 @@
-#ifndef FUZZING_SEARCH_NAVIGATOR_HPP_INCLUDED
-#   define FUZZING_SEARCH_NAVIGATOR_HPP_INCLUDED
+#ifndef FUZZING_SEARCH_NAVIGATOR_REGRESSION_HPP_INCLUDED
+#   define FUZZING_SEARCH_NAVIGATOR_REGRESSION_HPP_INCLUDED
 
 #include <utility/basic_numeric_types.hpp>
 #include <unordered_map>
@@ -12,7 +12,7 @@ namespace  fuzzing {
 struct  branching_node;
 
 
-struct  navigator
+struct  navigator_regression
 {
     struct  id_info
     {
@@ -39,7 +39,7 @@ struct  navigator
         extrapolation  ratios[2][3] = { { {}, {}, {} }, { {}, {}, {} } };
     };
 
-    navigator(std::vector<branching_node*> const&  nodes, std::vector<float_64_bit> const&  values);
+    navigator_regression(std::vector<branching_node*> const&  nodes, std::vector<float_64_bit> const&  values);
     bool  valid() const { return !extrapolations.empty(); }
     branching_node*  run(branching_node*  root, float_64_bit  value);
     bool  are_all_values_same() const { return all_values_are_same; }
