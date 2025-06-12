@@ -82,7 +82,6 @@ private:
         START  start_type{ START::NONE };
         STOP  stop_type{ STOP::REGULAR };
         std::string  strategy{};
-        std::unordered_set<branching_node::guid_type>  closed_node_guids{};
     };
 
     struct  bitshare_progress_info : public analysis_common_info
@@ -108,6 +107,14 @@ private:
     struct  taint_response_progress_info : public analysis_common_info
     {
         void  save_info(std::ostream&  ostr) const override;
+    };
+
+    struct  inter_analyses_data
+    {
+        void  clear() { *this = {}; }
+        void  save();
+        std::string  last_analysis_dir{};
+        std::unordered_set<branching_node::guid_type>  closed_node_guids{};
     };
 
     progress_recorder();
@@ -136,6 +143,7 @@ private:
     natural_32_bit  counter_analysis;
     natural_32_bit  counter_results;
     std::string  strategy{};
+    inter_analyses_data  inter_analyses;
 };
 
 
