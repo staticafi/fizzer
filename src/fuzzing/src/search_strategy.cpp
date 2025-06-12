@@ -100,8 +100,7 @@ struct  best_target_info
     enum NAVIGATOR_TYPE
     {
         NONE = 0,
-        BACKUP = 1,
-        // EXPANSION = 1,
+        EXPANSION = 1,
         REGRESSION = 2,
     };
 
@@ -152,34 +151,34 @@ void  best_target_info::accept_target_from(navigation_cursor const&  cursor_)
         values.push_back(metric_ptr->value(node));
 
     navigator_regression  regression{ nodes, values };
-    if (regression.valid() && (type == NONE || !regression.are_all_values_same()))
+    if (regression.valid())
     {
         float_64_bit const  value{ choose_target_value(nodes, values, cursor_.metric) };
         branching_node* const  target_{ regression.run(root, value) };
-        if (search_strategy::is_valid_target(target_, sensitive))
+        if (is_valid_target(target_, sensitive))
         {
             target = target_;
             cursor = cursor_;
-            type = regression.are_all_values_same() ? BACKUP : REGRESSION;
+            type = REGRESSION;
             return;
         }
     }
 
-    // if (type == EXPANSION)
-    //     return;
+    if (type == EXPANSION)
+        return;
 
-    // navigator_expansion  expansion{ nodes };
-    // if (expansion.valid())
-    // {
-    //     branching_node* const  target_{ expansion.run() };
-    //     if (search_strategy::is_valid_target(target_, sensitive))
-    //     {
-    //         target = target_;
-    //         cursor = cursor_;
-    //         type = EXPANSION;
-    //         return;
-    //     }
-    // }
+    navigator_expansion  expansion{ nodes, sensitive };
+    if (expansion.valid())
+    {
+        branching_node* const  target_{ expansion.run() };
+        if (is_valid_target(target_, sensitive))
+        {
+            target = target_;
+            cursor = cursor_;
+            type = EXPANSION;
+            return;
+        }
+    }
 }
 
 
@@ -213,14 +212,15 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
 
     if (best_target.target != nullptr)
     {
-        INVARIANT(search_strategy::is_valid_target(best_target.target, sensitive));
+        INVARIANT(is_valid_target(best_target.target, sensitive));
 
         *cursor = best_target.cursor;
 
         recorder().on_strategy(
-            std::to_string(cursor->location->first) + "_" +
-            to_string(cursor->metric) + "_" +
-            to_string(cursor->filter) + "_" +
+            std::to_string(cursor->location->first) + '_' +
+            to_string(cursor->metric) + '_' +
+            to_string(cursor->filter) + '_' +
+            (best_target.type == best_target_info::REGRESSION ? 'R' : 'E') + '_' +
             std::to_string(sensitive)
         );
     }
@@ -259,7 +259,7 @@ void  search_strategy::on_erase(branching_node* const  node)
 }
 
 
-bool  search_strategy::is_valid_target(branching_node* const  node, bool const  sensitive)
+bool  is_valid_target(branching_node* const  node, bool const  sensitive)
 {
     if (node == nullptr || node->is_closed() || !node->has_unexplored_direction())
         return false;

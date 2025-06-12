@@ -409,7 +409,7 @@ bool  fuzzer::generate_next_input(
                 }
         }
 
-        if (state == BITSHARE && search_strategy::is_valid_target(bitshare.get_node(), true))
+        if (state == BITSHARE && is_valid_target(bitshare.get_node(), true))
         {
             recorder().on_strategy();
             local_search.start(bitshare.get_node(), num_driver_executions);

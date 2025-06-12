@@ -11,11 +11,11 @@ struct  branching_node;
 
 struct  navigator_expansion
 {
-    navigator_expansion(std::vector<branching_node*> const&  nodes);
+    navigator_expansion(std::vector<branching_node*> const&  nodes, bool  sensitive);
     bool  valid() const { return true; }
     branching_node*  run();
 private:
-    branching_node*  start_node;
+    branching_node*  best_node;
 };
 
 

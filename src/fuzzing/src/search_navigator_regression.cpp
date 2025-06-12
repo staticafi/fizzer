@@ -26,22 +26,14 @@ void  navigator_regression::extrapolation::build(std::vector<vec2> const&  input
 navigator_regression::navigator_regression(std::vector<branching_node*> const&  nodes, std::vector<float_64_bit> const&  values)
     : sids{}
     , extrapolations{}
-    , all_values_are_same{
-            [&values]() {
-                for (auto  v : values)
-                    if (v != values.front())
-                        return false;
-                return true;
-            }()
-        }
 {
-    // if ([&values]() {
-    //         for (auto  v : values)
-    //             if (v != values.front())
-    //                 return false;
-    //         return true;
-    //     }())
-    //     return;
+    if ([&values]() {
+            for (auto  v : values)
+                if (v != values.front())
+                    return false;
+            return true;
+        }())
+        return;
 
     std::vector<std::unordered_map<integer_32_bit, std::vector<float_64_bit> > >  consumptions;
     for (branching_node*  node : nodes)
