@@ -650,19 +650,28 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
             float_32_bit const  value{ choose_target_value(output, nav.get_values(), cursor->metric) };
             branching_node* const  target{ nav.run(root, value) };
             if (is_valid_target(target, sensitive))
+            {
                 best_target.accept(target, *cursor, nav.are_all_values_same());
+                if (best_target.is_best_already())
+                    break;
+            }
         }
         cursor->next();
     }
-    while (!best_target.is_best_already() && *cursor != start_cursor);
+    while (*cursor != start_cursor);
 
     if (best_target.target != nullptr)
+    {
+        *cursor = best_target.cursor;
+
         recorder().on_strategy(
-            std::to_string(best_target.cursor.location->first) + "_" +
-            to_string(best_target.cursor.metric) + "_" +
-            to_string(best_target.cursor.filter) + "_" +
+            std::to_string(cursor->location->first) + "_" +
+            to_string(cursor->metric) + "_" +
+            to_string(cursor->filter) + "_" +
             std::to_string(sensitive)
         );
+    }
+    cursor->next();
 
     return best_target.target;
 }
