@@ -1,7 +1,7 @@
 set(THIS_TARGET_NAME fuzzing)
 
-file(GLOB "${THIS_TARGET_NAME}_HPP" "./include/${THIS_TARGET_NAME}/*.hpp")
-file(GLOB "${THIS_TARGET_NAME}_CPP" "./src/*.cpp")
+file(GLOB_RECURSE "${THIS_TARGET_NAME}_HPP" "./include/${THIS_TARGET_NAME}/*.hpp")
+file(GLOB_RECURSE "${THIS_TARGET_NAME}_CPP" "./src/*.cpp")
 
 add_library(${THIS_TARGET_NAME}
     "${${THIS_TARGET_NAME}_HPP}"
