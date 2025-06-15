@@ -1,5 +1,5 @@
-#ifndef FUZZING_SEARCH_FILTER_HPP_INCLUDED
-#   define FUZZING_SEARCH_FILTER_HPP_INCLUDED
+#ifndef FUZZING_STRATEGY_FILTER_HPP_INCLUDED
+#   define FUZZING_STRATEGY_FILTER_HPP_INCLUDED
 
 #   include <utility/basic_numeric_types.hpp>
 #   include <string>
