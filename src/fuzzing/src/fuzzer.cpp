@@ -608,9 +608,11 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
             auto const  it_and_state = leaf_branchings.insert(construction_props.leaf);
             INVARIANT(it_and_state.second);
 
+            std::vector<branching_node*>  new_uncovered_nodes;
             for (branching_node*  node = construction_props.leaf; node != construction_props.diverging_node->get_predecessor(); node = node->get_predecessor())
                 if (!covered_branchings.contains(node->get_location_id()))
-                    strategy.on_new_uncovered_node(node);
+                    new_uncovered_nodes.push_back(node);
+            strategy.on_new_uncovered_nodes(new_uncovered_nodes);
 
             ++statistics.leaf_nodes_created;
             statistics.max_leaf_nodes = std::max(statistics.max_leaf_nodes, leaf_branchings.size());

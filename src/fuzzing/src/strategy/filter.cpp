@@ -22,15 +22,15 @@ std::string  to_string(FILTER_TYPE const  type)
 }
 
 
-void  filter::apply(std::vector<branching_node*> const&  input, metric&  metric, std::vector<branching_node*>&  output)
+void  filter::apply(std::vector<value_and_node> const&  input, std::vector<value_and_node>&  output)
 {
     if (next == nullptr)
-        run(input, metric, output);
+        run(input, output);
     else
     {
-        std::vector<branching_node*> temp;
-        run(input, metric, temp);
-        next->apply(temp, metric, output);
+        std::vector<value_and_node> temp;
+        run(input, temp);
+        next->apply(temp, output);
     }
 }
 
@@ -42,38 +42,38 @@ filter*  filter::after(filter* const  prev)
 }
 
 
-void  all_filter::run(std::vector<branching_node*> const&  input, metric&, std::vector<branching_node*>&  output)
+void  all_filter::run(std::vector<value_and_node> const&  input, std::vector<value_and_node>&  output)
 {
     output.assign(input.begin(), input.end());
 }
 
 
-void  signed_filter::run(std::vector<branching_node*> const&  input, metric&  metric, std::vector<branching_node*>&  output)
+void  signed_filter::run(std::vector<value_and_node> const&  input, std::vector<value_and_node>&  output)
 {
-    for (auto node : input)
-        if (metric.value(node) * sign >= 0.0)
-            output.push_back(node);
+    for (value_and_node const&  item : input)
+        if (item.value * sign >= 0.0)
+            output.push_back(item);
 }
 
 
-void  input_use_filter::run(std::vector<branching_node*> const&  input, metric&  metric, std::vector<branching_node*>&  output)
+void  input_use_filter::run(std::vector<value_and_node> const&  input, std::vector<value_and_node>&  output)
 {
-    std::unordered_map<float_64_bit, std::vector<branching_node*> >  partitioning{};
-    for (auto  node : input)
-        partitioning.insert({ metric.value(node), {} }).first->second.push_back(node);
+    std::unordered_map<float_64_bit, std::vector<value_and_node> >  partitioning{};
+    for (value_and_node const&  item : input)
+        partitioning.insert({ item.value, {} }).first->second.push_back(item);
     for (auto  it = partitioning.begin(); it != partitioning.end(); ++it)
     {
-        branching_node* winner{ nullptr };
-        for (auto  node : it->second)
-            winner = winner == nullptr ? node : better(winner, node);
+        value_and_node  winner{};
+        for (auto  item : it->second)
+            winner = winner.valid() ? better(winner, item) : item;
         output.push_back(winner);
     }
 }
 
 
-branching_node*  input_use_filter::better(branching_node* const  left, branching_node* const right)
+value_and_node const&  input_use_filter::better(value_and_node const&  left, value_and_node const&  right)
 {
-    return size_error(left) <= size_error(right) ? left : right;
+    return size_error(left.node) <= size_error(right.node) ? left : right;
 }
 
 
@@ -101,12 +101,14 @@ std::unique_ptr<filter>  create_filter(FILTER_TYPE const  type)
 {
     switch (type)
     {
-        case FILTER_TYPE::ALL: return std::unique_ptr<filter>{ new all_filter };
-        case FILTER_TYPE::WARM: return std::unique_ptr<filter>{ new signed_filter(1.0) };
-        case FILTER_TYPE::COLD: return std::unique_ptr<filter>{ new signed_filter(-1.0) };
-        case FILTER_TYPE::INPUT_USE: return std::unique_ptr<filter>{ new input_use_filter };
-        case FILTER_TYPE::INPUT_WARM: return std::unique_ptr<filter>{ (new input_use_filter)->after(new signed_filter(1.0)) };
-        case FILTER_TYPE::INPUT_COLD: return std::unique_ptr<filter>{ (new input_use_filter)->after(new signed_filter(-1.0)) };
+        case FILTER_TYPE::ALL: return std::unique_ptr<filter>{ new all_filter(FILTER_TYPE::ALL) };
+        case FILTER_TYPE::WARM: return std::unique_ptr<filter>{ new signed_filter(FILTER_TYPE::WARM, 1.0) };
+        case FILTER_TYPE::COLD: return std::unique_ptr<filter>{ new signed_filter(FILTER_TYPE::COLD, -1.0) };
+        case FILTER_TYPE::INPUT_USE: return std::unique_ptr<filter>{ new input_use_filter(FILTER_TYPE::INPUT_USE) };
+        case FILTER_TYPE::INPUT_WARM: return std::unique_ptr<filter>{ (new input_use_filter(FILTER_TYPE::INPUT_WARM))->after(
+                                                                       new signed_filter(FILTER_TYPE::INPUT_WARM, 1.0)) };
+        case FILTER_TYPE::INPUT_COLD: return std::unique_ptr<filter>{ (new input_use_filter(FILTER_TYPE::INPUT_COLD))->after(
+                                                                       new signed_filter(FILTER_TYPE::INPUT_COLD, -1.0)) };
         default: UNREACHABLE(); return nullptr;
     }
 }

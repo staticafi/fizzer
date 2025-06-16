@@ -23,21 +23,22 @@ void  navigator_regression::extrapolation::build(std::vector<vec2> const&  input
 }
 
 
-navigator_regression::navigator_regression(std::vector<branching_node*> const&  nodes, std::vector<float_64_bit> const&  values)
+navigator_regression::navigator_regression(std::vector<value_and_node> const&  values_and_nodes)
     : sids{}
     , extrapolations{}
 {
-    if ([&values]() {
-            for (auto  v : values)
-                if (v != values.front())
+    if ([&values_and_nodes]() {
+            for (auto const& value_and_node : values_and_nodes)
+                if (value_and_node.value != values_and_nodes.front().value)
                     return false;
             return true;
         }())
         return;
 
     std::vector<std::unordered_map<integer_32_bit, std::vector<float_64_bit> > >  consumptions;
-    for (branching_node*  node : nodes)
+    for (auto const&  value_and_node : values_and_nodes)
     {
+        branching_node* const  node{ value_and_node.node };
         consumptions.push_back({});
         auto&  map{ consumptions.back() };
         for (branching_node*  n = node->get_predecessor(), *m = node; n != nullptr; m = n, n = n->get_predecessor())
@@ -146,9 +147,9 @@ navigator_regression::navigator_regression(std::vector<branching_node*> const&  
                 continue;
             for (int j = 0; j != 2; ++j)
             {
-                inputs.counts[j].push_back({ values.at(i), (float_64_bit)it->second.counts[j] });
+                inputs.counts[j].push_back({ values_and_nodes.at(i).value, (float_64_bit)it->second.counts[j] });
                 for (int k = 0; k != 3; ++k)
-                    inputs.ratios[j][k].push_back({ values.at(i), it->second.ratios[j][k] });
+                    inputs.ratios[j][k].push_back({ values_and_nodes.at(i).value, it->second.ratios[j][k] });
             }
         }
         for (int j = 0; j != 2; ++j)
