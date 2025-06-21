@@ -154,7 +154,8 @@ void  progress_recorder::on_strategy_automaton(
     std::string const&  filter_,
     location_id const  target_id_,
     branching_node const* const  best_node_,
-    bool const  sensitive_
+    bool const  sensitive_,
+    float_64_bit const  value_
     )
 {
     if (!is_started())
@@ -164,7 +165,8 @@ void  progress_recorder::on_strategy_automaton(
         filter_,
         target_id_,
         best_node_,
-        sensitive_
+        sensitive_,
+        value_
     );
 }
 
@@ -402,7 +404,8 @@ progress_recorder::strategy_common_info::strategy_common_info(
         std::string const&  filter_,
         location_id const  target_id_,
         branching_node const* const  best_node_,
-        bool const  sensitive_
+        bool const  sensitive_,
+        float_64_bit const  value_
         )
     : metric{ metric_ }
     , filter{ filter_ }
@@ -410,6 +413,7 @@ progress_recorder::strategy_common_info::strategy_common_info(
     , best_node_id{ best_node_->get_location_id() }
     , best_node_guid{ best_node_->guid() }
     , sensitive{ sensitive_ }
+    , value{ value_ }
 {}
 
 
@@ -427,7 +431,9 @@ void  progress_recorder::strategy_common_info::save(std::string const&  output_d
     ostr << "\"navigator\": \"" << strategy_name(type()) << "\",\n";
     ostr << "\"target_location_id\": " << target_id << ",\n";
     ostr << "\"best_node_location_id\": " << best_node_id << ",\n";
-    ostr << "\"best_node_guid\": " << best_node_guid << "\n";
+    ostr << "\"best_node_guid\": " << best_node_guid << ",\n";
+    ostr << "\"sensitive\": " << (sensitive ? 1 : 0) << ",\n";
+    ostr << "\"target_value\": " << value << "\n";
     ostr << "}\n";
 }
 
@@ -437,9 +443,10 @@ progress_recorder::strategy_automaton::strategy_automaton(
         std::string const&  filter_,
         location_id const  target_id_,
         branching_node const* const  best_node_,
-        bool const  sensitive_
+        bool const  sensitive_,
+        float_64_bit const  value_
         )
-    : strategy_common_info{ metric_, filter_, target_id_, best_node_, sensitive_ }
+    : strategy_common_info{ metric_, filter_, target_id_, best_node_, sensitive_, value_ }
 {}
 
 
