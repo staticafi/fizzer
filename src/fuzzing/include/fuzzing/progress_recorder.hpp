@@ -38,6 +38,15 @@ struct  progress_recorder
 
     bool  is_started() const { return started; }
 
+    void  on_strategy_none();
+    void  on_strategy_automaton(
+        std::string const&  metric_,
+        std::string const&  filter_,
+        location_id  target_id_,
+        branching_node const*  best_node_,
+        bool  sensitive_
+        );
+
     void  on_bitshare_start(branching_node const*  node_ptr, START attribute);
     void  on_bitshare_stop(STOP  attribute);
 
@@ -55,10 +64,49 @@ struct  progress_recorder
 
     void  on_execution_results_available(test_suite_item const&  item, branching_node const*  leaf, std::string const&  progress_message = "");
 
-    void  on_strategy(std::string const&  strategy_ = {});
     void  on_post_node_closed(branching_node const*  node);
 
 private:
+
+    enum struct STRATEGY
+    {
+        AUTOMATON = 1
+    };
+    static std::string  strategy_name(STRATEGY s);
+
+    struct  strategy_common_info
+    {
+        strategy_common_info(
+            std::string const&  metric_,
+            std::string const&  filter_,
+            location_id  target_id_,
+            branching_node const*  best_node_,
+            bool  sensitive_
+            );
+        virtual ~strategy_common_info() = default;
+        virtual STRATEGY  type() const = 0;
+        virtual bool  save_info(std::ostream&  ostr) const { return false; }
+        void  save(std::string const&  output_dir) const;
+        std::string  metric;
+        std::string  filter;
+        location_id  target_id;
+        location_id  best_node_id;
+        branching_node::guid_type  best_node_guid;
+        bool  sensitive;
+    };
+
+    struct  strategy_automaton : public strategy_common_info
+    {
+        strategy_automaton(
+            std::string const&  metric_,
+            std::string const&  filter_,
+            location_id const  target_id_,
+            branching_node const* const  best_node_,
+            bool  sensitive_
+            );
+        STRATEGY  type() const override { return STRATEGY::AUTOMATON; }
+        bool  save_info(std::ostream&  ostr) const override;
+    };
 
     enum struct ANALYSIS
     {
@@ -69,6 +117,7 @@ private:
         TAINT_REQUEST   = 4,
         TAINT_RESPONSE  = 5,
     };
+    static std::string  analysis_name(ANALYSIS a);
 
     struct  analysis_common_info
     {
@@ -81,7 +130,7 @@ private:
         std::string  analysis_dir{};
         START  start_type{ START::NONE };
         STOP  stop_type{ STOP::REGULAR };
-        std::string  strategy{};
+        std::shared_ptr<strategy_common_info>  strategy{ nullptr };
     };
 
     struct  bitshare_progress_info : public analysis_common_info
@@ -127,8 +176,6 @@ private:
     void  on_analysis_start(ANALYSIS analysis_, analysis_common_info&  info, branching_node const*  node_ptr);
     void  on_analysis_stop();
 
-    static std::string const&  analysis_name(ANALYSIS a);
-
     bool  started;
 
     std::string  output_dir;
@@ -142,7 +189,7 @@ private:
     taint_response_progress_info  taint_response;
     natural_32_bit  counter_analysis;
     natural_32_bit  counter_results;
-    std::string  strategy{};
+    std::shared_ptr<strategy_common_info>  strategy;
     inter_analyses_data  inter_analyses;
 };
 

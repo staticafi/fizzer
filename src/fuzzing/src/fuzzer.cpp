@@ -411,7 +411,7 @@ bool  fuzzer::generate_next_input(
 
         if (state == BITSHARE && is_valid_target(bitshare.get_node(), true))
         {
-            recorder().on_strategy();
+            recorder().on_strategy_none();
             local_search.start(bitshare.get_node(), num_driver_executions);
             state = LOCAL_SEARCH;
         }
@@ -792,7 +792,7 @@ void  fuzzer::recording_send_taint_request(branching_node const* const  node_ptr
 void  fuzzer::recording_send_taint_response(branching_node const* const  node_ptr)
 {
     recording_interrupt();
-    recorder().on_strategy();
+    recorder().on_strategy_none();
     recorder().on_taint_response_start(node_ptr, progress_recorder::START::REGULAR);
     recorder().on_taint_response_stop(progress_recorder::STOP::INSTANT);
     recording_resume();

@@ -57,7 +57,7 @@ progress_recorder::progress_recorder()
     , counter_analysis{ 1 }
     , counter_results{ 0 }
 
-    , strategy{}
+    , strategy{ nullptr }
 
     , inter_analyses{}
 {}
@@ -93,7 +93,7 @@ void  progress_recorder::start(std::filesystem::path const&  path_to_target_, st
     counter_analysis = 1;
     counter_results = 0;
 
-    strategy.clear();
+    strategy = nullptr;
 
     inter_analyses.clear();
 }
@@ -134,10 +134,38 @@ void  progress_recorder::stop()
     counter_analysis = 1;
     counter_results = 0;
 
-    strategy.clear();
+    strategy = nullptr;
 
     inter_analyses.save();
     inter_analyses.clear();
+}
+
+
+void  progress_recorder::on_strategy_none()
+{
+    if (!is_started())
+        return;
+    strategy = nullptr;
+}
+
+
+void  progress_recorder::on_strategy_automaton(
+    std::string const&  metric_,
+    std::string const&  filter_,
+    location_id const  target_id_,
+    branching_node const* const  best_node_,
+    bool const  sensitive_
+    )
+{
+    if (!is_started())
+        return;
+    strategy = std::make_shared<strategy_automaton>(
+        metric_,
+        filter_,
+        target_id_,
+        best_node_,
+        sensitive_
+    );
 }
 
 
@@ -351,14 +379,6 @@ void  progress_recorder::on_execution_results_available(
 }
 
 
-void  progress_recorder::on_strategy(std::string const&  strategy_)
-{
-    if (!is_started())
-        return;
-    strategy = strategy_;
-}
-
-
 void  progress_recorder::on_post_node_closed(branching_node const* const  node)
 {
     if (!is_started())
@@ -367,11 +387,80 @@ void  progress_recorder::on_post_node_closed(branching_node const* const  node)
 }
 
 
-std::string const&  progress_recorder::analysis_name(ANALYSIS const a)
+std::string  progress_recorder::strategy_name(STRATEGY const s)
 {
-    static std::string const  names[] { "STARTUP","BITSHARE","LOCAL_SEARCH","BITFLIP","TAINT_REQ","TAINT_RES" };
-    ASSUMPTION((int)a < sizeof(names)/sizeof(names[0]));
-    return names[(int)a];
+    switch (s)
+    {
+        case STRATEGY::AUTOMATON: return "AUTOMATON";
+        default: UNREACHABLE(); return "";
+    }
+}
+
+
+progress_recorder::strategy_common_info::strategy_common_info(
+        std::string const&  metric_,
+        std::string const&  filter_,
+        location_id const  target_id_,
+        branching_node const* const  best_node_,
+        bool const  sensitive_
+        )
+    : metric{ metric_ }
+    , filter{ filter_ }
+    , target_id{ target_id_ }
+    , best_node_id{ best_node_->get_location_id() }
+    , best_node_guid{ best_node_->guid() }
+    , sensitive{ sensitive_ }
+{}
+
+
+void  progress_recorder::strategy_common_info::save(std::string const&  output_dir) const
+{
+    std::filesystem::path const  record_pathname = std::filesystem::path(output_dir) / "strategy.json";
+    std::ofstream  ostr{ record_pathname.c_str(), std::ios::binary };
+    if (!ostr.is_open())
+        throw std::runtime_error("Cannot open file for writing: " + record_pathname.string());
+    ostr << "{\n";
+    if (save_info(ostr))
+        ostr << ",\n";
+    ostr << "\"metric\": \"" << metric << "\",\n";
+    ostr << "\"filter\": \"" << filter << "\",\n";
+    ostr << "\"navigator\": \"" << strategy_name(type()) << "\",\n";
+    ostr << "\"target_location_id\": " << target_id << ",\n";
+    ostr << "\"best_node_location_id\": " << best_node_id << ",\n";
+    ostr << "\"best_node_guid\": " << best_node_guid << "\n";
+    ostr << "}\n";
+}
+
+
+progress_recorder::strategy_automaton::strategy_automaton(
+        std::string const&  metric_,
+        std::string const&  filter_,
+        location_id const  target_id_,
+        branching_node const* const  best_node_,
+        bool const  sensitive_
+        )
+    : strategy_common_info{ metric_, filter_, target_id_, best_node_, sensitive_ }
+{}
+
+
+bool  progress_recorder::strategy_automaton::save_info(std::ostream&  ostr) const
+{
+    return false;
+}
+
+
+std::string  progress_recorder::analysis_name(ANALYSIS const a)
+{
+    switch (a)
+    {
+        case ANALYSIS::STARTUP: return "STARTUP";
+        case ANALYSIS::BITSHARE: return "BITSHARE";
+        case ANALYSIS::LOCAL_SEARCH: return "LOCAL_SEARCH";
+        case ANALYSIS::BITFLIP: return "BITFLIP";
+        case ANALYSIS::TAINT_REQUEST: return "TAINT_REQUEST";
+        case ANALYSIS::TAINT_RESPONSE: return "TAINT_RESPONSE";
+        default: UNREACHABLE(); return "";
+    }
 }
 
 
@@ -421,13 +510,8 @@ void  progress_recorder::analysis_common_info::save() const
 
         ostr << "}\n";
     }
-    {
-        std::filesystem::path const  record_pathname = std::filesystem::path(analysis_dir) / "strategy.json";
-        std::ofstream  ostr{ record_pathname.c_str(), std::ios::binary };
-        if (!ostr.is_open())
-            throw std::runtime_error("Cannot open file for writing: " + record_pathname.string());
-        ostr << "{ \"strategy\": \"" << strategy << "\" }\n";
-    }
+    if (strategy != nullptr)
+        strategy->save(analysis_dir);
 }
 
 
