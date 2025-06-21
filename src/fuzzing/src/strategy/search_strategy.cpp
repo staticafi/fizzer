@@ -1,4 +1,5 @@
 #include <fuzzing/strategy/search_strategy.hpp>
+#include <fuzzing/strategy/navigator_automaton.hpp>
 #include <fuzzing/strategy/navigator_expansion.hpp>
 #include <fuzzing/strategy/navigator_regression.hpp>
 #include <fuzzing/progress_recorder.hpp>
@@ -40,6 +41,22 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
     {
         auto const&  values_and_nodes{ cursor.location->second.at(cursor.index) };
         auto const  metric_type{ metrics_and_filters.at(cursor.index).metric_ptr->type() };
+
+        navigator_automaton  automaton{ values_and_nodes };
+        if (automaton.valid())
+        {
+            float_64_bit const  value{ choose_target_value(values_and_nodes, metric_type) };
+            branching_node* const  target{ automaton.run(root, value) };
+            if (is_valid_target(target, sensitive))
+            {
+                best_target.target = target;
+                best_target.cursor = cursor;
+                best_target.type = NAVIGATOR_TYPE::AUTOMATON;
+                break;
+            }
+        }
+
+        INVARIANT(best_target.type != NAVIGATOR_TYPE::AUTOMATON);
 
         navigator_regression  regression{ values_and_nodes };
         if (regression.valid())
@@ -83,7 +100,7 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
             std::to_string(cursor.location->first) + '_' +
             to_string(metrics_and_filters.at(cursor.index).metric_ptr->type()) + '_' +
             to_string(metrics_and_filters.at(cursor.index).filter_ptr->type()) + '_' +
-            (best_target.type == NAVIGATOR_TYPE::REGRESSION ? 'R' : 'E') + '_' +
+            //(best_target.type == NAVIGATOR_TYPE::REGRESSION ? 'R' : 'E') + '_' +
             std::to_string(sensitive)
         );
     }
