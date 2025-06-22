@@ -1,4 +1,5 @@
 #include <fuzzing/progress_recorder.hpp>
+#include <fuzzing/strategy/navigator_automaton.hpp>
 #include <fuzzing/basic_types.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
@@ -155,7 +156,8 @@ void  progress_recorder::on_strategy_automaton(
     location_id const  target_id_,
     branching_node const* const  best_node_,
     bool const  sensitive_,
-    float_64_bit const  value_
+    float_64_bit const  value_,
+    navigator_automaton const&  automaton_
     )
 {
     if (!is_started())
@@ -166,7 +168,8 @@ void  progress_recorder::on_strategy_automaton(
         target_id_,
         best_node_,
         sensitive_,
-        value_
+        value_,
+        automaton_
     );
 }
 
@@ -444,15 +447,91 @@ progress_recorder::strategy_automaton::strategy_automaton(
         location_id const  target_id_,
         branching_node const* const  best_node_,
         bool const  sensitive_,
-        float_64_bit const  value_
+        float_64_bit const  value_,
+        navigator_automaton const&  automaton_
         )
     : strategy_common_info{ metric_, filter_, target_id_, best_node_, sensitive_, value_ }
+    , info{ std::make_shared<automaton_info>(automaton_) }
 {}
+
+
+struct  progress_recorder::strategy_automaton::automaton_info
+{
+    automaton_info(navigator_automaton const&  automaton)
+        : extrapolations{ automaton.get_extrapolations() }
+        , errors{ automaton.get_errors() }
+        , constraints{ automaton.get_constraints() }
+        , target_counters{ automaton.get_target_counters() }
+        , best_counters{ automaton.get_best_counters() }
+    {}
+    std::unordered_map<navigator_automaton::edge_type, extrapolation_line>  extrapolations;
+    std::unordered_map<navigator_automaton::edge_type, float_64_bit>  errors;
+    std::unordered_set<navigator_automaton::edge_counters_constraint>  constraints;
+    navigator_automaton::edge_counters  target_counters;
+    navigator_automaton::edge_counters  best_counters;
+};
 
 
 bool  progress_recorder::strategy_automaton::save_info(std::ostream&  ostr) const
 {
-    return false;
+    ostr << "\"extrapolations\": [";
+    {
+        bool  first = true;
+        for (auto const&  [edge, line] : info->extrapolations)
+        {
+            if (first) first = false; else ostr << ',';
+            ostr << "\n    " << edge.first << ',' << edge.second << ",    " << line.get_c0() << ',' << line.get_c1();
+        }
+    }
+    ostr << "\n],\n";
+
+    ostr << "\"errors\": [";
+    {
+        bool  first = true;
+        for (auto const&  [edge, error] : info->errors)
+        {
+            if (first) first = false; else ostr << ',';
+            ostr << "\n    " << edge.first << ',' << edge.second << ",    " << error;
+        }
+    }
+    ostr << "\n],\n";
+
+    ostr << "\"target_counters\": [";
+    {
+        bool  first = true;
+        for (auto const&  [edge, counter] : info->target_counters)
+            if (counter > 0U)
+            {
+                if (first) first = false; else ostr << ',';
+                ostr << "\n    " << edge.first << ',' << edge.second << ",    " << counter;
+            }
+    }
+    ostr << "\n],\n";
+
+    ostr << "\"best_counters\": [";
+    {
+        bool  first = true;
+        for (auto const&  [edge, counter] : info->best_counters)
+            if (counter > 0U)
+            {
+                if (first) first = false; else ostr << ",\n";
+                ostr << "\n    " << edge.first << ',' << edge.second << ",    " << counter;
+            }
+    }
+    ostr << "\n],\n";
+
+    ostr << "\"constraints\": [";
+    {
+        bool  first = true;
+        for (auto const&  [e1, e2] : info->constraints)
+        {
+            if (first) first = false; else ostr << ',';
+            ostr << "\n    " << e1.first << ',' << e1.second << ",    " << e2.first << ',' << e2.second;
+        }
+    }
+    ostr << "\n]";
+
+    return true;
 }
 
 

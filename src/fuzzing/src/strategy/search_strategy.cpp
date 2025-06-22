@@ -34,15 +34,23 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
 {
     ASSUMPTION(root != nullptr && !root->is_closed() && cursors[sensitive ? 1 : 0].location != locations.end());
 
-    struct  best_target_info
-    {
-        navigation_cursor  cursor;
-        branching_node*  target;
-        NAVIGATOR_TYPE  type;
-        float_64_bit  value;
-    };
+    // enum struct  NAVIGATOR_TYPE : natural_8_bit
+    // {
+    //     NONE = 0,
+    //     EXPANSION = 1,
+    //     REGRESSION = 2,
+    //     AUTOMATON = 3,
+    // };
 
-    best_target_info  best_target{ { locations.end(), 0U }, nullptr, NAVIGATOR_TYPE::NONE, 0.0 };
+    // struct  best_target_info
+    // {
+    //     navigation_cursor  cursor;
+    //     branching_node*  target;
+    //     NAVIGATOR_TYPE  type;
+    //     float_64_bit  value;
+    // };
+
+    // best_target_info  best_target{ { locations.end(), 0U }, nullptr, NAVIGATOR_TYPE::NONE, 0.0 };
     navigation_cursor&  cursor{ cursors[sensitive ? 1 : 0] };
     navigation_cursor const  start_cursor{ cursor };
     do
@@ -57,11 +65,17 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
             branching_node* const  target{ automaton.run(root, value) };
             if (is_valid_target(target, sensitive))
             {
-                best_target.target = target;
-                best_target.cursor = cursor;
-                best_target.type = NAVIGATOR_TYPE::AUTOMATON;
-                best_target.value = value;
-                break;
+                recorder().on_strategy_automaton(
+                    to_string(metric_type),
+                    to_string(metrics_and_filters.at(cursor.index).filter_ptr->type()),
+                    cursor.location->first,
+                    target,
+                    sensitive,
+                    value,
+                    automaton
+                );
+                next(cursor);
+                return target;
             }
         }
 
@@ -101,35 +115,37 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
     }
     while (cursor.location != start_cursor.location || cursor.index != start_cursor.index);
 
-    if (best_target.target != nullptr)
-    {
-        INVARIANT(is_valid_target(best_target.target, sensitive));
+    // if (best_target.target != nullptr)
+    // {
+    //     INVARIANT(is_valid_target(best_target.target, sensitive));
 
-        cursor = best_target.cursor;
+    //     cursor = best_target.cursor;
 
-        switch (best_target.type)
-        {
-            case NAVIGATOR_TYPE::NONE:
-            case NAVIGATOR_TYPE::EXPANSION:
-            case NAVIGATOR_TYPE::REGRESSION:
-                // TODO!
-                break;
-            case NAVIGATOR_TYPE::AUTOMATON:
-                recorder().on_strategy_automaton(
-                    to_string(metrics_and_filters.at(cursor.index).metric_ptr->type()),
-                    to_string(metrics_and_filters.at(cursor.index).filter_ptr->type()),
-                    cursor.location->first,
-                    best_target.target,
-                    sensitive,
-                    best_target.value
-                );
-                break;
-            default: UNREACHABLE(); break;
-        }
-    }
-    next(cursor);
+    //     switch (best_target.type)
+    //     {
+    //         case NAVIGATOR_TYPE::NONE:
+    //         case NAVIGATOR_TYPE::EXPANSION:
+    //         case NAVIGATOR_TYPE::REGRESSION:
+    //             // TODO!
+    //             break;
+    //         case NAVIGATOR_TYPE::AUTOMATON:
+    //             recorder().on_strategy_automaton(
+    //                 to_string(metrics_and_filters.at(cursor.index).metric_ptr->type()),
+    //                 to_string(metrics_and_filters.at(cursor.index).filter_ptr->type()),
+    //                 cursor.location->first,
+    //                 best_target.target,
+    //                 sensitive,
+    //                 best_target.value
+    //             );
+    //             break;
+    //         default: UNREACHABLE(); break;
+    //     }
+    // }
+    // next(cursor);
 
-    return best_target.target;
+    // return best_target.target;
+
+    return nullptr;
 }
 
 
