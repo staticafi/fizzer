@@ -19,8 +19,7 @@ struct  branching_node;
 
 struct  navigator_automaton
 {
-    using  signed_location_id = integer_32_bit;
-    using  edge_type = std::pair<signed_location_id, location_id>;
+    using  edge_type = integer_32_bit;
     using  edge_counters = std::unordered_map<edge_type, natural_32_bit>;
     using  edge_counters_constraint = std::pair<edge_type, edge_type>;
 

@@ -26,10 +26,7 @@ navigator_automaton::navigator_automaton(std::vector<value_and_node> const&  val
         counters_vector.push_back({});
         std::unordered_map<edge_type, natural_32_bit>&  counters{ counters_vector.back() };
         for (branching_node*  m = value_and_node.node, *n = m->get_predecessor(); n != nullptr; m = n, n = n->get_predecessor())
-            ++counters.insert({
-                { (n->successor_direction(m) ? 1 : -1) * (integer_32_bit)n->get_location_id(), m->get_location_id() },
-                0U
-                }).first->second;
+            ++counters.insert({ { (n->successor_direction(m) ? 1 : -1) * (integer_32_bit)n->get_location_id() }, 0U }).first->second;
         for (auto const&  edge_and_count : counters)
             extrapolated_data[edge_and_count.first].push_back({ value_and_node.value, (float_64_bit)edge_and_count.second });
     }
@@ -56,6 +53,7 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
             float_64_bit  g;
             float_64_bit  h;
             float_64_bit  error;
+            branching_node*  parent;
             branching_node*  node;
             navigator_automaton::edge_counters  counters;
         };
@@ -64,15 +62,17 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
                 float_64_bit const  g,
                 float_64_bit const  h,
                 float_64_bit const  error,
+                branching_node* const  parent,
                 branching_node* const  node,
                 navigator_automaton::edge_counters const& counters
                 )
-            : data_ptr{ std::make_shared<actual_data>(g, h, error, node, counters) }
+            : data_ptr{ std::make_shared<actual_data>(g, h, error, parent, node, counters) }
         {}
 
         float_64_bit  g() const { return data_ptr->g; }
         float_64_bit  h() const { return data_ptr->h; }
         float_64_bit  error() const { return data_ptr->error; }
+        branching_node*  parent() const { return data_ptr->parent; }
         branching_node*  node() const { return data_ptr->node; }
         navigator_automaton::edge_counters const&  counters() const { return data_ptr->counters; }
         navigator_automaton::edge_counters&  counters() { return data_ptr->counters; }
@@ -109,7 +109,7 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
             error_init += counter * counter;
             h_init += counter;
         }
-        work_queue.push({ 0.0, h_init, error_init, root, {} });
+        work_queue.push({ 0.0, h_init, error_init, root, root, {} });
     }
     while (!work_queue.empty())
     {
@@ -119,22 +119,24 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
         if (state.error() >= best_error)
             continue;
 
-        INVARIANT(!state.node()->is_closed());
-
-        if (state.node()->is_pending())
+        if (state.node() == nullptr)
         {
+            INVARIANT(state.parent() != nullptr && !state.parent()->is_closed());
             best_error = state.error();
-            best_node = state.node();
+            best_node = state.parent();
             best_counters = state.counters();
+            continue;
         }
+
+        INVARIANT(!state.node()->is_closed());
 
         for (bool const  dir : { false, true })
         {
             branching_node* const  successor{ state.node()->successor(dir).pointer };
-            if (successor == nullptr || successor->is_closed())
+            if (successor != nullptr && successor->is_closed())
                 continue;
 
-            edge_type const  edge{ state.node()->get_location_id(), successor->get_location_id() };
+            edge_type const  edge{ (dir ? 1 : -1) * (integer_32_bit)state.node()->get_location_id() };
 
             natural_32_bit  counter_current;
             {
@@ -161,6 +163,7 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
                     state.g() + 1.0,
                     state.h() - (counter_current < target_counter ?  1.0 : 0.0),
                     state.error() + error_delta,
+                    state.node(),
                     successor,
                     state.counters()
                 };
