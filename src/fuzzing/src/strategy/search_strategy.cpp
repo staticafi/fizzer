@@ -23,9 +23,9 @@ search_strategy::search_strategy()
     // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::INPUT_USE });
     // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::INPUT_WARM });
     // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::INPUT_COLD });
-    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::INPUT_SIZE, FILTER_TYPE::ALL });
+    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::INPUT_SIZE, FILTER_TYPE::ALL });
     // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::INPUT_SIZE, FILTER_TYPE::INPUT_USE });
-    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::HIT_COUNT, FILTER_TYPE::ALL });
+    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::HIT_COUNT, FILTER_TYPE::ALL });
     // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::HIT_COUNT, FILTER_TYPE::INPUT_USE });
 }
 
