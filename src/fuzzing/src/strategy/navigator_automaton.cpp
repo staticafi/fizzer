@@ -238,7 +238,9 @@ void  navigator_automaton::apply_constraints(edge_counters&  counters)
             auto&  right_counter{ counters.at(left_and_right.second) };
             if (left_counter > right_counter)
             {
-                if (errors.at(left_and_right.first) < errors.at(left_and_right.second))
+                std::pair<float_64_bit, edge_type> const  left_error{ errors.at(left_and_right.first), left_and_right.first };
+                std::pair<float_64_bit, edge_type> const  right_error{ errors.at(left_and_right.second), left_and_right.second };
+                if (left_error < right_error)
                     right_counter = left_counter;
                 else
                     left_counter = right_counter;
