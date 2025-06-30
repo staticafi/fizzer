@@ -212,7 +212,7 @@ void  navigator_automaton::generate_constraints(std::vector<edge_counters>&  cou
     // WARNING: This code has high complexity!
     for (auto const&  item_a : extrapolations)
         for (auto const&  item_b : extrapolations)
-            if (item_a.first != item_b.first)
+            if (item_a.first != item_b.first && !item_a.second.is_constant() && !item_b.second.is_constant())
             {
                 bool  all_satisfy{ true };
                 for (auto&  counters : counters_vector)
