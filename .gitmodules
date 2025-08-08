@@ -16,3 +16,6 @@
 [submodule "benchmarks/salatd"]
 	path = benchmarks/salatd
 	url = https://github.com/staticafi/datsalat.git
+[submodule "src/cps"]
+	path = src/cps
+	url = https://github.com/staticafi/libcps.git
