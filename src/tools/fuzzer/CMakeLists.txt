@@ -13,6 +13,7 @@ target_link_libraries(${THIS_TARGET_NAME}
     com
     utility
     sala
+    cps
     connection
     iomodels
     Threads::Threads
