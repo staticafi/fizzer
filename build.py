@@ -52,7 +52,7 @@ def init(build_dir, build_config, vcpkg_toolchain_file):
             "-DCMAKE_C_COMPILER:FILEPATH=clang",
             "-DCMAKE_CXX_COMPILER:FILEPATH=clang++",
             "-DCMAKE_BUILD_TYPE:STRING=" + build_config ] +
-            ([] if vcpkg_toolchain_file is None else ["-DCMAKE_TOOLCHAIN_FILE:STRING=" + vcpkg_toolchain_file])
+            ([] if vcpkg_toolchain_file is None else ["-DCMAKE_TOOLCHAIN_FILE:STRING=" + vcpkg_toolchain_file, "-DVCPKG_MANIFEST_MODE=ON"])
         )
 
 
@@ -68,7 +68,7 @@ def build(build_dir, build_config, vcpkg_toolchain_file, use_m32):
             "-DCMAKE_C_COMPILER:FILEPATH=clang",
             "-DCMAKE_CXX_COMPILER:FILEPATH=clang++",
             "-DCMAKE_BUILD_TYPE:STRING=" + build_config ] +
-            ([] if vcpkg_toolchain_file is None else ["-DCMAKE_TOOLCHAIN_FILE:STRING=" + vcpkg_toolchain_file])
+            ([] if vcpkg_toolchain_file is None else ["-DCMAKE_TOOLCHAIN_FILE:STRING=" + vcpkg_toolchain_file, "-DVCPKG_MANIFEST_MODE=ON"])
         )
     _execute(["cmake", "--build", ".", "--config", build_config, "--target", "install"])
     
@@ -108,8 +108,10 @@ def main():
                 with open(vscode_settings_path, "rb") as fp:
                     settings = json.load(fp)
                 if "cmake.configureSettings" in settings and "CMAKE_TOOLCHAIN_FILE" in settings["cmake.configureSettings"]:
-                    if os.path.isfile(settings["cmake.configureSettings"]["CMAKE_TOOLCHAIN_FILE"]):
-                        vcpkg_toolchain_file = settings["cmake.configureSettings"]["CMAKE_TOOLCHAIN_FILE"]
+                    toolchain_file = os.path.join(os.path.dirname(vscode_settings_path),
+                                                  settings["cmake.configureSettings"]["CMAKE_TOOLCHAIN_FILE"])
+                    if os.path.isfile(toolchain_file):
+                        vcpkg_toolchain_file = toolchain_file
             except: pass
 
     if vcpkg_toolchain_file is None:
