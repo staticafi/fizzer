@@ -71,8 +71,21 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
             trace_item const&  item{ node->get_best_trace()->at(n->get_trace_index()) };
             seed_output.push_back({ item.value, item.direction });
         }
+        std::unordered_map<natural_32_bit, std::size_t> map_of_type_indices;
+        {
+            std::size_t  idx{ 0U };
+            for (natural_32_bit  type_idx : set_of_type_indices)
+            {
+                map_of_type_indices.insert({ type_idx, idx });
+                ++idx;
+            }
+        }
         for (auto  rit = type_indices_per_trace_item.rbegin(); rit != type_indices_per_trace_item.rend(); ++rit)
-            parameter_indices.push_back({ rit->begin(), rit->end() });
+        {
+            parameter_indices.push_back({});
+            for (natural_32_bit  type_idx : *rit)
+                parameter_indices.back().push_back(map_of_type_indices.at(type_idx));
+        }
         std::reverse(comparators.begin(), comparators.end());
         for (natural_32_bit  type_idx : set_of_type_indices)
         {
