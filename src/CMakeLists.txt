@@ -9,7 +9,6 @@ include_directories(
     "${PROJECT_SOURCE_DIR}/src/iomodels/include"
     "${PROJECT_SOURCE_DIR}/src/connection/include"
     "${PROJECT_SOURCE_DIR}/src/target/include"
-    "${PROJECT_SOURCE_DIR}/src/cps/include"
     )
 message("Including the following libraries to the build:")
 add_subdirectory(./com)
@@ -24,17 +23,18 @@ if(FIZZ_BUILD_LIBS_32_BIT STREQUAL "No")
     include_directories(
         "${PROJECT_SOURCE_DIR}/src/sala/include"
         "${PROJECT_SOURCE_DIR}/src/llvmutl/include"
+        "${PROJECT_SOURCE_DIR}/src/cps/include"
         )
     add_subdirectory(./sala)
         message("  sala")
     add_subdirectory(./llvmutl)
         message("  llvmutl")
+    add_subdirectory(./cps)
+        message("  cps")
     set(LIBUTILITY_INSTALL_DIR "lib")
 else()
     set(LIBUTILITY_INSTALL_DIR "lib32")
 endif()
-add_subdirectory(./cps)
-    message("  cps")
 add_subdirectory(./utility)
     message("  utility")
     
