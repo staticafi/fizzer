@@ -60,6 +60,7 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
             }
             switch (n->get_atomic_predicate())
             {
+                case atomic_predicate::EQUAL: comparators.push_back(cps::Comparator::EQUAL); break;
                 case atomic_predicate::UNEQUAL: comparators.push_back(cps::Comparator::UNEQUAL); break;
                 case atomic_predicate::LESS: comparators.push_back(cps::Comparator::LESS); break;
                 case atomic_predicate::LESS_EQUAL: comparators.push_back(cps::Comparator::LESS_EQUAL); break;
