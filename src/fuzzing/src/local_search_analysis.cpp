@@ -12,9 +12,9 @@
 namespace  fuzzing {
 
 
-local_search_analysis::local_search_analysis()
+local_search_analysis::local_search_analysis(configuration const&  cfg)
     : state{ READY }
-    , config{}
+    , config{ cfg }
     , node{ nullptr }
     , current_input{ nullptr }
     , execution_id{ 0 }
@@ -130,18 +130,21 @@ void  local_search_analysis::stop()
 
     if (solver->success())
     {
-        ++statistics.stop_calls_early;
+        ++statistics.successes;
 
         recorder().on_local_search_stop(progress_recorder::STOP::EARLY);
     }
     else
     {
-        ++statistics.stop_calls_regular;
+        ++statistics.failures;
 
         recorder().on_local_search_stop(progress_recorder::STOP::REGULAR);
     }
 
     node->set_local_search_performed(execution_id);
+
+    for (auto const&  key_and_value : solver->get_statistics())
+        statistics.solver.insert({ key_and_value.first, 0ULL }).first->second += key_and_value.second;
 
     state = READY;
     solver = nullptr;

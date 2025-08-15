@@ -15,7 +15,8 @@ void  print_fuzzing_configuration(
         std::ostream&  ostr,
         std::string const&  benchmark,
         target_executor const&  executor,
-        termination_info const&  terminator
+        termination_info const&  terminator,
+        local_search_analysis::configuration const&  lsa_config
         )
 {
     std::string const  shift = "    ";
@@ -27,6 +28,12 @@ void  print_fuzzing_configuration(
          << shift << "\"max_exec_megabytes\": " << executor.max_exec_megabytes() << ",\n"
          << shift << "\"max_trace_length\": " << executor.max_trace_length() << ",\n"
          << shift << "\"max_bytes\": " << executor.io_simple().max_bytes() << ",\n"
+         << shift << "\"lsa_max_rounds\": " << lsa_config.max_rounds << ",\n"
+         << shift << "\"lsa_build_local_space\": " << lsa_config.build_local_space << ",\n"
+         << shift << "\"lsa_build_constraints\": " << lsa_config.build_constraints << ",\n"
+         << shift << "\"lsa_use_gradient_descent\": " << lsa_config.use_gradient_descent << ",\n"
+         << shift << "\"lsa_use_bit_flips\": " << lsa_config.use_bit_flips << ",\n"
+         << shift << "\"lsa_use_random_fuzzing\": " << lsa_config.use_random_fuzzing << "\n"
          << "}"
          ;
 }
@@ -35,11 +42,12 @@ void  print_fuzzing_configuration(
 void  log_fuzzing_configuration(
         std::string const&  benchmark,
         target_executor const&  executor,
-        termination_info const&  terminator
+        termination_info const&  terminator,
+        local_search_analysis::configuration const&  lsa_config
         )
 {
     std::stringstream sstr;
-    print_fuzzing_configuration(sstr, benchmark, executor, terminator);
+    print_fuzzing_configuration(sstr, benchmark, executor, terminator, lsa_config);
     LOG(LSL_INFO, sstr.str());
 }
 
@@ -48,12 +56,13 @@ void  save_fuzzing_configuration(
         std::filesystem::path const&  output_dir,
         std::string const&  benchmark,
         target_executor const&  executor,
-        termination_info const&  terminator
+        termination_info const&  terminator,
+        local_search_analysis::configuration const&  lsa_config
         )
 {
     std::filesystem::path const  test_file_path = output_dir / (benchmark + "_config.json");
     std::ofstream  ostr(test_file_path.c_str(), std::ios::binary);
-    print_fuzzing_configuration(ostr, benchmark, executor, terminator);
+    print_fuzzing_configuration(ostr, benchmark, executor, terminator, lsa_config);
 }
 
 
@@ -168,7 +177,9 @@ void  print_fuzzing_outcomes(std::ostream&  ostr, fuzzing_outcomes const&  resul
     }
     ostr << shift << shift << "]\n"
          << shift << "},\n"
-         << shift << "\"bitshare_analysis\": {\n"
+         ;
+
+    ostr << shift << "\"bitshare_analysis\": {\n"
          << shift << shift << "\"generated_inputs\": " << results.bitshare_statistics.generated_inputs << ",\n"
          << shift << shift << "\"hits\": " << results.bitshare_statistics.hits << ",\n"
          << shift << shift << "\"misses\": " << results.bitshare_statistics.misses << ",\n"
@@ -180,19 +191,26 @@ void  print_fuzzing_outcomes(std::ostream&  ostr, fuzzing_outcomes const&  resul
          << shift << shift << "\"num_insertions\": " << results.bitshare_statistics.num_insertions << ",\n"
          << shift << shift << "\"num_deletions\": " << results.bitshare_statistics.num_deletions << "\n"
          << shift << "},\n"
-         << shift << "\"local_search_analysis\": {\n"
+         ;
+
+    ostr << shift << "\"local_search_analysis\": {\n"
          << shift << shift << "\"generated_inputs\": " << results.local_search_statistics.generated_inputs << ",\n"
          << shift << shift << "\"start_calls\": " << results.local_search_statistics.start_calls << ",\n"
-         << shift << shift << "\"stop_calls_regular\": " << results.local_search_statistics.stop_calls_regular << ",\n"
-         << shift << shift << "\"stop_calls_early\": " << results.local_search_statistics.stop_calls_early << ",\n"
-         << shift << shift << "\"stop_calls_failed\": " << results.local_search_statistics.stop_calls_failed << "\n"
-         << shift << "},\n"
-         << shift << "\"bitflip_analysis\": {\n"
+         << shift << shift << "\"successes\": " << results.local_search_statistics.successes << ",\n"
+         << shift << shift << "\"failures\": " << results.local_search_statistics.failures << ",\n"
+         ;
+        for (auto const&  key_and_value : results.local_search_statistics.solver)
+            ostr << shift << shift << "\"" << key_and_value.first << "\": " << key_and_value.second << ",\n";
+        ostr << shift << "},\n";
+
+    ostr << shift << "\"bitflip_analysis\": {\n"
          << shift << shift << "\"generated_inputs\": " << results.bitflip_statistics.generated_inputs << ",\n"
          << shift << shift << "\"max_bits\": " << results.bitflip_statistics.max_bits << ",\n"
          << shift << shift << "\"start_calls\": " << results.bitflip_statistics.start_calls << "\n"
          << shift << "},\n"
-         << shift << "\"fuzzer\": {\n"
+         ;
+
+    ostr << shift << "\"fuzzer\": {\n"
          << shift << shift << "\"leaf_nodes_created\": " << results.fuzzer_statistics.leaf_nodes_created << ",\n"
          << shift << shift << "\"leaf_nodes_destroyed\": " << results.fuzzer_statistics.leaf_nodes_destroyed << ",\n"
          << shift << shift << "\"nodes_created\": " << results.fuzzer_statistics.nodes_created << ",\n"

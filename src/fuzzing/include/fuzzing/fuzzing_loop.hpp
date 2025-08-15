@@ -17,6 +17,7 @@ fuzzing_outcomes  run(
         test_suite_item_writer&  save_test,
         std::function<void(test_suite_item_ptr)> const&  collector_of_boundary_violations,
         fuzzing::termination_info const&  info,
+        local_search_analysis::configuration const&  lsa_config,
         bool  render
         );
 

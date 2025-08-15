@@ -15,18 +15,21 @@ void  print_fuzzing_configuration(
         std::ostream&  ostr,
         std::string const&  benchmark,
         target_executor const&  executor,
-        termination_info const&  terminator
+        termination_info const&  terminator,
+        local_search_analysis::configuration const&  lsa_config
         );
 void  log_fuzzing_configuration(
         std::string const&  benchmark,
         target_executor const&  executor,
-        termination_info const&  terminator
+        termination_info const&  terminator,
+        local_search_analysis::configuration const&  lsa_config
         );
 void  save_fuzzing_configuration(
         std::filesystem::path const&  output_dir,
         std::string const&  benchmark,
         target_executor const&  executor,
-        termination_info const&  terminator
+        termination_info const&  terminator,
+        local_search_analysis::configuration const&  lsa_config
         );
 
 void  print_fuzzing_outcomes(std::ostream&  ostr, fuzzing_outcomes const&  results);

@@ -61,7 +61,12 @@ struct  fuzzer final
         std::size_t  coverage_failure_resets{ 0 };
     };
 
-    fuzzer(termination_info const&  info, sala::Program const*  sala_program_ptr_, target_executor const*  tgt_exec);
+    fuzzer(
+        termination_info const&  info,
+        sala::Program const*  sala_program_ptr_,
+        target_executor const*  tgt_exec,
+        local_search_analysis::configuration const& local_search_config
+        );
     ~fuzzer();
 
     sala::Program const* sala_program() const { return sala_program_ptr; }

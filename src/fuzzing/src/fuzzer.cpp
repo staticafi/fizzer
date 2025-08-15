@@ -1138,7 +1138,12 @@ branching_node*  fuzzer::monte_carlo_step(
 }
 
 
-fuzzer::fuzzer(termination_info const&  info, sala::Program const* const  sala_program_ptr_, target_executor const* const  tgt_exec)
+fuzzer::fuzzer(
+        termination_info const&  info,
+        sala::Program const* const  sala_program_ptr_,
+        target_executor const* const  tgt_exec,
+        local_search_analysis::configuration const& local_search_config
+        )
     : sala_program_ptr{ sala_program_ptr_ }
 
     , termination_props{ info }
@@ -1173,7 +1178,7 @@ fuzzer::fuzzer(termination_info const&  info, sala::Program const* const  sala_p
     , coverage_control{ this }
     , input_flow_thread{ sala_program_ptr, tgt_exec }
     , bitshare{}
-    , local_search{}
+    , local_search{ local_search_config }
     , bitflip{}
 
     , max_input_width{ 0U }

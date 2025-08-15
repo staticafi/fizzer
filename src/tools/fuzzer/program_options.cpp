@@ -1,6 +1,7 @@
 #include <fuzzer/program_options.hpp>
 #include <fuzzer/program_info.hpp>
 #include <fuzzing/target_executor.hpp>
+#include <fuzzing/local_search_analysis.hpp>
 #include <iomodels/cmdline.hpp>
 #include <connection/target_executor.hpp>
 #include <fuzzing/termination_info.hpp>
@@ -42,6 +43,20 @@ program_options::program_options(int argc, char* argv[])
     add_value("max_bytes", std::to_string(iomodels::simple::default_max_bytes));
     add_option("opt_max_bytes", "Max number of input bytes produced by the 'simple' IO model during optimization.", "1");
     add_value("opt_max_bytes", std::to_string(iomodels::simple::default_opt_max_bytes));
+
+    fuzzing::local_search_analysis::configuration lsa_config{};
+    add_option("lsa_max_rounds", "Max number of rounds performed by the local search analysis for each coverage problem.", "1");
+    add_value("lsa_max_rounds", std::to_string(lsa_config.max_rounds));
+    add_option("lsa_build_local_space", "Enables building of local space by the local search analysis for each coverage problem.", "1");
+    add_value("lsa_build_local_space", std::to_string(lsa_config.build_local_space));
+    add_option("lsa_build_constraints", "Enables building of constraints by the local search analysis for each coverage problem.", "1");
+    add_value("lsa_build_constraints", std::to_string(lsa_config.build_constraints));
+    add_option("lsa_use_gradient_descent", "Enables gradient descent fuzzing technique in the local search analysis for each coverage problem.", "1");
+    add_value("lsa_use_gradient_descent", std::to_string(lsa_config.use_gradient_descent));
+    add_option("lsa_use_bit_flips", "Enables bit-flips fuzzing technique in the local search analysis for each coverage problem.", "1");
+    add_value("lsa_use_bit_flips", std::to_string(lsa_config.use_bit_flips));
+    add_option("lsa_use_random_fuzzing", "Enables random fuzzing technique in the local search analysis for each coverage problem.", "1");
+    add_value("lsa_use_random_fuzzing", std::to_string(lsa_config.use_random_fuzzing));
 
     add_option("path_to_target", "Path to target executable.", "1");
 

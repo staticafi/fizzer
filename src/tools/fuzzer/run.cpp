@@ -139,6 +139,15 @@ void run(int argc, char* argv[])
                 )
             };
 
+    fuzzing::local_search_analysis::configuration const  lsa_config{{
+        .max_rounds = (std::uint32_t)std::stoi(get_program_options()->value("lsa_max_rounds")),
+        .build_local_space = std::stoi(get_program_options()->value("lsa_build_local_space")) != 0,
+        .build_constraints = std::stoi(get_program_options()->value("lsa_build_constraints")) != 0,
+        .use_gradient_descent = std::stoi(get_program_options()->value("lsa_use_gradient_descent")) != 0,
+        .use_bit_flips = std::stoi(get_program_options()->value("lsa_use_bit_flips")) != 0,
+        .use_random_fuzzing = std::stoi(get_program_options()->value("lsa_use_random_fuzzing")) != 0,
+    }};
+
     auto const startup_time = std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - start_time_point).count();
 
     {
@@ -165,11 +174,11 @@ void run(int argc, char* argv[])
     if (!get_program_options()->has("silent_mode"))
     {
         std::cout << "\"fuzzing_configuration\": ";
-        fuzzing::print_fuzzing_configuration(std::cout, target_name, target_executor, terminator);
+        fuzzing::print_fuzzing_configuration(std::cout, target_name, target_executor, terminator, lsa_config);
         std::cout << ',' << std::endl;
     }
-    fuzzing::log_fuzzing_configuration(target_name, target_executor, terminator);
-    fuzzing::save_fuzzing_configuration(output_dir, target_name, target_executor, terminator);
+    fuzzing::log_fuzzing_configuration(target_name, target_executor, terminator, lsa_config);
+    fuzzing::save_fuzzing_configuration(output_dir, target_name, target_executor, terminator, lsa_config);
 
     std::vector<fuzzing::test_suite_item_ptr>  inputs_leading_to_boundary_violation;
     fuzzing::fuzzing_outcomes const results = fuzzing::run(
@@ -181,6 +190,7 @@ void run(int argc, char* argv[])
                     inputs_leading_to_boundary_violation.push_back(item);
                 },
         terminator,
+        lsa_config,
         !get_program_options()->has("silent_mode") && get_program_options()->has("render")
         );
 

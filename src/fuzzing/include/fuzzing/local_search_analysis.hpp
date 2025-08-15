@@ -24,12 +24,12 @@ struct  local_search_analysis
     {
         std::size_t  generated_inputs{ 0 };
         std::size_t  start_calls{ 0 };
-        std::size_t  stop_calls_regular{ 0 };
-        std::size_t  stop_calls_early{ 0 };
-        std::size_t  stop_calls_failed{ 0 };
+        std::size_t  successes{ 0 };
+        std::size_t  failures{ 0 };
+        cps::Statistics  solver;
     };
 
-    local_search_analysis();
+    local_search_analysis(configuration const&  cfg);
 
     bool  is_ready() const { return state == READY; }
     bool  is_busy() const { return state == BUSY; }

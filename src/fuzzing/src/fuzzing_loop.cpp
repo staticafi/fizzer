@@ -15,6 +15,7 @@ fuzzing_outcomes  run(
         test_suite_item_writer&  save_test,
         std::function<void(test_suite_item_ptr)> const&  collector_of_boundary_violations,
         fuzzing::termination_info const&  info,
+        local_search_analysis::configuration const& lsa_config,
         bool const  render
         )
 {
@@ -25,7 +26,7 @@ fuzzing_outcomes  run(
     std::unordered_set<location_id>  exit_locations_of_boundary_violations;
     bool  any_test_saved{ false };
 
-    fuzzer  analyzer{ info, sala_program_ptr, &executor };
+    fuzzer  analyzer{ info, sala_program_ptr, &executor, lsa_config };
     analyzer.enable_renderer(render);
     analyzer.render();
 
