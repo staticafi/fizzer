@@ -2131,6 +2131,9 @@ bool  fuzzer::apply_coverage_failures_with_hope()
     {
         INVARIANT(node->was_local_search_performed());
 
+        if (node->get_local_search_start_execution() >= node->get_best_value_execution())
+            continue;
+
         node->perform_failure_reset();
 
         primary_coverage_targets.process_potential_coverage_target({ node, true });
