@@ -197,11 +197,11 @@ void  print_fuzzing_outcomes(std::ostream&  ostr, fuzzing_outcomes const&  resul
          << shift << shift << "\"generated_inputs\": " << results.local_search_statistics.generated_inputs << ",\n"
          << shift << shift << "\"start_calls\": " << results.local_search_statistics.start_calls << ",\n"
          << shift << shift << "\"successes\": " << results.local_search_statistics.successes << ",\n"
-         << shift << shift << "\"failures\": " << results.local_search_statistics.failures << ",\n"
+         << shift << shift << "\"failures\": " << results.local_search_statistics.failures
          ;
         for (auto const&  key_and_value : results.local_search_statistics.solver)
-            ostr << shift << shift << "\"" << key_and_value.first << "\": " << key_and_value.second << ",\n";
-        ostr << shift << "},\n";
+            ostr << ",\n" << shift << shift << "\"" << key_and_value.first << "\": " << key_and_value.second;
+        ostr << '\n' << shift << "},\n";
 
     ostr << shift << "\"bitflip_analysis\": {\n"
          << shift << shift << "\"generated_inputs\": " << results.bitflip_statistics.generated_inputs << ",\n"
