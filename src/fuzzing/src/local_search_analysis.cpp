@@ -20,6 +20,7 @@ local_search_analysis::local_search_analysis(configuration const&  cfg)
     , execution_id{ 0 }
     , type_indices{}
     , solver{ nullptr }
+    , cache{ nullptr }
     , statistics{}
 {}
 
@@ -41,6 +42,7 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
     execution_id = execution_id_;
     type_indices.clear();
     solver = nullptr;
+    cache = nullptr;
 
     std::vector<std::vector<std::size_t> > parameter_indices;
     std::vector<cps::Comparator> comparators;
@@ -116,6 +118,7 @@ void  local_search_analysis::start(branching_node* const  node_ptr, natural_32_b
     }
 
     solver = std::make_unique<cps::Solver>(parameter_indices, comparators, seed_input, seed_output, config);
+    cache = std::make_unique<cps::EvaluationCache>(10000UL);
 
     ++statistics.start_calls;
 
@@ -145,6 +148,7 @@ void  local_search_analysis::stop()
 
     for (auto const&  key_and_value : solver->get_statistics())
         statistics.solver.insert({ key_and_value.first, 0ULL }).first->second += key_and_value.second;
+    statistics.solver.insert({ "CACHE_HITS", 0ULL }).first->second += cache->hits();
 
     state = READY;
     solver = nullptr;
@@ -158,18 +162,27 @@ bool  local_search_analysis::generate_next_input(vecb&  bits_ref, input_types_pt
     if (!is_busy())
         return false;
 
-    std::vector<cps::Variable> vars;
-    solver->compute_next_input(vars);
-    if (solver->is_finished())
+    while (true)
     {
-        stop();
-        return false;
+        cached_input.clear();
+        solver->compute_next_input(cached_input);
+        if (solver->is_finished())
+        {
+            stop();
+            return false;
+        }
+        INVARIANT(cached_input.size() == type_indices.size());
+
+        cps::EvaluationCache::Output const* const cached_output{ cache->find(cached_input) };
+        if (cached_output == nullptr)
+            break;
+
+        solver->process_output(*cached_output);
     }
-    INVARIANT(vars.size() == type_indices.size());
 
     bits_ref = current_input->bits();
-    for (std::size_t i{ 0ULL }; i != vars.size(); ++i)
-        vars.at(i).visit([this, i, &bits_ref]<typename T>(T x) {
+    for (std::size_t i{ 0ULL }; i != cached_input.size(); ++i)
+        cached_input.at(i).visit([this, i, &bits_ref]<typename T>(T x) {
             std::size_t const start_bit_idx{ 8U * (current_input->type_start_bit_index(type_indices.at(i)) / 8U) };
             std::size_t constexpr num_bits{ 8U * sizeof(std::decay_t<T>) };
             for (std::size_t i = 0ULL; i != num_bits; ++i)
@@ -205,6 +218,7 @@ void  local_search_analysis::process_execution_results(
         if (i < node->get_trace_index() && trace_ptr->at(i).direction != node->get_best_trace()->at(i).direction)
             break;
     }
+    cache->insert(cached_input, output);
     solver->process_output(output);
 }
 

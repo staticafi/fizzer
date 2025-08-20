@@ -4,6 +4,7 @@
 #   include <fuzzing/basic_types.hpp>
 #   include <fuzzing/branching_node.hpp>
 #   include <cps/solver.hpp>
+#   include <cps/evaluation_cache.hpp>
 #   include <vector>
 #   include <memory>
 
@@ -54,6 +55,8 @@ private:
     natural_32_bit  execution_id;
     std::vector<natural_32_bit> type_indices;
     std::unique_ptr<cps::Solver> solver;
+    std::unique_ptr<cps::EvaluationCache> cache;
+    std::vector<cps::Variable> cached_input;
     performance_statistics  statistics;
 };
 
