@@ -13,15 +13,15 @@
     },
     "results": {
         "termination_type": "NORMAL",
-        "termination_reason": "EXECUTIONS_BUDGET_DEPLETED",
-        "num_executions": 1000,
-        "num_covered_branchings": 3,
+        "termination_reason": "ALL_REACHABLE_BRANCHINGS_COVERED",
+        "num_executions": 50,
+        "num_covered_branchings": 4,
         "covered_branchings": [
-            1, 2, 3
+            1, 2, 3, 4
         ],
         "output_statistics": {
             "local_search": {
-                "num_generated_tests": 2,
+                "num_generated_tests": 3,
                 "num_crashes": 0,
                 "num_boundary_violations": 0
             },
