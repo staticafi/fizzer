@@ -251,29 +251,6 @@ def generate_testcomp_metadata_xml(input_file, output_dir, use_m32, property):
         f.write(content)
 
 
-def fuzz(self_dir, input_file, output_dir, options, start_time, silent_mode):
-    target = os.path.join(output_dir, benchmark_target_name(input_file))
-    if not os.path.isfile(target):
-        target = os.path.join(os.path.dirname(input_file), benchmark_target_name(input_file))
-        if not os.path.isfile(target):
-            raise Exception("Cannot find the fuzzing target file: " + target)
-
-    sala_program = os.path.join(output_dir, benchmark_sala_name(input_file))
-    if not os.path.isfile(sala_program):
-        sala_program = os.path.join(os.path.dirname(input_file), benchmark_sala_name(input_file))
-        if not os.path.isfile(sala_program) and silent_mode is False:
-            sala_program = None
-
-    if _execute(
-            [ os.path.join(self_dir, "tools", "@FUZZER_FILE@"),
-                "--path_to_target", target ] +
-                ([ "--path_to_sala", sala_program ] if sala_program is not None else []) +
-                [ "--output_dir", output_dir] +
-                options,
-            None).returncode:
-        raise Exception("Fuzzing has failed.")
-
-
 def cpseval(self_dir, input_file, output_dir, tests_dir, options, silent_mode):
     target = os.path.join(output_dir, benchmark_target_name(input_file))
     if not os.path.isfile(target):
@@ -408,11 +385,6 @@ def main():
         if skip_building is False:
             build(self_dir, input_file, output_dir, options_instument, use_m32, generate_jsonc, testcomp, silent_mode)
             adjust_timeouts(options, start_time, silent_mode)
-        if skip_fuzzing is False:
-            if testcomp is not None:
-                generate_testcomp_metadata_xml(input_file, output_dir, use_m32, testcomp)
-            fuzz(self_dir, input_file, output_dir, options, start_time, silent_mode)
-            if silent_mode is False: print(",", flush=True)
         if cpseval_path is not None:
             cpseval(self_dir, input_file, output_dir, cpseval_path, options, silent_mode)
             if silent_mode is False: print(",", flush=True)
