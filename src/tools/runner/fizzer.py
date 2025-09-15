@@ -81,7 +81,7 @@ testcomp_property_coverage_error_call = "COVER( init(main()), FQL(COVER EDGES(@C
 
 def _execute(command_and_args, timeout_ = None):
     cmd = [x for x in command_and_args if len(x) > 0]
-    # print("*** CALLING ***\n" + " ".join(cmd) + "\n************\n")
+    # print("*** CALLING[" + os.getcwd() + "] ***\n" + " ".join(cmd) + "\n************\n")
     return subprocess.run(cmd, timeout=timeout_)
 
 
