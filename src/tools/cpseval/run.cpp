@@ -47,6 +47,15 @@ void run(int argc, char* argv[])
         return;
     }
 
+    fuzzing::local_search_analysis::configuration const  lsa_config{{
+        .max_rounds = (std::uint32_t)std::stoi(get_program_options()->value("lsa_max_rounds")),
+        .build_local_space = std::stoi(get_program_options()->value("lsa_build_local_space")) != 0,
+        .build_constraints = std::stoi(get_program_options()->value("lsa_build_constraints")) != 0,
+        .use_gradient_descent = std::stoi(get_program_options()->value("lsa_use_gradient_descent")) != 0,
+        .use_bit_flips = std::stoi(get_program_options()->value("lsa_use_bit_flips")) != 0,
+        .use_random_fuzzing = std::stoi(get_program_options()->value("lsa_use_random_fuzzing")) != 0,
+    }};
+
     std::shared_ptr<sala::Program> sala_program_ptr;
     {
         std::filesystem::path  sala_program_path;
@@ -304,7 +313,7 @@ void run(int argc, char* argv[])
                 float_64_bit  analysis_duration{ 0.0 };
                 float_64_bit  executor_duration{ 0.0 };
                 std::chrono::system_clock::time_point const  analysis_start_time_point{ std::chrono::system_clock::now() };
-                fuzzing::local_search_analysis  analysis;
+                fuzzing::local_search_analysis  analysis{ lsa_config };
                 analysis.start(node, 1U);
                 while (true)
                 {
@@ -332,7 +341,7 @@ void run(int argc, char* argv[])
 
                 node->set_successor(direction, saved_succ_ptr);
 
-                std::cout << ", \"Result\": " << (analysis.get_statistics().stop_calls_early != 0ULL ? 1 : 0)
+                std::cout << ", \"Result\": " << (analysis.get_statistics().successes == 1ULL ? 1 : 0)
                           << ", Time: " << analysis_duration
                           << ", ExeTime: " << executor_duration
                           ;
