@@ -493,9 +493,9 @@ std::vector<std::pair<fuzzing::branching_node::guid_type, bool> > GUID_AND_DIR {
     { 31, false },
 #endif
 #ifdef temp_bak16
-    (2022, true),
-    (2022, false),
-    (2007, true),
+    { 2022, true },
+    { 2022, false },
+    { 2007, true },
 #endif
 #ifdef temp_bak1X
 #endif
@@ -512,9 +512,9 @@ int iii = 0;
 if (!TARGETS.empty())
 {
 bool found = false;
-for (fuzzing::branching_node* node = leaf_and_data.first; node != nullptr; node = node->get_predecessor())
+for (fuzzing::branching_node* node = leaf_data.leaf; node != nullptr; node = node->get_predecessor())
 {
-    auto const it{ TARGETS.find({ node->guid(), !leaf_and_data.second.trace->at(node->get_trace_index()).direction }) };
+    auto const it{ TARGETS.find({ node->guid(), !leaf_data.trace->at(node->get_trace_index()).direction }) };
     if (it != TARGETS.end() && it->second == false)
     {
         it->second = true;
@@ -527,7 +527,7 @@ std::cout << "Skipping input flow analysis " << iii << "/" << leaf_branchings.si
     continue;
 }
 }
-std::cout << "Running input flow analysis " << iii << "/" << leaf_branchings.size() << ", Idx: " << leaf_and_data.first->get_trace_index() << " .\n"; std::cout.flush();
+std::cout << "Running input flow analysis " << iii << "/" << leaf_branchings.size() << ", Idx: " << leaf_data.leaf->get_trace_index() << " .\n"; std::cout.flush();
             fuzzing::input_flow_analysis::computation_io_data  io_data{
                 .input_ptr = leaf_data.input,
                 .trace_ptr = leaf_data.trace,
