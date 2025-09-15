@@ -131,12 +131,13 @@ void run(int argc, char* argv[])
 
     struct typed_input_and_trace
     {
+        fuzzing::branching_node* leaf;
         fuzzing::typed_input_ptr  input{ nullptr };
         fuzzing::execution_trace_ptr  trace{ nullptr };
     };
 
     fuzzing::branching_node*  entry_branching{ nullptr };
-    std::unordered_multimap<fuzzing::branching_node*, typed_input_and_trace>  leaf_branchings{};
+    std::vector<typed_input_and_trace>  leaf_branchings{};
     {
         std::vector<test_case_ptr>  tests;
         if (!load_tests(get_program_options()->value("path_to_tests"), get_program_options()->value("source_file_name"), tests))
@@ -244,19 +245,19 @@ void run(int argc, char* argv[])
                     leaf->successor(trace->back().direction).pointer
                 });
 
-                leaf_branchings.insert({ leaf, { current_input, trace } });
+                leaf_branchings.push_back({ leaf, current_input, trace });
             }
         }
     }
 
     {
         fuzzing::input_flow_analysis  analysis{ sala_program_ptr.get(), &target_executor };
-        for (auto const&  leaf_and_data : leaf_branchings)
+        for (auto const&  leaf_data : leaf_branchings)
         {
             fuzzing::input_flow_analysis::computation_io_data  io_data{
-                .input_ptr = leaf_and_data.second.input,
-                .trace_ptr = leaf_and_data.second.trace,
-                .trace_size = leaf_and_data.first->get_trace_index() + 1U,
+                .input_ptr = leaf_data.input,
+                .trace_ptr = leaf_data.trace,
+                .trace_size = leaf_data.leaf->get_trace_index() + 1U,
                 .sensitive_bits{}
             };
             analysis.run(&io_data, [](std::string&) { return false; });
@@ -325,10 +326,10 @@ void run(int argc, char* argv[])
         std::filesystem::path const  test_file_path = output_dir / output_file_name;
         std::ofstream  ostr(test_file_path.c_str(), std::ios::binary);
         std::unordered_set<std::pair<fuzzing::branching_node*, bool> >  processed_nodes{};
-        for (auto const&  leaf_and_data : leaf_branchings)
+        for (auto const&  leaf_data : leaf_branchings)
         {
-            fuzzing::execution_trace_ptr const  trace{ leaf_and_data.second.trace };
-            for (fuzzing::branching_node* node = leaf_and_data.first; node != nullptr; node = node->get_predecessor())
+            fuzzing::execution_trace_ptr const  trace{ leaf_data.trace };
+            for (fuzzing::branching_node* node = leaf_data.leaf; node != nullptr; node = node->get_predecessor())
             {
                 bool const  direction{ !trace->at(node->get_trace_index()).direction };
                 if (node->successor(direction).label != fuzzing::branching_node::successor_pointer::NOT_VISITED
@@ -346,7 +347,7 @@ void run(int argc, char* argv[])
 
                     processed_nodes.insert({ node, direction });
 
-                    node->update_best_data(leaf_and_data.second.input, trace, 1U);
+                    node->update_best_data(leaf_data.input, trace, 1U);
                     auto const  saved_succ_ptr{ node->successor(direction) };
                     node->set_successor(direction, {});
 
@@ -396,8 +397,8 @@ void run(int argc, char* argv[])
     }
 
     std::unordered_set<fuzzing::branching_node*>  all_nodes{};
-    for (auto const&  leaf_and_data : leaf_branchings)
-        for (fuzzing::branching_node*  node = leaf_and_data.first ; node != nullptr; node = node->get_predecessor())
+    for (auto const&  leaf_data : leaf_branchings)
+        for (fuzzing::branching_node*  node = leaf_data.leaf ; node != nullptr; node = node->get_predecessor())
             all_nodes.insert(node);
     entry_branching = nullptr;
     leaf_branchings.clear();

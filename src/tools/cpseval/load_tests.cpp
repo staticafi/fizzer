@@ -6,6 +6,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 #include <unzip.h>  // From Minizip
 #include <filesystem>
+#include <algorithm>
 
 
 template<typename T>
@@ -127,6 +128,7 @@ bool  load_tests(std::string const&  zip_path, std::string const&  dir_name, std
         { unzCloseCurrentFile(zip); result = false; continue; }
 
         out_tests.push_back(std::make_shared<test_case>());
+        out_tests.back()->test_file_name = file_name;
         try
         {
             if (!load_test(buffer, *out_tests.back()))
@@ -143,6 +145,10 @@ bool  load_tests(std::string const&  zip_path, std::string const&  dir_name, std
     while (unzGoToNextFile(zip) == UNZ_OK);
 
     unzClose(zip);
+
+    std::sort(out_tests.begin(), out_tests.end(), [](test_case_ptr const& left, test_case_ptr const& right){
+        return left->test_file_name < right->test_file_name;
+    });
 
     return result;
 }

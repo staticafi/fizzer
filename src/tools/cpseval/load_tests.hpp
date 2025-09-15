@@ -9,6 +9,7 @@
 
 struct test_case
 {
+    std::string test_file_name;
     fuzzing::input_bytes bytes;
     fuzzing::input_types types;
     fuzzing::input_metadata metadata;
