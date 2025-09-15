@@ -144,5 +144,5 @@ bool  load_tests(std::string const&  zip_path, std::string const&  dir_name, std
 
     unzClose(zip);
 
-    return out_tests.empty() ? false : result;
+    return result;
 }

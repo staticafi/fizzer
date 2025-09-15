@@ -143,6 +143,12 @@ void run(int argc, char* argv[])
                     << "' from ZIP file '" << get_program_options()->value("path_to_tests") << "'.\n";
             return;
         }
+        if (tests.empty())
+        {
+            std::cerr << "ERROR: The test-suite is empty for program '" << get_program_options()->value("source_file_name")
+                    << "' from ZIP file '" << get_program_options()->value("path_to_tests") << "'.\n";
+            return;
+        }
         for (test_case_ptr test : tests)
         {
             fuzzing::execution_results_ptr const  results{ target_executor.run(test->bytes, test->types, test->metadata) };
