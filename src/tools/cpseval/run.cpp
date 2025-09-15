@@ -295,13 +295,6 @@ void run(int argc, char* argv[])
                           << ", \"Idx\": " << node->get_trace_index()
                           << ", \"dir\": " << direction
                           ;
-
-                natural_32_bit  num_equalities{ 0U };
-                for (fuzzing::branching_node* n = node; n != nullptr; n = n->get_predecessor())
-                    if (trace->at(n->get_trace_index()).predicate == fuzzing::atomic_predicate::EQUAL)
-                        ++num_equalities;
-                std::cout << ", \"Eq\": " << num_equalities;
-
                 std::cout.flush();
 
                 processed_nodes.insert({ node, direction });
@@ -345,6 +338,8 @@ void run(int argc, char* argv[])
                           << ", Time: " << analysis_duration
                           << ", ExeTime: " << executor_duration
                           ;
+                for (auto const&  key_and_value : analysis.get_statistics().solver)
+                    std::cout << ", \"" << key_and_value.first << "\": " << key_and_value.second;
 
                 std::cout << " }";
                 std::cout.flush();
