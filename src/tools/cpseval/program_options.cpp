@@ -39,6 +39,7 @@ program_options::program_options(int argc, char* argv[])
     add_value("lsa_use_bit_flips", std::to_string(lsa_config.use_bit_flips));
     add_option("lsa_use_random_fuzzing", "Enables random fuzzing technique in the local search analysis for each coverage problem.", "1");
     add_value("lsa_use_random_fuzzing", std::to_string(lsa_config.use_random_fuzzing));
+    add_option("lsa_all", "Evaluates all interesting configurations with the same --lsa_max_rounds value.", "0");
 }
 
 static program_options_ptr  global_program_options;

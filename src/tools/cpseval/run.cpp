@@ -47,15 +47,6 @@ void run(int argc, char* argv[])
         return;
     }
 
-    fuzzing::local_search_analysis::configuration const  lsa_config{{
-        .max_rounds = (std::uint32_t)std::stoi(get_program_options()->value("lsa_max_rounds")),
-        .build_local_space = std::stoi(get_program_options()->value("lsa_build_local_space")) != 0,
-        .build_constraints = std::stoi(get_program_options()->value("lsa_build_constraints")) != 0,
-        .use_gradient_descent = std::stoi(get_program_options()->value("lsa_use_gradient_descent")) != 0,
-        .use_bit_flips = std::stoi(get_program_options()->value("lsa_use_bit_flips")) != 0,
-        .use_random_fuzzing = std::stoi(get_program_options()->value("lsa_use_random_fuzzing")) != 0,
-    }};
-
     std::shared_ptr<sala::Program> sala_program_ptr;
     {
         std::filesystem::path  sala_program_path;
@@ -292,83 +283,114 @@ void run(int argc, char* argv[])
         }
     }
 
-    std::string const  output_file_name = std::string{""}
-        + (lsa_config.build_local_space     ? "1-"  : "0-")
-        + (lsa_config.build_constraints     ? "1-"  : "0-")
-        + (lsa_config.use_gradient_descent  ? "1-"  : "0-")
-        + (lsa_config.use_bit_flips         ? "1-"  : "0-")
-        + (lsa_config.use_random_fuzzing    ? "1__" : "0__")
-        + get_program_options()->value("source_file_name")
-        + ".txt"
-        ;
-    std::filesystem::path const  test_file_path = output_dir / output_file_name;
-    std::ofstream  ostr(test_file_path.c_str(), std::ios::binary);
-    std::unordered_set<std::pair<fuzzing::branching_node*, bool> >  processed_nodes{};
-    for (auto const&  leaf_and_data : leaf_branchings)
+    std::vector<fuzzing::local_search_analysis::configuration> lsa_configs;
     {
-        fuzzing::execution_trace_ptr const  trace{ leaf_and_data.second.trace };
-        for (fuzzing::branching_node* node = leaf_and_data.first; node != nullptr; node = node->get_predecessor())
+        if (get_program_options()->has("lsa_all"))
         {
-            bool const  direction{ !trace->at(node->get_trace_index()).direction };
-            if (node->successor(direction).label != fuzzing::branching_node::successor_pointer::NOT_VISITED
-                    && !node->get_sensitive_stdin_bits().empty()
-                    && !processed_nodes.contains({ node, direction }))
+            std::uint32_t const max_rounds = (std::uint32_t)std::stoi(get_program_options()->value("lsa_max_rounds"));
+            lsa_configs.push_back({ max_rounds, false, false, false, false,  true });
+            lsa_configs.push_back({ max_rounds, false, false, false,  true, false });
+            lsa_configs.push_back({ max_rounds, false, false,  true, false, false });
+            lsa_configs.push_back({ max_rounds, false, false,  true,  true,  true });
+            lsa_configs.push_back({ max_rounds,  true, false,  true,  true,  true });
+            lsa_configs.push_back({ max_rounds,  true,  true, false, false,  true });
+            lsa_configs.push_back({ max_rounds,  true,  true, false,  true, false });
+            lsa_configs.push_back({ max_rounds,  true,  true,  true, false, false });
+            lsa_configs.push_back({ max_rounds,  true,  true, false,  true,  true });
+            lsa_configs.push_back({ max_rounds,  true,  true,  true, false,  true });
+            lsa_configs.push_back({ max_rounds,  true,  true,  true,  true, false });
+            lsa_configs.push_back({ max_rounds,  true,  true,  true,  true,  true });
+        }
+        else
+            lsa_configs.push_back({
+                (std::uint32_t)std::stoi(get_program_options()->value("lsa_max_rounds")),
+                std::stoi(get_program_options()->value("lsa_build_local_space")) != 0,
+                std::stoi(get_program_options()->value("lsa_build_constraints")) != 0,
+                std::stoi(get_program_options()->value("lsa_use_gradient_descent")) != 0,
+                std::stoi(get_program_options()->value("lsa_use_bit_flips")) != 0,
+                std::stoi(get_program_options()->value("lsa_use_random_fuzzing")) != 0,
+            });
+    };
+    for (auto const& lsa_config : lsa_configs)
+    {
+        std::string const  output_file_name = std::string{""}
+            + (lsa_config.build_local_space     ? "1-"  : "0-")
+            + (lsa_config.build_constraints     ? "1-"  : "0-")
+            + (lsa_config.use_gradient_descent  ? "1-"  : "0-")
+            + (lsa_config.use_bit_flips         ? "1-"  : "0-")
+            + (lsa_config.use_random_fuzzing    ? "1__" : "0__")
+            + get_program_options()->value("source_file_name")
+            + ".txt"
+            ;
+        std::filesystem::path const  test_file_path = output_dir / output_file_name;
+        std::ofstream  ostr(test_file_path.c_str(), std::ios::binary);
+        std::unordered_set<std::pair<fuzzing::branching_node*, bool> >  processed_nodes{};
+        for (auto const&  leaf_and_data : leaf_branchings)
+        {
+            fuzzing::execution_trace_ptr const  trace{ leaf_and_data.second.trace };
+            for (fuzzing::branching_node* node = leaf_and_data.first; node != nullptr; node = node->get_predecessor())
             {
-                ostr << "{ ";
-
-                ostr << "\"ID\": " << node->guid()
-                     << ", \"Loc\": " << node->get_location_id()
-                     << ", \"Idx\": " << node->get_trace_index()
-                     << ", \"dir\": " << direction
-                     ;
-                ostr.flush();
-
-                processed_nodes.insert({ node, direction });
-
-                node->update_best_data(leaf_and_data.second.input, trace, 1U);
-                auto const  saved_succ_ptr{ node->successor(direction) };
-                node->set_successor(direction, {});
-
-                float_64_bit  analysis_duration{ 0.0 };
-                float_64_bit  executor_duration{ 0.0 };
-                std::chrono::system_clock::time_point const  analysis_start_time_point{ std::chrono::system_clock::now() };
-                fuzzing::local_search_analysis  analysis{ lsa_config };
-                analysis.start(node, 1U);
-                while (true)
+                bool const  direction{ !trace->at(node->get_trace_index()).direction };
+                if (node->successor(direction).label != fuzzing::branching_node::successor_pointer::NOT_VISITED
+                        && !node->get_sensitive_stdin_bits().empty()
+                        && !processed_nodes.contains({ node, direction }))
                 {
-                    vecb  bits{};
-                    fuzzing::input_types_ptr  types{ nullptr };
-                    fuzzing::input_metadata_ptr  metadata{ nullptr };
-                    if (!analysis.generate_next_input(bits, types, metadata))
-                        break;
-                    fuzzing::input_bytes  bytes;
-                    bits_to_bytes(bits, bytes);
+                    ostr << "{ ";
 
-                    std::chrono::system_clock::time_point const  executor_start_time_point{ std::chrono::system_clock::now() };
-                    fuzzing::execution_results_ptr const  results{ target_executor.run(bytes, *types, *metadata) };
-                    executor_duration += std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - executor_start_time_point).count();
+                    ostr << "\"ID\": " << node->guid()
+                        << ", \"Loc\": " << node->get_location_id()
+                        << ", \"Idx\": " << node->get_trace_index()
+                        << ", \"dir\": " << direction
+                        ;
+                    ostr.flush();
 
-                    fuzzing::typed_input_ptr const  current_input{
-                            std::make_shared<fuzzing::typed_input>(results->get_bytes(), results->get_types(), results->get_metadata())
-                            };
-                    fuzzing::execution_trace_ptr const  trace = results->get_trace();
-                    analysis.process_execution_results(trace, current_input);
+                    processed_nodes.insert({ node, direction });
+
+                    node->update_best_data(leaf_and_data.second.input, trace, 1U);
+                    auto const  saved_succ_ptr{ node->successor(direction) };
+                    node->set_successor(direction, {});
+
+                    float_64_bit  analysis_duration{ 0.0 };
+                    float_64_bit  executor_duration{ 0.0 };
+                    std::chrono::system_clock::time_point const  analysis_start_time_point{ std::chrono::system_clock::now() };
+                    fuzzing::local_search_analysis  analysis{ lsa_config };
+                    analysis.start(node, 1U);
+                    while (true)
+                    {
+                        vecb  bits{};
+                        fuzzing::input_types_ptr  types{ nullptr };
+                        fuzzing::input_metadata_ptr  metadata{ nullptr };
+                        if (!analysis.generate_next_input(bits, types, metadata))
+                            break;
+                        fuzzing::input_bytes  bytes;
+                        bits_to_bytes(bits, bytes);
+
+                        std::chrono::system_clock::time_point const  executor_start_time_point{ std::chrono::system_clock::now() };
+                        fuzzing::execution_results_ptr const  results{ target_executor.run(bytes, *types, *metadata) };
+                        executor_duration += std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - executor_start_time_point).count();
+
+                        fuzzing::typed_input_ptr const  current_input{
+                                std::make_shared<fuzzing::typed_input>(results->get_bytes(), results->get_types(), results->get_metadata())
+                                };
+                        fuzzing::execution_trace_ptr const  trace = results->get_trace();
+                        analysis.process_execution_results(trace, current_input);
+                    }
+                    INVARIANT(analysis.is_ready());
+
+                    analysis_duration = std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - analysis_start_time_point).count();
+
+                    node->set_successor(direction, saved_succ_ptr);
+
+                    ostr << ", \"Result\": " << (analysis.get_statistics().successes == 1ULL ? 1 : 0)
+                        << ", \"Time\": " << analysis_duration
+                        << ", \"ExeTime\": " << executor_duration
+                        ;
+                    for (auto const&  key_and_value : analysis.get_statistics().solver)
+                        ostr << ", \"" << key_and_value.first << "\": " << key_and_value.second;
+
+                    ostr << " }\n";
+                    ostr.flush();
                 }
-                INVARIANT(analysis.is_ready());
-
-                analysis_duration = std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - analysis_start_time_point).count();
-
-                node->set_successor(direction, saved_succ_ptr);
-
-                ostr << ", \"Result\": " << (analysis.get_statistics().successes == 1ULL ? 1 : 0)
-                     << ", \"Time\": " << analysis_duration
-                     << ", \"ExeTime\": " << executor_duration
-                     ;
-                for (auto const&  key_and_value : analysis.get_statistics().solver)
-                    ostr << ", \"" << key_and_value.first << "\": " << key_and_value.second;
-
-                ostr << " }\n";
-                ostr.flush();
             }
         }
     }
