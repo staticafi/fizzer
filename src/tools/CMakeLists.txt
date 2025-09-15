@@ -10,6 +10,8 @@ add_subdirectory(./instrumenter)
     message("  instrumenter")
 add_subdirectory(./runner)
     message("  runner")
+add_subdirectory(./cpseval)
+    message("  cpseval")
 
 set(BINSALAC_INSTALL_DIR "./tools/salac")
 add_subdirectory(./salac)
