@@ -2,6 +2,63 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "run runner.py (cpseval)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/dist/fizzer.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/dist/benchmarks",
+            "justMyCode": true,
+            "args": [
+                "--output_dir", "${workspaceFolder}/dist/output",
+
+                "--jsonc",
+                // "--skip_building",
+                "--skip_fuzzing",
+                // "--silent_build",
+                // "--m32",
+                // "--silent_mode",
+
+                "--max_trace_length", "10000",
+                "--max_exec_milliseconds", "250",
+                "--max_exec_megabytes", "1024",
+                "--max_bytes", "65536",
+                "--clear_output_dir",
+
+                "--input_file",
+                    "fast/_.c",
+                "--cpseval",
+                    "../../temp/test-suite"
+               ]
+        },
+        {
+            "name": "run cpseval",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "args": [
+                "--path_to_target", "__target",
+                "--path_to_sala", "__sala.json",
+                "--path_to_tests", "${workspaceFolder}/temp/test-suite",
+                "--max_trace_length", "10000",
+                "--max_exec_milliseconds", "250",
+                "--max_exec_megabytes", "1024",
+                "--max_bytes", "65536",
+                // "--silent_mode",
+            ],
+            "stopAtEntry": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "cwd": "${workspaceFolder}/dist/output",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
             "name": "run runner.py",
             "type": "debugpy",
             "request": "launch",
@@ -21,7 +78,7 @@
                 "--save_mapping",
 
                 "--max_executions", "10000",
-                "--max_seconds", "15",
+                "--max_seconds", "120",
                 "--max_trace_length", "10000",
                 "--max_exec_milliseconds", "250",
                 "--max_exec_megabytes", "1024",
@@ -34,8 +91,8 @@
                 "--clear_output_dir",
                 "--progress_recording",
                 // "--silent_mode",
-                "--render",
-                //"--testcomp", "branches",
+                // "--render",
+                "--testcomp", "branches",
 
                 "--input_file",
                     "fast/_.c"
@@ -62,11 +119,13 @@
                 "--opt_max_bytes", "134217728",
                 "--progress_recording",
                 // "--silent_mode",
-                "--render",
+                // "--render",
                 // "--test_type", "testcomp",
                 "--output_dir", "${workspaceFolder}/dist/output"
             ],
             "stopAtEntry": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
             "cwd": "${workspaceFolder}/dist/output",
             "setupCommands": [
                 {
@@ -88,13 +147,14 @@
                 "--build",
                 "--fuzz",
                 "--input",
-                    "all"
+                    // "all"
                     // "fast"
                     // "medium"
                     // "slow"
                     // "pending"
 
                     // "fast/_.c"
+                    "fast/int8_if_x_equal_c.c"
                 ],
             "cwd": "${workspaceFolder}/dist/benchmarks",
             "justMyCode": true
@@ -169,6 +229,7 @@
             ],
             "args": [
                 "--jsonc",
+                //"--entry", "__fizzer_method_under_test",
                 "--input",
                     //"_.sim.ll",
                     //"__instrumented.sim.ll",
@@ -192,6 +253,7 @@
             "args": [
                 "--input",
                     "_.raw.json",
+                    //"__instrumented.raw.json",
 
                 "--output", "."
                 ]
@@ -211,7 +273,7 @@
                 }
             ],
             "args": [
-                "--input", "safety_func_ptr_call.json", "--data", "../../benchmarks/salatd/interpret/safety_func_ptr_call.01.txt"
+                "--input", "cmdline01.json", "--data", "../../benchmarks/salatd/interpret/cmdline01.01.txt"
                 ]
         },
         {
@@ -245,7 +307,7 @@
                 }
             ],
             "args": [
-                "--input", "_.json", "--data", "../../benchmarks/salatd/inputflow/_.00.txt"
+                "--input", "cmdline01.json", "--data", "../../benchmarks/salatd/inputflow/cmdline01.00.txt"
                 ]
         },
         {
