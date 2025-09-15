@@ -92,6 +92,17 @@ void run(int argc, char* argv[])
         return;
     }
 
+    std::filesystem::path output_dir = std::filesystem::absolute(get_program_options()->value("output_dir"));
+    {
+        std::error_code  ec;
+        std::filesystem::create_directories(output_dir, ec);
+        if (ec)
+        {
+            std::cerr << "ERROR: Failed to create/access the output directory:\n        " << output_dir << "\n";
+            return;
+        }
+    }
+
     com::mut_type  mut_type;
     {
         std::string const mut_name{ sala_program_ptr->functions().at(sala_program_ptr->entry_function()).name() };
@@ -281,8 +292,17 @@ void run(int argc, char* argv[])
         }
     }
 
-    std::cout << "\"cpseval_results\": [\n";
-    bool  is_first{ true };
+    std::string const  output_file_name = std::string{""}
+        + (lsa_config.build_local_space     ? "1-"  : "0-")
+        + (lsa_config.build_constraints     ? "1-"  : "0-")
+        + (lsa_config.use_gradient_descent  ? "1-"  : "0-")
+        + (lsa_config.use_bit_flips         ? "1-"  : "0-")
+        + (lsa_config.use_random_fuzzing    ? "1__" : "0__")
+        + get_program_options()->value("source_file_name")
+        + ".txt"
+        ;
+    std::filesystem::path const  test_file_path = output_dir / output_file_name;
+    std::ofstream  ostr(test_file_path.c_str(), std::ios::binary);
     std::unordered_set<std::pair<fuzzing::branching_node*, bool> >  processed_nodes{};
     for (auto const&  leaf_and_data : leaf_branchings)
     {
@@ -294,15 +314,14 @@ void run(int argc, char* argv[])
                     && !node->get_sensitive_stdin_bits().empty()
                     && !processed_nodes.contains({ node, direction }))
             {
-                if (is_first) is_first = false; else std::cout << ",\n";
-                std::cout << "{ ";
+                ostr << "{ ";
 
-                std::cout << "\"ID\": " << node->guid()
-                          << ", \"Loc\": " << node->get_location_id()
-                          << ", \"Idx\": " << node->get_trace_index()
-                          << ", \"dir\": " << direction
-                          ;
-                std::cout.flush();
+                ostr << "\"ID\": " << node->guid()
+                     << ", \"Loc\": " << node->get_location_id()
+                     << ", \"Idx\": " << node->get_trace_index()
+                     << ", \"dir\": " << direction
+                     ;
+                ostr.flush();
 
                 processed_nodes.insert({ node, direction });
 
@@ -341,21 +360,18 @@ void run(int argc, char* argv[])
 
                 node->set_successor(direction, saved_succ_ptr);
 
-                std::cout << ", \"Result\": " << (analysis.get_statistics().successes == 1ULL ? 1 : 0)
-                          << ", Time: " << analysis_duration
-                          << ", ExeTime: " << executor_duration
-                          ;
+                ostr << ", \"Result\": " << (analysis.get_statistics().successes == 1ULL ? 1 : 0)
+                     << ", \"Time\": " << analysis_duration
+                     << ", \"ExeTime\": " << executor_duration
+                     ;
                 for (auto const&  key_and_value : analysis.get_statistics().solver)
-                    std::cout << ", \"" << key_and_value.first << "\": " << key_and_value.second;
+                    ostr << ", \"" << key_and_value.first << "\": " << key_and_value.second;
 
-                std::cout << " }";
-                std::cout.flush();
+                ostr << " }\n";
+                ostr.flush();
             }
         }
     }
-
-    std::cout << "\n]";
-    std::cout.flush();
 
     std::unordered_set<fuzzing::branching_node*>  all_nodes{};
     for (auto const&  leaf_and_data : leaf_branchings)

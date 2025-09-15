@@ -270,6 +270,7 @@ def cpseval(self_dir, input_file, output_dir, tests_dir, options, silent_mode):
                 ([ "--path_to_sala", sala_program ] if sala_program is not None else []) +
                 [ "--path_to_tests", tests_dir] +
                 [ "--source_file_name", benchmark_file_name(input_file) ] +
+                [ "--output_dir", output_dir] +
                 options,
             None).returncode:
         raise Exception("CPSeval has failed.")
