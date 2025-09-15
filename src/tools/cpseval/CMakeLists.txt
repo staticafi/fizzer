@@ -8,6 +8,8 @@ add_executable(${THIS_TARGET_NAME}
     "${${THIS_TARGET_NAME}_CPP}"
     )
 
+find_package(unofficial-minizip CONFIG REQUIRED)
+
 target_link_libraries(${THIS_TARGET_NAME}
     fuzzing
     com
@@ -18,6 +20,7 @@ target_link_libraries(${THIS_TARGET_NAME}
     iomodels
     com
     Threads::Threads
+    unofficial::minizip::minizip
     ${BOOST_LIST_OF_LIBRARIES_TO_LINK_WITH}
     )
 
