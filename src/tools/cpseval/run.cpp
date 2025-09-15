@@ -1,5 +1,6 @@
 #include <cpseval/program_info.hpp>
 #include <cpseval/program_options.hpp>
+#include <cpseval/load_tests.hpp>
 #include <fuzzing/target_executor.hpp>
 #include <sala/program.hpp>
 #include <sala/streaming.hpp>
@@ -32,6 +33,14 @@ void run(int argc, char* argv[])
         return;
     }
 
+    if (!std::filesystem::is_regular_file(get_program_options()->value("path_to_tests")))
+    {
+        std::cerr << "ERROR: The passed path '"
+                    << get_program_options()->value("path_to_tests")
+                    << "' to a ZIP file with a test-suite does not reference a regular file.\n";
+        return;
+    }
+
     std::shared_ptr<sala::Program> sala_program_ptr;
     {
         std::filesystem::path  sala_program_path;
@@ -45,8 +54,8 @@ void run(int argc, char* argv[])
             std::cerr << "WARNING: The path to sala program is empty.\n";
         else if (!std::filesystem::is_regular_file(sala_program_path))
         {
-            if (get_program_options()->has("path_to_sala"))
-                std::cerr << "WARNING: The passed sala program '" << sala_program_path << "' does not reference a regular file.\n";
+            std::cerr << "ERROR: The passed sala program '" << sala_program_path << "' does not reference a regular file.\n";
+            return;
         }
         else
         {
@@ -54,6 +63,18 @@ void run(int argc, char* argv[])
             std::ifstream istr(sala_program_path.c_str(), std::ios_base::binary);
             istr >> *sala_program_ptr;
         }
+    }
+    if (!std::filesystem::is_regular_file(get_program_options()->value("path_to_tests")))
+    {
+        std::cerr << "ERROR: The passed path '"
+                    << get_program_options()->value("path_to_tests")
+                    << "' to a ZIP file with a test-suite does not reference a regular file.\n";
+        return;
+    }
+    if (!get_program_options()->has("source_file_name"))
+    {
+        std::cerr << "ERROR: Name of the source file was not specified.\n";
+        return;
     }
 
     com::mut_type  mut_type;
@@ -90,6 +111,14 @@ void run(int argc, char* argv[])
                 (natural_64_bit)std::max(0ULL, std::stoull(get_program_options()->value("max_bytes")))
                 )
             };
+
+    std::vector<test_case_ptr>  tests;
+    if (!load_tests(get_program_options()->value("path_to_tests"), get_program_options()->value("source_file_name"), tests))
+    {
+        std::cerr << "ERROR: Cannot read the test-suite for program '" << get_program_options()->value("source_file_name")
+                  << "' from ZIP file '" << get_program_options()->value("path_to_tests") << "'.\n";
+        return;
+    }
 
     // TODO!
 }

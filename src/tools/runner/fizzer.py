@@ -292,6 +292,7 @@ def cpseval(self_dir, input_file, output_dir, tests_dir, options, silent_mode):
                 "--path_to_target", target ] +
                 ([ "--path_to_sala", sala_program ] if sala_program is not None else []) +
                 [ "--path_to_tests", tests_dir] +
+                [ "--source_file_name", benchmark_file_name(input_file) ] +
                 options,
             None).returncode:
         raise Exception("CPSeval has failed.")
@@ -323,8 +324,8 @@ def help(self_dir):
     print("                     The option '--test_type testcomp' is automatically.")
     print("                     passed to the fuzzer tool.")
     print("cpseval <PATH>       Runs the tool CPSeval instead of fuzzing. The PATH")
-    print("                     refers to a test-suite in Test-Comp format prepared")
-    print("                     earlier for the file passed via --input_path option.")
+    print("                     refers to a ZIP file with a test-suite in Test-Comp format")
+    print("                     prepared earlier for the file passed via --input_path option.")
     print("\nNext follows a listing of options of tools called from this script. When they are")
     print("passed to the script they will automatically be propagated to the corresponding tool.")
 
@@ -384,7 +385,7 @@ def main():
             output_dir = os.path.normpath(os.path.abspath(sys.argv[i+1]))
             os.makedirs(output_dir, exist_ok=True)
             i += 1
-        elif arg == "--cpseval" and i+1 < len(sys.argv) and not os.path.isfile(sys.argv[i+1]):
+        elif arg == "--cpseval" and i+1 < len(sys.argv) and os.path.isfile(sys.argv[i+1]):
             cpseval_path = os.path.normpath(os.path.abspath(sys.argv[i+1]))
             i += 1
         elif arg == "--clear_output_dir":

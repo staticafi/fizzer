@@ -12,7 +12,8 @@ program_options::program_options(int argc, char* argv[])
 {
     add_option("path_to_target", "Path to target executable.", "1");
     add_option("path_to_sala", "Path to sala program (semantically equivalent to the target executable).", "1");
-    add_option("path_to_tests", "Path to test-suite in Test-Comp format to be used for detection of coverage problems.", "1");
+    add_option("path_to_tests", "Path to a ZIP file with a test-suite in Test-Comp format to be used for detection of coverage problems.", "1");
+    add_option("source_file_name", "Name of the source C file without path (just name with extension).", "1");
     add_option("max_exec_milliseconds", "Max number of milliseconds for target execution during fuzzing.", "1");
         add_value("max_exec_milliseconds", std::to_string(connection::target_executor::default_max_exec_milliseconds));
     add_option("max_exec_megabytes", "Max number of mega bytes the target can allocate during execution.", "1");

@@ -28,7 +28,7 @@
                 "--input_file",
                     "fast/_.c",
                 "--cpseval",
-                    "../../temp/test-suite"
+                    "../../temp/test-suite.zip"
                ]
         },
         {
@@ -39,7 +39,8 @@
             "args": [
                 "--path_to_target", "__target",
                 "--path_to_sala", "__sala.json",
-                "--path_to_tests", "${workspaceFolder}/temp/test-suite",
+                "--path_to_tests", "${workspaceFolder}/temp/test-suite.zip",
+                "--source_file_name", "_.c",
                 "--max_trace_length", "10000",
                 "--max_exec_milliseconds", "250",
                 "--max_exec_megabytes", "1024",
