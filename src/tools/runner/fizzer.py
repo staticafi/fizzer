@@ -274,6 +274,29 @@ def fuzz(self_dir, input_file, output_dir, options, start_time, silent_mode):
         raise Exception("Fuzzing has failed.")
 
 
+def cpseval(self_dir, input_file, output_dir, tests_dir, options, silent_mode):
+    target = os.path.join(output_dir, benchmark_target_name(input_file))
+    if not os.path.isfile(target):
+        target = os.path.join(os.path.dirname(input_file), benchmark_target_name(input_file))
+        if not os.path.isfile(target):
+            raise Exception("Cannot find the fuzzing target file: " + target)
+
+    sala_program = os.path.join(output_dir, benchmark_sala_name(input_file))
+    if not os.path.isfile(sala_program):
+        sala_program = os.path.join(os.path.dirname(input_file), benchmark_sala_name(input_file))
+        if not os.path.isfile(sala_program) and silent_mode is False:
+            sala_program = None
+
+    if _execute(
+            [ os.path.join(self_dir, "tools", "@CPSEVAL_FILE@"),
+                "--path_to_target", target ] +
+                ([ "--path_to_sala", sala_program ] if sala_program is not None else []) +
+                [ "--path_to_tests", tests_dir] +
+                options,
+            None).returncode:
+        raise Exception("CPSeval has failed.")
+
+
 def help(self_dir):
     print("fizzer usage")
     print("================")
@@ -299,6 +322,9 @@ def help(self_dir):
     print("                     'properties/coverage-error-call.prp' is assumed.")
     print("                     The option '--test_type testcomp' is automatically.")
     print("                     passed to the fuzzer tool.")
+    print("cpseval <PATH>       Runs the tool CPSeval instead of fuzzing. The PATH")
+    print("                     refers to a test-suite in Test-Comp format prepared")
+    print("                     earlier for the file passed via --input_path option.")
     print("\nNext follows a listing of options of tools called from this script. When they are")
     print("passed to the script they will automatically be propagated to the corresponding tool.")
 
@@ -306,6 +332,8 @@ def help(self_dir):
     _execute([ os.path.join(self_dir, "tools", "@INSTRUMENTER_FILE@"), "--help"], None)
     print("\nThe options of the 'fuzzer' tool:")
     _execute([ os.path.join(self_dir, "tools", "@FUZZER_FILE@"), "--help"], None)
+    print("\nThe options of the 'cpseval' tool:")
+    _execute([ os.path.join(self_dir, "tools", "@CPSEVAL_FILE@"), "--help"], None)
 
     print("\n!!! WARNING !!!!")
     print("An analyzed program is currently *NOT* executed in an isolated environment. It is thus")
@@ -331,6 +359,7 @@ def main():
     testcomp = None
     use_m32 = False
     generate_jsonc = False
+    cpseval_path = None
     options = []
     options_instument = []
     i = 1
@@ -354,6 +383,9 @@ def main():
         elif arg == "--output_dir" and i+1 < len(sys.argv) and not os.path.isfile(sys.argv[i+1]):
             output_dir = os.path.normpath(os.path.abspath(sys.argv[i+1]))
             os.makedirs(output_dir, exist_ok=True)
+            i += 1
+        elif arg == "--cpseval" and i+1 < len(sys.argv) and not os.path.isfile(sys.argv[i+1]):
+            cpseval_path = os.path.normpath(os.path.abspath(sys.argv[i+1]))
             i += 1
         elif arg == "--clear_output_dir":
             clear_output_dir = True
@@ -385,6 +417,7 @@ def main():
 
     if clear_output_dir is True and os.path.isdir(output_dir):
         shutil.rmtree(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
     if copy_source_file is True:
         os.makedirs(output_dir, exist_ok=True)
         shutil.copy(input_file, output_dir)
@@ -402,6 +435,9 @@ def main():
             if testcomp is not None:
                 generate_testcomp_metadata_xml(input_file, output_dir, use_m32, testcomp)
             fuzz(self_dir, input_file, output_dir, options, start_time, silent_mode)
+            if silent_mode is False: print(",", flush=True)
+        if cpseval_path is not None:
+            cpseval(self_dir, input_file, output_dir, cpseval_path, options, silent_mode)
             if silent_mode is False: print(",", flush=True)
         if silent_mode is False: print("\"exit_code\": 0,", flush=True)
     except Exception as e:
