@@ -3,13 +3,18 @@
 #include <cpseval/load_tests.hpp>
 #include <fuzzing/target_executor.hpp>
 #include <fuzzing/branching_node.hpp>
+#include <fuzzing/input_flow_analysis.hpp>
+#include <fuzzing/local_search_analysis.hpp>
 #include <sala/program.hpp>
 #include <sala/streaming.hpp>
 #include <com/mut_type.hpp>
+#include <utility/std_pair_hash.hpp>
 #include <iostream>
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <chrono>
+#include <iostream>
 
 
 void run(int argc, char* argv[])
@@ -113,8 +118,14 @@ void run(int argc, char* argv[])
                 )
             };
 
+    struct typed_input_and_trace
+    {
+        fuzzing::typed_input_ptr  input{ nullptr };
+        fuzzing::execution_trace_ptr  trace{ nullptr };
+    };
+
     fuzzing::branching_node*  entry_branching{ nullptr };
-    std::unordered_set<fuzzing::branching_node*>  leaf_branchings{};
+    std::unordered_multimap<fuzzing::branching_node*, typed_input_and_trace>  leaf_branchings{};
     {
         std::vector<test_case_ptr>  tests;
         if (!load_tests(get_program_options()->value("path_to_tests"), get_program_options()->value("source_file_name"), tests))
@@ -133,10 +144,8 @@ void run(int argc, char* argv[])
                         };
                 fuzzing::execution_trace_ptr const  trace = results->get_trace();
                 fuzzing::branching_node*  leaf{ nullptr };
-                bool  diverged{ false };
 
                 if (entry_branching == nullptr)
-                {
                     entry_branching = new fuzzing::branching_node(
                             trace->front().id,
                             0,
@@ -148,8 +157,6 @@ void run(int argc, char* argv[])
                             trace,
                             1U
                             );
-                    diverged = true;
-                }
 
                 leaf = entry_branching;
 
@@ -205,7 +212,6 @@ void run(int argc, char* argv[])
                                 1U
                                 )
                         });
-                        diverged = true;
                     }
 
                     leaf = leaf->successor(info.direction).pointer;
@@ -221,11 +227,135 @@ void run(int argc, char* argv[])
                     leaf->successor(trace->back().direction).pointer
                 });
 
-                if (diverged)
-                    leaf_branchings.insert(leaf);
+                leaf_branchings.insert({ leaf, { current_input, trace } });
             }
         }
     }
 
-    // TODO!
+    {
+        fuzzing::input_flow_analysis  analysis{ sala_program_ptr.get(), &target_executor };
+        for (auto const&  leaf_and_data : leaf_branchings)
+        {
+            fuzzing::input_flow_analysis::computation_io_data  io_data{
+                .input_ptr = leaf_and_data.second.input,
+                .trace_ptr = leaf_and_data.second.trace,
+                .trace_size = leaf_and_data.first->get_trace_index() + 1U,
+                .sensitive_bits{}
+            };
+            analysis.run(&io_data, [](std::string&) { return false; });
+
+            fuzzing::branching_node*  node{ entry_branching };
+            std::size_t  trace_index{ 0ULL };
+            while (node != nullptr && trace_index < io_data.trace_size)
+            {
+                ASSUMPTION(node->get_trace_index() == trace_index);
+
+                auto const&  info{ io_data.trace_ptr->at(trace_index) };
+                if (node->get_location_id() != info.id)
+                    break;
+
+                if (trace_index < io_data.sensitive_bits.size())
+                    for (auto const  bit_idx : io_data.sensitive_bits.at(trace_index))
+                        node->insert_sensitive_stdin_bit(bit_idx);
+
+                node->set_sensitivity_performed(1U);
+
+                node = node->successor(info.direction).pointer;
+                ++trace_index;
+            }
+        }
+    }
+
+    std::cout << "\"cpseval_results\": [\n";
+    bool  is_first{ true };
+    std::unordered_set<std::pair<fuzzing::branching_node*, bool> >  processed_nodes{};
+    for (auto const&  leaf_and_data : leaf_branchings)
+    {
+        fuzzing::execution_trace_ptr const  trace{ leaf_and_data.second.trace };
+        for (fuzzing::branching_node* node = leaf_and_data.first; node != nullptr; node = node->get_predecessor())
+        {
+            bool const  direction{ !trace->at(node->get_trace_index()).direction };
+            if (node->successor(direction).label != fuzzing::branching_node::successor_pointer::NOT_VISITED
+                    && !processed_nodes.contains({ node, direction }))
+            {
+                if (is_first) is_first = false; else std::cout << ",\n";
+                std::cout << "{ ";
+
+                std::cout << "\"ID\": " << node->guid()
+                          << ", \"Loc\": " << node->get_location_id()
+                          << ", \"Idx\": " << node->get_trace_index()
+                          << ", \"dir\": " << direction
+                          ;
+
+                natural_32_bit  num_equalities{ 0U };
+                for (fuzzing::branching_node* n = node; n != nullptr; n = n->get_predecessor())
+                    if (trace->at(n->get_trace_index()).predicate == fuzzing::atomic_predicate::EQUAL)
+                        ++num_equalities;
+                std::cout << ", \"Eq\": " << num_equalities;
+
+                std::cout.flush();
+
+                processed_nodes.insert({ node, direction });
+
+                node->update_best_data(leaf_and_data.second.input, trace, 1U);
+                auto const  saved_succ_ptr{ node->successor(direction) };
+                node->set_successor(direction, {});
+
+                float_64_bit  analysis_duration{ 0.0 };
+                float_64_bit  executor_duration{ 0.0 };
+                std::chrono::system_clock::time_point const  analysis_start_time_point{ std::chrono::system_clock::now() };
+                fuzzing::local_search_analysis  analysis;
+                analysis.start(node, 1U);
+                while (true)
+                {
+                    vecb  bits{};
+                    fuzzing::input_types_ptr  types{ nullptr };
+                    fuzzing::input_metadata_ptr  metadata{ nullptr };
+                    if (!analysis.generate_next_input(bits, types, metadata))
+                        break;
+                    fuzzing::input_bytes  bytes;
+                    bits_to_bytes(bits, bytes);
+
+                    std::chrono::system_clock::time_point const  executor_start_time_point{ std::chrono::system_clock::now() };
+                    fuzzing::execution_results_ptr const  results{ target_executor.run(bytes, *types, *metadata) };
+                    executor_duration += std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - executor_start_time_point).count();
+
+                    fuzzing::typed_input_ptr const  current_input{
+                            std::make_shared<fuzzing::typed_input>(results->get_bytes(), results->get_types(), results->get_metadata())
+                            };
+                    fuzzing::execution_trace_ptr const  trace = results->get_trace();
+                    analysis.process_execution_results(trace, current_input);
+                }
+                INVARIANT(analysis.is_ready());
+
+                analysis_duration = std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - analysis_start_time_point).count();
+
+                node->set_successor(direction, saved_succ_ptr);
+
+                std::cout << ", \"Result\": " << (analysis.get_statistics().stop_calls_early != 0ULL ? 1 : 0)
+                          << ", Time: " << analysis_duration
+                          << ", ExeTime: " << executor_duration
+                          ;
+
+                std::cout << " }";
+                std::cout.flush();
+            }
+        }
+    }
+
+    std::cout << "\n]";
+    std::cout.flush();
+
+    std::unordered_set<fuzzing::branching_node*>  all_nodes{};
+    for (auto const&  leaf_and_data : leaf_branchings)
+        for (fuzzing::branching_node*  node = leaf_and_data.first ; node != nullptr; node = node->get_predecessor())
+            all_nodes.insert(node);
+    entry_branching = nullptr;
+    leaf_branchings.clear();
+    while (!all_nodes.empty())
+    {
+        fuzzing::branching_node*  node{ *all_nodes.begin() };
+        all_nodes.erase(all_nodes.begin());
+        delete node;
+    }
 }
