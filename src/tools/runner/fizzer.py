@@ -306,23 +306,11 @@ def help(self_dir):
     print("output_dir <PATH>    A directory under which all results will be saved.")
     print("                     If not specified, then the current directory is used.")
     print("skip_building        Skip building of the source C file.")
-    print("skip_fuzzing         Skip fuzzing of the built source C file.")
     print("silent_mode          When specified, no messages will be printed.")
     print("m32                  When specified, the source C file will be compiled for")
     print("                     32-bit machine (cpu). Otherwise, 64-bit machine is assumed.")
     print("jsonc                When specified, Sala program with comments will be")
     print("                     generated together with the standard one.")
-    print("testcomp <PATH>      When specified, then the test suite will be produced in")
-    print("                     the competition's format. See")
-    print("                     https://gitlab.com/sosy-lab/test-comp/test-format")
-    print("                     The PATH refers to competition's '.prp' file. See")
-    print("                     https://test-comp.sosy-lab.org/2025/rules.php")
-    print("                     If PATH is the string 'branches', then the property in file")
-    print("                     'properties/coverage-branches.prp' is assumed.")
-    print("                     If PATH is the string 'call', then the property in file")
-    print("                     'properties/coverage-error-call.prp' is assumed.")
-    print("                     The option '--test_type testcomp' is automatically.")
-    print("                     passed to the fuzzer tool.")
     print("cpseval <PATH>       Runs the tool CPSeval instead of fuzzing. The PATH")
     print("                     refers to a ZIP file with a test-suite in Test-Comp format")
     print("                     prepared earlier for the file passed via --input_path option.")
@@ -331,8 +319,6 @@ def help(self_dir):
 
     print("\nThe options of the LLVM 'instrumenter' tool:")
     _execute([ os.path.join(self_dir, "tools", "@INSTRUMENTER_FILE@"), "--help"], None)
-    print("\nThe options of the 'fuzzer' tool:")
-    _execute([ os.path.join(self_dir, "tools", "@FUZZER_FILE@"), "--help"], None)
     print("\nThe options of the 'cpseval' tool:")
     _execute([ os.path.join(self_dir, "tools", "@CPSEVAL_FILE@"), "--help"], None)
 
@@ -401,16 +387,6 @@ def main():
         elif arg == "--jsonc":
             generate_jsonc = True
         elif arg == "--testcomp" and i+1 < len(sys.argv):
-            if sys.argv[i+1] == 'branches':
-                testcomp = testcomp_property_coverage_branches
-            elif sys.argv[i+1] == 'call':
-                testcomp = testcomp_property_coverage_error_call
-            elif os.path.isfile(sys.argv[i+1]):
-                with open(sys.argv[i+1], "r") as f_prp:
-                    testcomp = f_prp.read().strip()
-            if testcomp is not None:
-                options.append("--test_type")
-                options.append("testcomp")
             i += 1
         else:
             options.append(arg)
