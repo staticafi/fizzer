@@ -250,10 +250,273 @@ void run(int argc, char* argv[])
         }
     }
 
+std::vector<std::pair<fuzzing::branching_node::guid_type, bool> > GUID_AND_DIR {
+#define temp_bak1X
+#ifdef temp_bak01
+    // { 10761, false },
+    // { 10761, true },
+    // { 20191, false },
+    // { 20191, true },
+    // { 96342, false },
+    // { 169513, false },
+    // { 187177, false },
+    // { 187177, true },
+    // { 417285, false },
+    // { 417285, true },
+    // { 860848, false },
+    // { 985192, false },
+    // { 985192, true },
+    // { 1241582, true },
+    // { 1349916, false },
+    // { 1349916, true },
+    // { 1486906, false },
+    // { 1486906, true },
+    // { 1836366, true },
+#endif
+#ifdef temp_bak02
+    // { 204, false },
+    // { 204, true },
+    // { 252, false },
+    // { 252, true },
+    // { 10051, false },
+    // { 10051, true },
+    // { 19886, false },
+    // { 40604, false },
+    // { 40604, true },
+    // { 50508, false },
+    // { 50508, true },
+    // { 56685, true },
+    // { 77644, false },
+    // { 83649, false },
+    // { 83649, true },
+    // { 83872, false },
+    // { 83872, true },
+    // { 89911, false },
+    // { 89911, true },
+    // { 89912, false },
+    // { 89912, true },
+    // { 101498, false },
+    // { 101498, true },
+    // { 108239, false },
+    // { 117596, false },
+    // { 117596, true },
+    // { 123946, true },
+    // { 123984, true },
+    // { 150391, false },
+    // { 150391, true },
+    // { 150445, false },
+    // { 150483, false },
+    // { 156534, false },
+    // { 156534, true },
+    // { 166171, false },
+    // { 166171, true },
+    // { 166250, false },
+    // { 166250, true },
+    // { 190598, false },
+    // { 190627, false },
+    // { 190687, false },
+    // { 206242, false },
+    // { 206242, true },
+    // { 240731, false },
+    // { 257952, false },
+    // { 257952, true },
+    // { 269871, false },
+    // { 275779, false },
+    // { 275779, true },
+    // { 276002, false },
+    // { 276044, false },
+    // { 276044, true },
+    // { 321387, false },
+    // { 321387, true },
+    // { 379364, false },
+    // { 379364, true },
+    // { 476043, false },
+    // { 476043, true },
+    // { 482307, false },
+    // { 482307, true },
+    // { 494512, true },
+    // { 494540, false },
+    // { 494609, true },
+    // { 552905, false },
+    // { 552905, true },
+    // { 552906, false },
+    // { 552906, true },
+    // { 590635, false },
+    // { 590635, true },
+    // { 639280, false },
+    // { 639280, true },
+    // { 763682, true },
+    // { 1205540, false },
+#endif
+#ifdef temp_bak03
+    // { 261, false },
+    // { 261, true },
+    // { 262, false },
+    // { 262, true },
+    // { 263, false },
+    // { 263, true },
+    // { 275, true },
+    // { 276, false },
+    // { 276, true },
+    // { 279, false },
+    // { 279, true },
+    // { 283, false },
+    // { 283, true },
+    // { 291, false },
+    // { 291, true },
+    // { 10012, false },
+    // { 10012, true },
+    // { 10015, false },
+    // { 10015, true },
+    // { 10019, false },
+    // { 10019, true },
+    // { 39568, false },
+    // { 39568, true },
+    // { 58623, false },
+    // { 58628, true },
+    // { 78059, false },
+    // { 78059, true },
+    // { 97503, false },
+    // { 97503, true },
+    // { 97504, false },
+    // { 97504, true },
+    // { 97517, false },
+    // { 107242, false },
+    // { 107242, true },
+    // { 116999, false },
+    // { 116999, true },
+    // { 241026, false },
+    // { 241026, true },
+    // { 250296, false },
+    // { 250296, true },
+    // { 394137, false },
+    // { 394137, true },
+    // { 423710, false },
+    // { 423710, true },
+    // { 423723, true },
+    // { 423727, false },
+    // { 423727, true },
+    // { 433051, false },
+    // { 433051, true },
+    // { 460968, false },
+    // { 460968, true },
+    // { 470331, true },
+#endif
+#ifdef temp_bak04
+    // { 4, false },
+    // { 4, true },
+    // { 6, false },
+    // { 6, true },
+    // { 8, false },
+    // { 8, true },
+    // { 10, false },
+    // { 10, true },
+    // { 12, false },
+    // { 12, true },
+    // { 14, false },
+    // { 14, true },
+    // { 16, false },
+    // { 16, true },
+#endif
+#ifdef temp_bak05
+    { 16, false },
+    { 16, true },
+    { 17, false },
+    { 17, true },
+    { 24, false },
+    { 24, true },
+    { 30, false },
+    { 30, true },
+    { 40, false },
+    { 40, true },
+#endif
+#ifdef temp_bak06
+    { 6, false },
+    { 6, true },
+    { 7, false },
+    { 7, true },
+    { 10, false },
+    { 10, true },
+    { 24, false },
+    { 24, true },
+#endif
+#ifdef temp_bak07
+    { 16, true },
+    { 20, false },
+    { 20, true },
+    { 42, true },
+    { 56, false },
+    { 56, true },
+    { 107, false },
+#endif
+#ifdef temp_bak08
+    { 80, false },
+    { 234, false },
+    { 309, false },
+    { 386, false },
+    { 454, false },
+#endif
+#ifdef temp_bak09
+    { 75, false },
+    { 179, false },
+    { 284, false },
+    { 1313, false },
+#endif
+#ifdef temp_bak10
+    { 15, false },
+    { 15, true },
+    { 28, false },
+    { 28, true },
+#endif
+#ifdef temp_bak11
+    { 170, true },
+    { 245, true },
+    { 334, false },
+    { 336, true },
+#endif
+#ifdef temp_bak12
+    { 19, true },
+    { 22, true },
+    { 24, true },
+#endif
+#ifdef temp_bak13
+    { 287, false },
+    { 287, true },
+#endif
+#ifdef temp_bak14
+    { 11, false },
+    { 11, true },
+#endif
+#ifdef temp_bak15
+    { 31, false },
+#endif
+#ifdef temp_bak1X
+#endif
+
+};
+std::map<std::pair<fuzzing::branching_node::guid_type, bool>, bool> TARGETS;
+{ for (auto const& item : GUID_AND_DIR) TARGETS.insert({ item, false }); }
+
     {
         fuzzing::input_flow_analysis  analysis{ sala_program_ptr.get(), &target_executor };
         for (auto const&  leaf_data : leaf_branchings)
         {
+if (!TARGETS.empty())
+{
+bool found = false;
+for (fuzzing::branching_node* node = leaf_and_data.first; node != nullptr; node = node->get_predecessor())
+{
+    auto const it{ TARGETS.find({ node->guid(), !leaf_and_data.second.trace->at(node->get_trace_index()).direction }) };
+    if (it != TARGETS.end() && it->second == false)
+    {
+        it->second = true;
+        found = true;
+        break;
+    }
+}
+if (!found)
+    continue;
+}
             fuzzing::input_flow_analysis::computation_io_data  io_data{
                 .input_ptr = leaf_data.input,
                 .trace_ptr = leaf_data.trace,
@@ -332,6 +595,8 @@ void run(int argc, char* argv[])
             for (fuzzing::branching_node* node = leaf_data.leaf; node != nullptr; node = node->get_predecessor())
             {
                 bool const  direction{ !trace->at(node->get_trace_index()).direction };
+auto const TGT_IT{ TARGETS.find({ node->guid(), direction }) };
+if (!TARGETS.empty() && TGT_IT == TARGETS.end()) continue;
                 if (node->successor(direction).label != fuzzing::branching_node::successor_pointer::NOT_VISITED
                         && !node->get_sensitive_stdin_bits().empty()
                         && !processed_nodes.contains({ node, direction }))
@@ -381,7 +646,8 @@ void run(int argc, char* argv[])
                     analysis_duration = std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - analysis_start_time_point).count();
 
                     node->set_successor(direction, saved_succ_ptr);
-
+int const RESULT = analysis.get_statistics().successes == 1ULL ? 1 : 0;
+std::cout << (RESULT == 0 ? "        " : "") << "{ \"GUID\": " << node->guid() << ", \"dir\": " << (int)direction << ", \"Result\": " << RESULT << " }\n";
                     ostr << ", \"Result\": " << (analysis.get_statistics().successes == 1ULL ? 1 : 0)
                         << ", \"Time\": " << analysis_duration
                         << ", \"ExeTime\": " << executor_duration
