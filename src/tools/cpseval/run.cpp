@@ -285,6 +285,7 @@ void run(int argc, char* argv[])
         {
             bool const  direction{ !trace->at(node->get_trace_index()).direction };
             if (node->successor(direction).label != fuzzing::branching_node::successor_pointer::NOT_VISITED
+                    && !node->get_sensitive_stdin_bits().empty()
                     && !processed_nodes.contains({ node, direction }))
             {
                 if (is_first) is_first = false; else std::cout << ",\n";
