@@ -270,11 +270,21 @@ def cpseval(self_dir, input_file, output_dir, tests_dir, options, silent_mode):
                 ([ "--path_to_sala", sala_program ] if sala_program is not None else []) +
                 [ "--path_to_tests", tests_dir] +
                 [ "--source_file_name", benchmark_file_name(input_file) ] +
-                [ "--output_dir", output_dir] +
+                [ "--output_dir", os.path.join(output_dir, "test-suite")] +
                 options,
             None).returncode:
         raise Exception("CPSeval has failed.")
 
+    # The following code is necessary for evaluation on cloud - to receive back results.
+    # Obtained data are compressed to a ZIP. We must unpack them later.
+    directory = os.path.join(output_dir, "test-suite")
+    for filename in os.listdir(os.path.join(output_dir, "test-suite")):
+        if filename.endswith(".txt"):
+            old_file = os.path.join(directory, filename)
+            new_filename = filename[:-4] + ".xml"
+            new_file = os.path.join(directory, new_filename)
+            os.rename(old_file, new_file)
+    generate_testcomp_metadata_xml(input_file, output_dir, False, testcomp_property_coverage_branches)
 
 def help(self_dir):
     print("fizzer usage")
