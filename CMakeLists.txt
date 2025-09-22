@@ -71,7 +71,7 @@ find_package(Threads REQUIRED)
 # find and add Boost
 message("Searching for Boost library ...")
 set(Boost_USE_STATIC_LIBS   ON)
-find_package(Boost REQUIRED COMPONENTS filesystem json)
+find_package(Boost REQUIRED COMPONENTS filesystem json PATHS /var/obj/qtrtik/boost/ NO_DEFAULT_PATH)
 message("Boost STATUS:
     Includes ${Boost_INCLUDE_DIRS}
     Libs ${Boost_LIBRARIES}")
@@ -79,7 +79,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 set(BOOST_LIST_OF_LIBRARIES_TO_LINK_WITH "${Boost_LIBRARIES}")
 
 set(LLVM_EXPORT_SYMBOLS_FOR_PLUGINS "yes")
-find_package(LLVM REQUIRED CONFIG)
+find_package(LLVM REQUIRED CONFIG PATHS /usr/lib/llvm-18 NO_DEFAULT_PATH)
 llvm_map_components_to_libnames(LLVM_LIST_OF_LIBRARIES_TO_LINK_WITH Core Passes)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
