@@ -5,6 +5,12 @@
 #include <utility/invariants.hpp>
 #include <utility/timeprof.hpp>
 #include <map>
+#include <iostream>
+#include <fstream>
+#include <iterator>
+
+constexpr bool use_vector_analysis = false;
+// constexpr bool use_vector_analysis = true;
 
 namespace  fuzzing {
 
@@ -165,7 +171,7 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best(natural_32
     {
         best_node = *loop_heads.begin();
         ++statistics->strategy_primary_loop_head;
-        recorder().on_strategy_turn_primary_loop_head();
+        recorder().on_strategy_turn_primary_loop_head(best_node);
         return best_node;
     }
 
@@ -175,7 +181,7 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best(natural_32
         if (!loop_heads.empty())
             return get_best(max_input_width);
         ++statistics->strategy_primary_sensitive;
-        recorder().on_strategy_turn_primary_sensitive();
+        recorder().on_strategy_turn_primary_sensitive(best_node);
         return best_node;
     }
 
@@ -184,8 +190,9 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best(natural_32
     {
         if (!loop_heads.empty())
             return get_best(max_input_width);
+
         ++statistics->strategy_primary_untouched;
-        recorder().on_strategy_turn_primary_untouched();
+        recorder().on_strategy_turn_primary_untouched(best_node);
         return best_node;
     }
 
@@ -200,7 +207,7 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best(natural_32
                 return get_best(max_input_width);
         }
         ++statistics->strategy_primary_iid_twins;
-        recorder().on_strategy_turn_primary_iid_twins();
+        recorder().on_strategy_turn_primary_iid_twins(it->second.first);
         return it->second.first;
     }
 
@@ -229,25 +236,51 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best(
         bool  operator<(branching_node_with_less_than const&  other) const
         {
             if (node->sensitivity_performed && !other.node->sensitivity_performed)
+            {
+                recorder().on_node_chosen(node, fuzzing::progress_recorder::PRIORITY_STEP_NO_SENSITIVITY_PERFORMED);
                 return true;
+            }
             if (!node->sensitivity_performed && other.node->sensitivity_performed)
                 return false;
+
             if (node->sensitive_stdin_bits.size() < other.node->sensitive_stdin_bits.size())
+            {
+                recorder().on_node_chosen(node, fuzzing::progress_recorder::PRIORITY_STEP_SENSITIVITY_BITS_SIZE);
                 return true;
+            }
             if (node->sensitive_stdin_bits.size() > other.node->sensitive_stdin_bits.size())
                 return false;
+
             if (distance_to_central_input_width_class < other.distance_to_central_input_width_class)
+            {
+                recorder().on_node_chosen(node, fuzzing::progress_recorder::PRIORITY_STEP_DISTANCE_TO_WIDTH);
                 return true;
+            }
             if (distance_to_central_input_width_class > other.distance_to_central_input_width_class)
                 return false;
+                
             if (node->get_num_stdin_bytes() < other.node->get_num_stdin_bytes())
+            {
+                recorder().on_node_chosen(node, fuzzing::progress_recorder::PRIORITY_STEP_STDIN_SIZE);
                 return true;
+            }
             if (node->get_num_stdin_bytes() > other.node->get_num_stdin_bytes())
                 return false;
+
             if (node->trace_index < other.node->trace_index)
+            {
+                recorder().on_node_chosen(node, fuzzing::progress_recorder::PRIORITY_STEP_TRACE_INDEX);
                 return true;
+            }
             if (node->trace_index > other.node->trace_index)
                 return false;
+
+            if (node->max_successors_trace_index > other.node->max_successors_trace_index)
+            {
+                recorder().on_node_chosen(node, fuzzing::progress_recorder::PRIORITY_STEP_SUCCESSOR_TRACE_INDEX);
+                return true;
+            }
+            // return false;
             return node->max_successors_trace_index > other.node->max_successors_trace_index;
         }
     private:
@@ -256,6 +289,13 @@ branching_node*  fuzzer::primary_coverage_target_branchings::get_best(
     };
 
     branching_node_with_less_than  best{ targets.begin()->first, max_input_width };
+    
+    if (targets == sensitive)
+        recorder().on_node_chosen(targets.begin()->first, fuzzing::progress_recorder::SENSITIVITY_PRIORITY_START);
+    
+    if (targets == untouched)
+        recorder().on_node_chosen(targets.begin()->first, fuzzing::progress_recorder::UNTOUCHED_PRIORITY_START);
+
     for (auto  it = std::next(targets.begin()); it != targets.end(); ++it)
     {
         branching_node_with_less_than const  current{ it->first, max_input_width };
@@ -315,6 +355,20 @@ float_32_bit  fuzzer::probability_generator_all_then_all::next()
         samples_consumed[index] = 0U;
         direction = !direction;
     }
+}
+
+
+std::string const&  fuzzer::get_analysis_name_from_state(STATE state)
+{
+    static std::unordered_map<STATE, std::string> const  map {
+        { STARTUP, "STARTUP" },
+        { SENSITIVITY, "sensitivity_analysis" },
+        { TYPED_MINIMIZATION, "typed_minimization_analysis" },
+        { MINIMIZATION, "minimization_analysis" },
+        { BITSHARE, "bitshare_analysis" },
+        { FINISHED, "FINISHED" },
+    };
+    return map.at(state);
 }
 
 
@@ -379,10 +433,11 @@ void  fuzzer::detect_loops_along_path_to_node(
         std::vector<loop_boundary_props>* const  loops
         )
 {
+    TMPROF_BLOCK();
     struct  loop_exit_props
     {
         branching_node*  exit;
-        branching_node*  successor;
+        // branching_node*  successor;
         natural_32_bit  index;
     };
 
@@ -399,7 +454,7 @@ void  fuzzer::detect_loops_along_path_to_node(
         if (it == pointers_to_branching_stack.end())
         {
             pointers_to_branching_stack.insert({ node->get_location_id(), (natural_32_bit)branching_stack.size() });
-            branching_stack.push_back({ node, succ_node, 0U });
+            branching_stack.push_back({ node,  0U });
         }
         else
         {
@@ -410,7 +465,7 @@ void  fuzzer::detect_loops_along_path_to_node(
                 if (props.index == 0U)
                 {
                     props.index = (natural_32_bit)loops->size();
-                    loops->push_back({ node, props.exit, props.successor });
+                    loops->push_back({ node, props.exit });
                 }
                 else
                     loops->at(props.index).entry = node;
@@ -452,11 +507,11 @@ void  fuzzer::compute_loop_boundaries(
             loop_boundaries.push_back(props.entry);
             stored.insert(props.entry);
         }
-        if (!stored.contains(props.successor))
-        {
-            loop_boundaries.push_back(props.successor);
-            stored.insert(props.successor);
-        }
+        // if (!stored.contains(props.successor))
+        // {
+        //     loop_boundaries.push_back(props.successor);
+        //     stored.insert(props.successor);
+        // }
     }
     std::sort(
             loop_boundaries.begin(),
@@ -579,6 +634,26 @@ void  fuzzer::compute_histogram_of_false_direction_probabilities(
     }
 }
 
+branching_node* fuzzer::select_start_node_for_monte_carlo_search_with_vector(
+    const generated_path& path,
+    std::vector< branching_node* > const& loop_boundaries,
+    branching_node* fallback_node )
+{
+    std::vector< branching_node* > sorted_loop_boundaries = loop_boundaries;
+    std::sort( sorted_loop_boundaries.begin(),
+               sorted_loop_boundaries.end(),
+               []( branching_node* left, branching_node* right ) {
+                   return left->get_location_id().id < right->get_location_id().id;
+               } );
+
+    for ( const auto& node : sorted_loop_boundaries ) {
+        if ( path.contains( node->get_location_id().id ) && !node->is_closed() ) {
+            return node;
+        }
+    }
+
+    return fallback_node;
+}
 
 branching_node*  fuzzer::select_start_node_for_monte_carlo_search(
         std::vector<branching_node*> const&  loop_boundaries,
@@ -657,20 +732,27 @@ branching_node*  fuzzer::monte_carlo_search(
         branching_node* const  start_node,
         histogram_of_false_direction_probabilities const&  histogram,
         probability_generators_for_locations const&  generators,
-        probability_generator_random_uniform&  location_miss_generator
+        probability_generator_random_uniform&  location_miss_generator,
+        generated_path&  path
         )
 {
     TMPROF_BLOCK();
 
     ASSUMPTION(start_node != nullptr && !start_node->is_closed());
-
+ 
     branching_node*  pivot = start_node;
+    branching_node* successor;
     while (true)
     {
-        branching_node* const  successor{ monte_carlo_step(pivot, histogram, generators, location_miss_generator) };
+        if ( use_vector_analysis ) {
+            successor = monte_carlo_step_with_path( pivot, histogram, generators, location_miss_generator, path );
+        } else {
+            successor = monte_carlo_step( pivot, histogram, generators, location_miss_generator );
+        }
         if (successor == nullptr)
             break;
         pivot = successor;
+        recorder().on_node_chosen(pivot, fuzzing::progress_recorder::MONTE_CARLO_STEP);
     }
 
     INVARIANT(pivot != nullptr && pivot->is_open_branching());
@@ -709,6 +791,64 @@ std::pair<branching_node*, bool>  fuzzer::monte_carlo_backward_search(
     return { pivot->predecessor, !pivot->predecessor->successor_direction(pivot) };
 }
 
+branching_node*
+fuzzing::fuzzer::monte_carlo_step_with_path( branching_node* const pivot,
+                                             histogram_of_false_direction_probabilities const& histogram,
+                                             probability_generators_for_locations const& generators,
+                                             probability_generator_random_uniform& location_miss_generator,
+                                             generated_path& path )
+{
+    INVARIANT( pivot != nullptr && !pivot->is_closed() );
+
+    branching_node* successor = nullptr;
+
+    branching_node* left = pivot->successor( false ).pointer;
+    branching_node* right = pivot->successor( true ).pointer;
+
+    bool const can_go_left = left != nullptr && !left->is_closed();
+    bool const can_go_right = right != nullptr && !right->is_closed();
+
+    bool desired_direction;
+    {
+        float_32_bit false_direction_probability;
+        {
+            auto const it = histogram.find( pivot->get_location_id().id );
+            false_direction_probability = it != histogram.end() ? it->second : 0.5f;
+        }
+        float_32_bit probability;
+        {
+            auto const it = generators.find( pivot->get_location_id().id );
+            probability = it != generators.end() ? it->second->next() : location_miss_generator.next();
+        }
+        desired_direction = probability <= false_direction_probability ? false : true;
+    }
+
+    location_id::id_type pivot_id = pivot->get_location_id().id;
+    if ( path.contains( pivot_id ) ) {
+        node_props_in_path& props = path.get_props( pivot_id );
+        if ( props.can_take_next_direction() ) {
+            desired_direction = props.get_desired_direction();
+            // std::cout << "Desired direction: " << desired_direction << ", for node id:" << pivot_id << std::endl;
+        }
+    }
+
+    bool const can_go_desired_direction = ( desired_direction == false && can_go_left ) ||
+                                          ( desired_direction == true && can_go_right );
+
+    if ( path.contains( pivot_id ) && can_go_desired_direction ) {
+        node_props_in_path& props = path.get_props( pivot_id );
+        if ( props.can_take_next_direction() ) {
+            props.go_direction( desired_direction );
+        }
+    }
+
+    if ( can_go_desired_direction )
+        successor = desired_direction == false ? left : right;
+    else if ( !pivot->is_open_branching() )
+        successor = can_go_left ? left : right;
+
+    return successor;
+}
 
 branching_node*  fuzzer::monte_carlo_step(
         branching_node* const  pivot,
@@ -776,6 +916,7 @@ fuzzer::fuzzer(termination_info const&  info)
             &statistics
             }
     , iid_pivots{}
+    , iid_dependences{}
 
     , coverage_failures_with_hope{}
 
@@ -787,9 +928,9 @@ fuzzer::fuzzer(termination_info const&  info)
 
     , max_input_width{ 0U }
 
-    , generator_for_iid_location_selection{}
-    , generator_for_iid_approach_selection{}
-    , generator_for_generator_selection{}
+    , generator_for_iid_location_selection{ 1U }
+    , generator_for_iid_approach_selection{ 1U }
+    , generator_for_generator_selection{ 1U }
 
     , statistics{}
 {}
@@ -825,35 +966,12 @@ bool  fuzzer::round_begin(TERMINATION_REASON&  termination_reason)
 {
     TMPROF_BLOCK();
 
-    if (get_performed_driver_executions() > 0U)
-    {
-        if (uncovered_branchings.empty())
-        {
-            terminate();
-            termination_reason = TERMINATION_REASON::ALL_REACHABLE_BRANCHINGS_COVERED;
-            return false;
-        }
-    }
-
-    if (num_remaining_seconds() <= 0L)
-    {
-        terminate();
-        termination_reason = TERMINATION_REASON::TIME_BUDGET_DEPLETED;
-        return false;
-    }
-
-    if (num_remaining_driver_executions() <= 0L)
-    {
-        terminate();
-        termination_reason = TERMINATION_REASON::EXECUTIONS_BUDGET_DEPLETED;
-        return false;
-    }
-
     iomodels::iomanager::instance().get_stdin()->clear();
     iomodels::iomanager::instance().get_stdout()->clear();
 
     vecb  stdin_bits;
-    generate_next_input(stdin_bits);
+    if (!generate_next_input(stdin_bits, termination_reason))
+        return false;
     if (!can_make_progress())
     {
         terminate();
@@ -870,60 +988,85 @@ bool  fuzzer::round_begin(TERMINATION_REASON&  termination_reason)
 }
 
 
-execution_record::execution_flags  fuzzer::round_end()
+std::pair<execution_record::execution_flags, std::string const&>  fuzzer::round_end()
 {
     TMPROF_BLOCK();
 
     execution_record::execution_flags const  flags = process_execution_results();
 
-    time_point_current = std::chrono::steady_clock::now();
     ++num_driver_executions;
 
-    return flags;
+    return { flags, get_analysis_name_from_state(state) };
 }
 
 
-void  fuzzer::generate_next_input(vecb&  stdin_bits)
+bool  fuzzer::generate_next_input(vecb&  stdin_bits, TERMINATION_REASON&  termination_reason)
 {
     TMPROF_BLOCK();
 
     while (true)
     {
+        if (get_performed_driver_executions() > 0U)
+        {
+            if (uncovered_branchings.empty())
+            {
+                terminate();
+                termination_reason = TERMINATION_REASON::ALL_REACHABLE_BRANCHINGS_COVERED;
+                return false;
+            }
+        }
+
+        time_point_current = std::chrono::steady_clock::now();
+        if (num_remaining_seconds() <= 0.0)
+        {
+            terminate();
+            termination_reason = TERMINATION_REASON::TIME_BUDGET_DEPLETED;
+            return false;
+        }
+
+        if (num_remaining_driver_executions() <= 0U)
+        {
+            terminate();
+            termination_reason = TERMINATION_REASON::EXECUTIONS_BUDGET_DEPLETED;
+            return false;
+        }
+
         switch (state)
         {
             case STARTUP:
                 if (get_performed_driver_executions() == 0U)
-                    return;
+                    return true;
                 break;
 
             case SENSITIVITY:
                 if (sensitivity.generate_next_input(stdin_bits))
-                    return;
+                    return true;
                 break;
 
             case TYPED_MINIMIZATION:
                 if (typed_minimization.generate_next_input(stdin_bits))
-                    return;
+                    return true;
                 break;
 
             case MINIMIZATION:
                 if (minimization.generate_next_input(stdin_bits))
-                    return;
+                    return true;
                 break;
 
             case BITSHARE:
                 if (bitshare.generate_next_input(stdin_bits))
-                    return;
+                    return true;
                 break;
 
             case FINISHED:
                 if (!apply_coverage_failures_with_hope())
-                    return;
+                    return true;
                 break;
 
             default: { UNREACHABLE(); break; }
         }
 
+        recorder().flush_node_choosing_data();
         do_cleanup();
         select_next_state();
 
@@ -932,7 +1075,6 @@ void  fuzzer::generate_next_input(vecb&  stdin_bits)
 
     UNREACHABLE();
 }
-
 
 execution_record::execution_flags  fuzzer::process_execution_results()
 {
@@ -967,7 +1109,8 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                     std::numeric_limits<branching_function_value_type>::max(),
                     std::numeric_limits<branching_function_value_type>::max(),
                     num_driver_executions,
-                    trace->front().xor_like_branching_function
+                    trace->front().xor_like_branching_function,
+                    trace->front().predicate
                     );
             construction_props.diverging_node = entry_branching;
 
@@ -981,6 +1124,10 @@ execution_record::execution_flags  fuzzer::process_execution_results()
         for (; true; ++trace_index)
         {
             branching_coverage_info const&  info = trace->at(trace_index);
+            
+            if ( use_vector_analysis ) {
+                iid_dependencies::biggest_node_id = std::max( iid_dependencies::biggest_node_id, std::size_t( info.id.id ) );
+            }
 
             INVARIANT(construction_props.leaf->id == info.id);
 
@@ -1005,6 +1152,32 @@ execution_record::execution_flags  fuzzer::process_execution_results()
 
                     construction_props.uncovered_locations.erase(info.id);
                     construction_props.covered_locations.insert(info.id);
+                }
+            }
+
+            // Here we try to remove bad float (INF, NaN) from 'info.value'.
+            // It would be better, if fuzzer and analyses could deal with bad floats, but that is complicated. 
+            if (!std::isfinite(info.value) || std::isnan(info.value))
+            {
+                branching_function_value_type&  value_ref{ const_cast<branching_function_value_type&>(info.value) };
+                switch (info.predicate)
+                {
+                    case BP_EQUAL:
+                        value_ref = info.direction ? 0.0 : std::numeric_limits<branching_function_value_type>::max();
+                        break;
+                    case BP_UNEQUAL:
+                        value_ref = info.direction ? std::numeric_limits<branching_function_value_type>::max() : 0.0;
+                        break;
+                    case BP_LESS_EQUAL:
+                    case BP_LESS:
+                        value_ref = (info.direction ? -1.0 : 1.0) * std::numeric_limits<branching_function_value_type>::max();
+                        break;
+                        break;
+                    case BP_GREATER:
+                    case BP_GREATER_EQUAL:
+                        value_ref = (info.direction ? 1.0 : -1.0) * std::numeric_limits<branching_function_value_type>::max();
+                        break;
+                    default: UNREACHABLE(); break;
                 }
             }
 
@@ -1036,9 +1209,7 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                     node->set_closed(false);
 
                 branching_coverage_info const&  succ_info = trace->at(trace_index + 1);
-                construction_props.leaf->set_successor(info.direction, {
-                    branching_node::successor_pointer::VISITED,
-                    new branching_node(
+                auto new_node = new branching_node(
                         succ_info.id,
                         trace_index + 1,
                         succ_info.num_input_bytes,
@@ -1049,8 +1220,13 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                         succ_info.value,
                         succ_info.value * succ_info.value,
                         num_driver_executions,
-                        succ_info.xor_like_branching_function
-                        )
+                        succ_info.xor_like_branching_function,
+                        succ_info.predicate
+                );
+
+                construction_props.leaf->set_successor(info.direction, {
+                    branching_node::successor_pointer::VISITED,
+                    new_node
                 });
 
                 ++statistics.nodes_created;
@@ -1071,6 +1247,9 @@ execution_record::execution_flags  fuzzer::process_execution_results()
                 ),
             construction_props.leaf->successor(trace->back().direction).pointer
         });
+
+        if ( use_vector_analysis )
+            iid_dependences.process_node( construction_props.leaf );
 
         if (construction_props.diverging_node != nullptr)
         {
@@ -1218,6 +1397,8 @@ void  fuzzer::do_cleanup()
                     update_close_flags_from(node);
                     break;
                 }
+            if ( use_vector_analysis )
+                iid_dependences.update_ignored_nodes( sensitivity );
             collect_iid_pivots_from_sensitivity_results();
             break;
         case BITSHARE:
@@ -1251,7 +1432,12 @@ void  fuzzer::do_cleanup()
 
     for (auto  it = iid_pivots.begin(); it != iid_pivots.end(); )
         if (covered_branchings.contains(it->first))
+        {
+            if ( use_vector_analysis )
+                iid_dependences.remove_node_dependence( it->first );
+
             it = iid_pivots.erase(it);
+        }
         else
             ++it;
 
@@ -1260,6 +1446,9 @@ void  fuzzer::do_cleanup()
             it = coverage_failures_with_hope.erase(it);
         else
             ++it;
+
+    if ( use_vector_analysis )
+        iid_dependences.remove_all_covered( covered_branchings );
 }
 
 
@@ -1425,6 +1614,13 @@ void  fuzzer::select_next_state()
     if (winner == nullptr && !entry_branching->is_closed())
         winner = select_iid_coverage_target();
 
+    
+    // else if (winner != nullptr && get_random_natural_32_bit_in_range(1, 10, generator_for_iid_approach_selection) == 10)
+    // {
+    //     winner = select_iid_coverage_target();
+    // }
+
+
     if (winner == nullptr)
     {
         state = FINISHED;
@@ -1451,6 +1647,7 @@ void  fuzzer::select_next_state()
                 winner = right;
             else
                 break;
+            recorder().on_node_chosen(winner, fuzzing::progress_recorder::NO_SENSITIVITY_IN_INNER_NODE);
         }
         sensitivity.start(winner, num_driver_executions);
         state = SENSITIVITY;
@@ -1477,17 +1674,34 @@ void  fuzzer::select_next_state()
 }
 
 
-branching_node*  fuzzer::select_iid_coverage_target() const
+branching_node*  fuzzer::select_iid_coverage_target()
 {
     TMPROF_BLOCK();
 
     if (iid_pivots.empty() || entry_branching->is_closed())
         return nullptr;
 
-    auto const  it_loc = std::next(
-            iid_pivots.begin(),
-            get_random_natural_32_bit_in_range(0, (natural_32_bit)iid_pivots.size() - 1, generator_for_iid_location_selection)
-            );
+    if ( use_vector_analysis ) {
+        iid_dependences.compute_dependencies();
+    }
+
+    generated_path path;
+    if ( use_vector_analysis ) {
+        path = iid_dependences.generate_probabilities();
+    }
+
+    auto it_loc = std::next(
+        iid_pivots.begin(),
+        get_random_natural_32_bit_in_range(0, (natural_32_bit)iid_pivots.size() - 1, generator_for_iid_location_selection)
+    );
+
+    if ( use_vector_analysis && path.get_iid_node_id().has_value() ) {
+        auto it_loc_new = iid_pivots.find( path.get_iid_node_id().value() );
+        if ( it_loc_new != iid_pivots.end() ) {
+            it_loc = it_loc_new;
+        }
+    }
+
     auto const  it_pivot = select_best_iid_pivot(
             it_loc->second.pivots,
             max_input_width,
@@ -1506,6 +1720,12 @@ branching_node*  fuzzer::select_iid_coverage_target() const
     histogram_of_hit_counts_per_direction::hit_counts_map  hit_counts;
     it_pivot->second.histogram_ptr->merge(hit_counts);
 
+    if ( use_vector_analysis ) {
+        for ( const auto& path_props : path.get_path() ) {
+            histogram[path_props.first] = path_props.second.get_false_direction_probability();
+        }
+    }
+
     probability_generators_for_locations  generators;
     auto const  random_uniform_generator = compute_probability_generators_for_locations(
             histogram,
@@ -1520,36 +1740,45 @@ branching_node*  fuzzer::select_iid_coverage_target() const
     if (false)  // original code: if (get_random_natural_32_bit_in_range(1, 100, generator_for_iid_approach_selection) <= 50)
                 // Currently diabled, because it performs worse for some yet unknown reason.
     {
-        auto const  node_and_direction = monte_carlo_backward_search(
-                it_pivot->first,
-                entry_branching,
-                histogram,
-                generators,
-                *random_uniform_generator
-                );
-        branching_node* const  successor = node_and_direction.first->successor(node_and_direction.second).pointer;
-        if (successor != nullptr)
-            winner = monte_carlo_search(successor, histogram, generators, *random_uniform_generator);
-        else if (!node_and_direction.first->is_open_branching())
-            winner = monte_carlo_search(node_and_direction.first, histogram, generators, *random_uniform_generator);
-        else
-            winner = node_and_direction.first;
+        // auto const  node_and_direction = monte_carlo_backward_search(
+        //         it_pivot->first,
+        //         entry_branching,
+        //         histogram,
+        //         generators,
+        //         *random_uniform_generator
+        //         );
+        // branching_node* const  successor = node_and_direction.first->successor(node_and_direction.second).pointer;
+        // if (successor != nullptr)
+        //     winner = monte_carlo_search(successor, histogram, generators, *random_uniform_generator);
+        // else if (!node_and_direction.first->is_open_branching())
+        //     winner = monte_carlo_search(node_and_direction.first, histogram, generators, *random_uniform_generator);
+        // else
+        //     winner = node_and_direction.first;
 
-        recorder().on_strategy_turn_monte_carlo_backward();
+        // recorder().on_strategy_turn_monte_carlo_backward(winner);
     }
     else
     {
-        branching_node* const  start_node = select_start_node_for_monte_carlo_search(
+        branching_node* start_node = select_start_node_for_monte_carlo_search(
                 it_pivot->second.loop_boundaries,
                 it_pivot->second.generator_for_start_node_selection,
                 0.75f,
                 entry_branching
                 );
 
-        winner = monte_carlo_search(start_node, histogram, generators, *random_uniform_generator);
+        if ( use_vector_analysis && !path.get_path().empty() ) {
+            start_node = select_start_node_for_monte_carlo_search_with_vector(
+                path,
+                it_pivot->second.loop_boundaries,
+                entry_branching
+            );
+        } 
+
+        recorder().on_node_chosen(start_node, fuzzing::progress_recorder::START_MONTE_CARLO);
+        winner = monte_carlo_search(start_node, histogram, generators, *random_uniform_generator, path);
 
         ++statistics.strategy_monte_carlo;
-        recorder().on_strategy_turn_monte_carlo();
+        recorder().on_strategy_turn_monte_carlo(winner);
     }
     
     INVARIANT(winner != nullptr);

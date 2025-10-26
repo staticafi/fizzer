@@ -81,6 +81,7 @@ struct  branching_node
 
     location_id const&  get_location_id() const { return id; }
     trace_index_type  get_trace_index() const { return trace_index; }
+    trace_index_type get_depth() const { return get_trace_index(); }
     natural_32_bit  get_num_stdin_bytes() const { return num_stdin_bytes; }
     natural_32_bit  get_num_stdin_bits() const { return 8U * num_stdin_bytes; }
 

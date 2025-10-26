@@ -4,6 +4,7 @@
 #   include <fuzzing/termination_info.hpp>
 #   include <fuzzing/sensitivity_analysis.hpp>
 #   include <fuzzing/typed_minimization_analysis.hpp>
+#   include <fuzzing/iid_vector_analysis.hpp>
 #   include <fuzzing/minimization_analysis.hpp>
 #   include <fuzzing/bitshare_analysis.hpp>
 #   include <fuzzing/execution_record.hpp>
@@ -17,6 +18,8 @@
 #   include <chrono>
 #   include <memory>
 #   include <limits>
+#   include <set>
+#   include <map>
 
 namespace  fuzzing {
 
@@ -62,11 +65,11 @@ struct  fuzzer final
 
     termination_info const& get_termination_info() const { return termination_props; }
 
-    long  num_remaining_driver_executions() const { return (long)termination_props.max_executions - (long)num_driver_executions; }
-    long  num_remaining_seconds() const { return (long)termination_props.max_seconds - get_elapsed_seconds(); }
+    natural_32_bit  num_remaining_driver_executions() const { return termination_props.max_executions - get_performed_driver_executions(); }
+    float_64_bit  num_remaining_seconds() const { return (float_64_bit)termination_props.max_seconds - get_elapsed_seconds(); }
 
     natural_32_bit  get_performed_driver_executions() const { return num_driver_executions; }
-    long  get_elapsed_seconds() const { return (long)std::chrono::duration_cast<std::chrono::seconds>(time_point_current - time_point_start).count(); }
+    float_64_bit  get_elapsed_seconds() const { return std::chrono::duration<float_64_bit>(time_point_current - time_point_start).count(); }
 
     std::unordered_set<location_id> const&  get_covered_branchings() const { return covered_branchings; }
     std::unordered_set<branching_location_and_direction> const&  get_uncovered_branchings() const { return uncovered_branchings; }
@@ -74,13 +77,14 @@ struct  fuzzer final
     bool  can_make_progress() const { return state != FINISHED; }
 
     bool  round_begin(TERMINATION_REASON&  termination_reason);
-    execution_record::execution_flags  round_end();
+    std::pair<execution_record::execution_flags, std::string const&>  round_end();
 
     sensitivity_analysis::performance_statistics const&  get_sensitivity_statistics() const { return sensitivity.get_statistics(); }
     typed_minimization_analysis::performance_statistics const&  get_typed_minimization_statistics() const { return typed_minimization.get_statistics(); }
     minimization_analysis::performance_statistics const&  get_minimization_statistics() const { return minimization.get_statistics(); }
     bitshare_analysis::performance_statistics const&  get_bitshare_statistics() const { return bitshare.get_statistics(); }
     performance_statistics const&  get_fuzzer_statistics() const { return statistics; }
+    iid_vector_analysis_statistics get_iid_vector_analysis_statistics() const { return iid_dependences.get_stats(); }
 
 private:
 
@@ -125,6 +129,7 @@ private:
         branching_node*  get_best(std::unordered_map<branching_node*, bool>&  targets, natural_32_bit  max_input_width);
 
         std::unordered_set<branching_node*>  loop_heads;        // Priority #1 (the highest)
+        // bool means whether the loop heads were collected
         std::unordered_map<branching_node*, bool>  sensitive;   // Priority #2
         std::unordered_map<branching_node*, bool>  untouched;   // Priority #3
         std::unordered_map<location_id, std::pair<branching_node*, bool> >  iid_twins;   // Priority #4
@@ -193,13 +198,15 @@ private:
     using  histogram_of_false_direction_probabilities = std::unordered_map<location_id::id_type, float_32_bit>;
     using  probability_generators_for_locations = std::unordered_map<location_id::id_type, std::shared_ptr<probability_generator> >;
 
+public:
     struct  loop_boundary_props
     {
         branching_node*  entry;
         branching_node*  exit;
-        branching_node*  successor;
+        // branching_node*  successor;
     };
-
+    
+private:
     struct  iid_pivot_props
     {
         std::vector<branching_node*>  loop_boundaries;
@@ -216,18 +223,21 @@ private:
         mutable random_generator_for_natural_32_bit  generator_for_pivot_selection;
     };
 
+    static std::string const&  get_analysis_name_from_state(STATE state);
+
     static void  update_close_flags_from(branching_node*  node);
 
     static std::vector<natural_32_bit> const&  get_input_width_classes();
     static std::unordered_set<natural_32_bit> const&  get_input_width_classes_set();
     static natural_32_bit  get_input_width_class(natural_32_bit  num_input_bytes);
     static natural_32_bit  get_input_width_class_index(natural_32_bit  num_input_bytes);
-
+public:
     static void  detect_loops_along_path_to_node(
             branching_node* const  end_node,
             std::unordered_map<location_id, std::unordered_set<location_id> >&  loop_heads_to_bodies,
             std::vector<loop_boundary_props>*  loops
             );
+private:
     static void  compute_loop_boundaries(
             std::vector<loop_boundary_props> const&  loops,
             std::vector<branching_node*>&  loop_boundaries
@@ -247,6 +257,11 @@ private:
             histogram_of_false_direction_probabilities&  histogram
             );
 
+    static branching_node*  select_start_node_for_monte_carlo_search_with_vector(
+            generated_path const&  path,
+            std::vector<branching_node*> const&  loop_boundaries,
+            branching_node*  fallback_node
+            );
     static branching_node*  select_start_node_for_monte_carlo_search(
             std::vector<branching_node*> const&  loop_boundaries,
             random_generator_for_natural_32_bit&  random_generator,
@@ -267,7 +282,8 @@ private:
             branching_node*  root,
             histogram_of_false_direction_probabilities const&  histogram,
             probability_generators_for_locations const&  generators,
-            probability_generator_random_uniform&  location_miss_generator
+            probability_generator_random_uniform&  location_miss_generator,
+            generated_path&  path
             );
     static std::pair<branching_node*, bool>  monte_carlo_backward_search(
             branching_node* const  start_node,
@@ -282,14 +298,21 @@ private:
             probability_generators_for_locations const&  generators,
             probability_generator_random_uniform&  location_miss_generator
             );
+    static branching_node*  monte_carlo_step_with_path(
+            branching_node* const  pivot,
+            histogram_of_false_direction_probabilities const&  histogram,
+            probability_generators_for_locations const&  generators,
+            probability_generator_random_uniform&  location_miss_generator,
+            generated_path&  path
+            );
 
-    void  generate_next_input(vecb&  stdin_bits);
+    bool  generate_next_input(vecb&  stdin_bits, TERMINATION_REASON&  termination_reason);
     execution_record::execution_flags  process_execution_results();
 
     void  do_cleanup();
     void  collect_iid_pivots_from_sensitivity_results();
     void  select_next_state();
-    branching_node*  select_iid_coverage_target() const;
+    branching_node*  select_iid_coverage_target();
 
     void  remove_leaf_branching_node(branching_node*  node);
     bool  apply_coverage_failures_with_hope();
@@ -309,6 +332,7 @@ private:
 
     primary_coverage_target_branchings  primary_coverage_targets;
     std::unordered_map<location_id, iid_location_props>  iid_pivots;
+    iid_dependencies  iid_dependences;
 
     std::unordered_set<branching_node*>  coverage_failures_with_hope;
 
