@@ -19,7 +19,6 @@ driver::driver()
     , m_trace_length{ 0U }
     , m_max_trace_length{}
     , m_max_exec_megabytes{}
-    , m_mut{}
     , m_io_cmdline{ nullptr }
     , m_io_simple{ nullptr }
 {
@@ -30,7 +29,6 @@ driver::driver()
 
     if (!m_shared_memory.can_deliver_bytes(sizeof(m_max_trace_length) + sizeof(m_max_exec_megabytes) + 1UL)) { set_invalid(); return; }
     m_shared_memory >> m_max_trace_length >> m_max_exec_megabytes;
-    m_shared_memory >> uchr; m_mut = com::from_mut_id(uchr);
 
     m_io_cmdline = iomodels::cmdline::create(m_shared_memory);
     if (m_io_cmdline == nullptr) { set_invalid(); return; }

@@ -46,13 +46,11 @@ target_executor::target_executor(
         natural_16_bit const  max_exec_milliseconds,
         natural_16_bit const  max_exec_megabytes,
         natural_32_bit const  max_trace_length,
-        com::mut_type const  mut,
         iomodels::cmdline_ptr  io_cmdline,
         iomodels::simple_ptr  io_simple
         )
     : m_max_exec_megabytes{ max_exec_megabytes }
     , m_max_trace_length{ max_trace_length }
-    , m_mut{ mut }
     , m_io_cmdline{ io_cmdline.release() }
     , m_io_simple{ io_simple.release() }
     , m_executor{ path_to_target, max_exec_milliseconds }
@@ -100,7 +98,7 @@ execution_results_ptr  target_executor::run(input_bytes const&  bytes, com::inpu
     // Writing data to medium for the target.
 
     if (!get_medium().can_accept_bytes(sizeof(m_max_trace_length) + sizeof(m_max_exec_megabytes) + 1UL)) return error_result();
-    get_medium() << m_max_trace_length << m_max_exec_megabytes << com::to_mut_id(m_mut);
+    get_medium() << m_max_trace_length << m_max_exec_megabytes;
 
     if (!m_io_cmdline->save_construction_data(get_medium())) return error_result();
     if (!m_io_simple->save_construction_data(get_medium())) return error_result();
