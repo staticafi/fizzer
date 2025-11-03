@@ -18,19 +18,17 @@ def quote(path : str) -> str:
 
 
 class Benchmark:
-    def __init__(self, pathname : str, runner_script : str, verbose : bool) -> None:
+    def __init__(self, pathname : str, output_dir : str, runner_script : str, verbose : bool) -> None:
         self.runner_script = runner_script
         self.verbose = verbose
 
         self.python_binary = sys.executable
 
-        self.work_dir = os.path.dirname(pathname).replace("\\", "/")
+        self.src_file = pathname
         self.fname = os.path.basename(pathname)
         self.name = os.path.splitext(self.fname)[0]
-
-        self.src_file = os.path.join(self.work_dir, self.fname)
-
-        self.config_file = os.path.join(self.work_dir, self.name + ".json")
+        self.output_dir = output_dir
+        self.config_file = os.path.splitext(self.src_file)[0] + ".json"
         with open(self.config_file, "rb") as fp:
             self.config = json.load(fp)
         ASSUMPTION(all(x in self.config for x in ["args", "results"]), "Cannot find 'args' or 'results' in the benchmark's JSON file.")
@@ -46,12 +44,7 @@ class Benchmark:
             "opt_max_bytes"
             ]), "Benchmark's JSON file does not contain all required options for running the tool.")
 
-        self.fuzz_target_file = os.path.join(self.work_dir, self.name + "_target")
-        self.aux_files = [
-            os.path.join(self.work_dir, self.name + ".ll"),
-            os.path.join(self.work_dir, self.name + "_instrumented.ll"),
-            os.path.join(self.work_dir, self.name + "_dbg_cond_map.json")
-        ]
+        self.fuzz_target_file = os.path.join(self.output_dir, "source_target")
 
         self.dir_stack = []
 
@@ -81,9 +74,6 @@ class Benchmark:
         if os.path.exists(pathname):
             self.log("rmtree " + pathname)
             shutil.rmtree(pathname)
-
-    def _compute_output_dir(self, benchmarks_root_dir : str, output_root_dir : str):
-        return os.path.splitext(os.path.join(output_root_dir, os.path.relpath(self.src_file, benchmarks_root_dir)))[0]
 
     def _execute(self, cmdline : str, output_dir : str) -> None:
         self.pushd(output_dir)
@@ -163,14 +153,13 @@ class Benchmark:
             Benchmark._add_error_message("Unexpected JSON content [type: " + str(type(expected)) + "].", errors, properties)
             return False
 
-    def build(self, benchmarks_root_dir : str, output_root_dir : str) -> None:
+    def build(self) -> None:
         self.log("===")
-        self.log("=== Building: " + self.src_file, "building: " + os.path.relpath(self.src_file, os.path.dirname(self.work_dir)) + " ... ")
+        self.log("=== Building: " + self.src_file, "building: " + os.path.relpath(self.src_file, os.path.dirname(__file__)) + " ... ")
         self.log("===")
 
-        output_dir = self._compute_output_dir(benchmarks_root_dir, output_root_dir)
-        self.log("makedirs " + output_dir)
-        os.makedirs(output_dir, exist_ok=True)
+        self.log("makedirs " + self.output_dir)
+        os.makedirs(self.output_dir, exist_ok=True)
 
         self._execute_and_check_output(
             [
@@ -178,35 +167,33 @@ class Benchmark:
                 self.runner_script,
                 "--skip_fuzzing",
                 "--input_file", self.src_file,
-                "--output_dir",  self.work_dir,
+                "--output_dir",  self.output_dir,
                 "--silent_mode",
                 "--save_mapping"
             ] + (["--m32"] if "m32" in self.config["args"] and self.config["args"]["m32"] is True else []),
             self.fuzz_target_file,
-            output_dir
+            self.output_dir
             )
 
         self.log("Done", "Done\n")
 
-    def fuzz(self, benchmarks_root_dir : str, output_root_dir : str) -> bool:
+    def fuzz(self) -> bool:
         self.log("===")
-        self.log("=== Fuzzing: " + self.src_file, "fuzzing: " + os.path.relpath(self.src_file, os.path.dirname(self.work_dir)) + " ... ")
+        self.log("=== Fuzzing: " + self.src_file, "fuzzing: " + os.path.relpath(self.src_file, os.path.dirname(__file__)) + " ... ")
         self.log("===")
-        if self.work_dir.endswith("pending"):
-            self.log("The outcomes are as IGNORED => the test has PASSED.", "ignored\n")
+        if "/pending/" in self.output_dir:
+            self.log("The outcomes are IGNORED => the test has PASSED.", "ignored\n")
             return True
 
-        output_dir = self._compute_output_dir(benchmarks_root_dir, output_root_dir)
-
-        self.log("makedirs " + output_dir)
-        os.makedirs(output_dir, exist_ok=True)
+        self.log("makedirs " + self.output_dir)
+        os.makedirs(self.output_dir, exist_ok=True)
         self._execute(
             [
                 self.python_binary,
                 self.runner_script,
                 "--skip_building",
-                "--input_file", self.src_file,
-                "--output_dir", output_dir,
+                "--input_file", os.path.join(self.output_dir, "source.c"),
+                "--output_dir", self.output_dir,
                 "--max_executions", str(self.config["args"]["max_executions"]),
                 "--max_seconds", str(self.config["args"]["max_seconds"]),
                 "--max_trace_length", str(self.config["args"]["max_trace_length"]),
@@ -219,12 +206,12 @@ class Benchmark:
                 "--test_type", "native",
                 ("--silent_mode" if self.verbose is False else "")
             ],
-            output_dir
+            self.output_dir
             )
 
         errors = []
         try:
-            outcomes_pathname = os.path.join(output_dir, self.name + "_outcomes.json")
+            outcomes_pathname = os.path.join(self.output_dir, "source_outcomes.json")
             with open(outcomes_pathname, "rb") as fp:
                 outcomes = json.load(fp)
             if self._check_outcomes(outcomes, self.config["results"], errors) is True:
@@ -238,14 +225,11 @@ class Benchmark:
         self.log("The outcomes are NOT as expected => the test has FAILED. Details:" + error_messages, "FAILED " + error_messages + "\n")
         return False
 
-    def clear(self, benchmarks_root_dir : str, output_root_dir : str) -> None:
+    def clear(self) -> None:
         self.log("===")
-        self.log("=== Clearing: " + self.src_file, "clearing: " + os.path.relpath(self.src_file, os.path.dirname(self.work_dir)) + " ... ")
+        self.log("=== Clearing: " + self.src_file, "clearing: " + os.path.relpath(self.src_file, os.path.dirname(__file__)) + " ... ")
         self.log("===")
-        for aux_file in self.aux_files:
-            self._erase_file_if_exists(aux_file)
-        self._erase_file_if_exists(self.fuzz_target_file)
-        self._erase_dir_if_exists(self._compute_output_dir(benchmarks_root_dir, output_root_dir))
+        self._erase_dir_if_exists(self.output_dir)
         self.log("Done", "Done\n")
 
 
@@ -254,11 +238,10 @@ class Benman:
         parser = argparse.ArgumentParser(description="Builds the target for the benchmark(s) or fuzz the benchmark(s).")
         parser.add_argument("--clear", action='store_true', help="Clears the build files and outputs of the input benchmark(s).")
         parser.add_argument("--build", action='store_true', help="Builds the input benchmark(s).")
-        fuzzing_group = parser.add_argument_group("fuzzing")
-        fuzzing_group.add_argument("--fuzz", action='store_true', help="Applies fuzzing on the input benchmark(s).")
-        fuzzing_group.add_argument("--client_mode", action='store_true', help="Runs the fuzzer on the benchmark(s) in client mode.")
+        parser.add_argument("--fuzz", action='store_true', help="Applies fuzzing on the input benchmark(s).")
         parser.add_argument("--input", help="Benchmark(s) to be processed. Possible values: "
                                            "all, fast, medium, slow, pending, fast/..., medium/..., slow/..., pending/...")
+        parser.add_argument("--output_dir", help="The root output directory.")
         parser.add_argument("--verbose", action='store_true', help="Enables the verbose mode.")
         self.args = parser.parse_args()
 
@@ -266,7 +249,8 @@ class Benman:
         self._benchmarks_dir = os.getcwd()
         self.benchmarks_dir = self._benchmarks_dir
         self.output_dir = os.path.normpath(os.path.join(self._benchmarks_dir, "..", "output", "benchmarks"))
-        self.runner_script = os.path.join(self.benchmarks_dir, "..", "fizzer.py")
+        self.self_dir = os.path.dirname(__file__)
+        self.runner_script = os.path.join(self.self_dir, "..", "fizzer.py")
         ASSUMPTION(os.path.isfile(self.runner_script), "The runner script not found. Build and install the project first.")
 
     def collect_benchmarks(self, name : str) -> list[str]:
@@ -299,19 +283,21 @@ class Benman:
             benchmarks.append(complete_and_check_benchmark_path(name))
         return sorted(benchmarks)
 
-    def build(self, name : str) -> bool:
-        for pathname in self.collect_benchmarks(name):
-            benchmark = Benchmark(pathname, self.runner_script, self.args.verbose)
-            benchmark.build(self.benchmarks_dir, self.output_dir)
+    def compute_benchmark_output_dir(self, pathname: str):
+        return os.path.splitext(os.path.join(self.output_dir, os.path.relpath(pathname, self.self_dir)))[0]
+
+    def build(self) -> bool:
+        for pathname in self.collect_benchmarks(self.args.input):
+            benchmark = Benchmark(pathname, self.compute_benchmark_output_dir(pathname), self.runner_script, self.args.verbose)
+            benchmark.build()
         return True
 
-    def fuzz(self, name : str, client_mode : bool) -> bool:
+    def fuzz(self) -> bool:
         num_failures = 0
-        benchmark_paths = self.collect_benchmarks(name)
+        benchmark_paths = self.collect_benchmarks(self.args.input)
         for pathname in benchmark_paths:
-            client_binary = self.client_binary if client_mode else None
-            benchmark = Benchmark(pathname, self.runner_script, self.args.verbose)
-            if not benchmark.fuzz(self.benchmarks_dir, self.output_dir):
+            benchmark = Benchmark(pathname, self.compute_benchmark_output_dir(pathname), self.runner_script, self.args.verbose)
+            if not benchmark.fuzz():
                 num_failures += 1
         if num_failures > 0:
             print("FAILURE[" + str(num_failures) + "/" + str(len(benchmark_paths)) + "]")
@@ -320,21 +306,21 @@ class Benman:
             print("SUCCESS")
             return True
 
-    def clear(self, name : str) -> None:
-        for pathname in self.collect_benchmarks(name):
-            benchmark = Benchmark(pathname, self.runner_script, self.args.verbose)
-            benchmark.clear(self.benchmarks_dir, self.output_dir)
+    def clear(self) -> None:
+        for pathname in self.collect_benchmarks(self.args.input):
+            benchmark = Benchmark(pathname, self.compute_benchmark_output_dir(pathname), self.runner_script, self.args.verbose)
+            benchmark.clear()
         return True
 
     def run(self) -> bool:
         if self.args.clear:
-            if self.clear(self.args.input) is False:
+            if self.clear() is False:
                 return False
         if self.args.build:
-            if self.build(self.args.input) is False:
+            if self.build() is False:
                 return False
         if self.args.fuzz:
-            if self.fuzz(self.args.input, self.args.client_mode) is False:
+            if self.fuzz() is False:
                 return False
         return True
 
