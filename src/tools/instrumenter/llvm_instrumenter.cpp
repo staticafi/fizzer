@@ -16,25 +16,6 @@
 using namespace llvm;
 
 
-namespace SpecialFunction
-{
-    static std::string const  main{ "main"};
-    static std::string const  entry_function{ "__fizzer_private_entry_function" };
-    static std::string const  entry_function_with_params{ "__fizzer_private_entry_function_with_params" };
-    static std::string const  entry_function_int{ "__fizzer_private_int_entry_function" };
-    static std::string const  entry_function_void{ "__fizzer_private_void_entry_function" };
-    static std::string const  entry_function_int_with_params{ "__fizzer_private_int_entry_function_with_params" };
-    static std::string const  entry_function_void_with_params{ "__fizzer_private_void_entry_function_with_params" };
-    static std::string const  method_under_test_int{ "__fizzer_private_int_method_under_test" };
-    static std::string const  method_under_test_void{ "__fizzer_private_void_method_under_test" };
-    static std::string const  method_under_test_int_with_params{ "__fizzer_private_int_method_under_test_with_params" };
-    static std::string const  method_under_test_void_with_params{ "__fizzer_private_void_method_under_test_with_params" };
-    static std::string const  cmdline_read_argc{ "__fizzer_private_io_model_cmdline_read_argc" };
-    static std::string const  cmdline_read_char{ "__fizzer_private_io_model_cmdline_read_char" };
-    static std::string const  cmdline_read_data{ "__fizzer_private_io_model_cmdline_read_data" };
-};
-
-
 bool llvm_instrumenter::doInitialization(Module *M) {
     TMPROF_BLOCK();
 
@@ -64,6 +45,19 @@ bool llvm_instrumenter::doInitialization(Module *M) {
     callSiteCounter = 0;
 
     return true;
+}
+
+void llvm_instrumenter::renameFunctions()
+{
+    TMPROF_BLOCK();
+
+    std::string const  renamePrefix{ "__fizzer_rename_prefix__" };
+    for (auto it = module->begin(); it != module->end(); ++it)
+    {
+        Function&  fn = *it;
+        if (!fn.isDeclaration() && !fn.getName().str().starts_with("__fizzer_"))
+            fn.setName(renamePrefix + fn.getName());
+    }
 }
 
 void llvm_instrumenter::printErrCond(Value *cond) {

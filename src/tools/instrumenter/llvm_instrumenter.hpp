@@ -49,6 +49,8 @@ struct llvm_instrumenter {
 
     bool doInitialization(llvm::Module *M);
 
+    void renameFunctions();
+
     bool runOnFunction(llvm::Function &F);
 
     void printErrCond(llvm::Value *cond);

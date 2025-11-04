@@ -113,6 +113,7 @@ void run(int argc, char* argv[])
 
     llvm_instrumenter  instrumenter;
     instrumenter.doInitialization(M.get());
+    instrumenter.renameFunctions();
     for (auto it = M->begin(); it != M->end(); ++it)
         instrumenter.runOnFunction(*it);
 
