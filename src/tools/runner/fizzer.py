@@ -62,22 +62,6 @@ int  __fizzer_private_void_entry_function_with_params(void)
 { __FIZZER_PRIVATE_IO_MODEL_CMDLINE_PASS_DATA_TO(, __fizzer_private_void_method_under_test_with_params, return 0); }
 """
 
-testcomp_testsuite_metadata = """<?xml version='1.0' encoding='UTF-8' standalone='no'?>
-<!DOCTYPE test-metadata PUBLIC "+//IDN sosy-lab.org//DTD test-format test-metadata 1.1//EN" "https://sosy-lab.org/test-format/test-metadata-1.1.dtd">
-<test-metadata>
-  <sourcecodelang>C</sourcecodelang>
-  <producer>fizzer</producer>
-  <specification>%%SPECIFICATION%%</specification>
-  <programfile>%%PROGRAM_FILE%%</programfile>
-  <programhash>null</programhash>
-  <entryfunction>main</entryfunction>
-  <architecture>%%ARCHITECTURE%%</architecture>
-  <creationtime>%%CREATIONTIME%%</creationtime>
-</test-metadata>
-"""
-testcomp_property_coverage_branches = "COVER( init(main()), FQL(COVER EDGES(@DECISIONEDGE)) )"
-testcomp_property_coverage_error_call = "COVER( init(main()), FQL(COVER EDGES(@CALL(reach_error))) )"
-
 
 def _execute(command_and_args, timeout_ = None):
     cmd = [x for x in command_and_args if len(x) > 0]
@@ -117,7 +101,7 @@ def  benchmark_sala_name(input_file):
     return benchmark_name(input_file) + "_sala" + ".json"
 
 
-def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, testcomp, silent_mode):
+def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, only_simple_input, silent_mode):
     ll_file = os.path.join(output_dir, benchmark_ll_name(input_file))
 
     if silent_mode is False: print("\"build_times\": {", flush=True)
@@ -130,7 +114,7 @@ def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, te
         fw.write("/************************************************************************/\n")
         fw.write("/*   BELOW ARE FIZZER'S PRIVATE IMPLEMENTATION DETAILS - IGNORE THEM    */\n")
         fw.write("/************************************************************************/\n")
-        if testcomp is not None:
+        if only_simple_input is True:
             fw.write(empty_cmdline_options)
         else:
             fw.write(reading_cmdline_options)
@@ -235,21 +219,6 @@ def adjust_timeouts(options, start_time, silent_mode):
 
     if silent_mode is False: print("},", flush=True)
 
-def generate_testcomp_metadata_xml(input_file, output_dir, use_m32, property):
-    test_suite_dir = os.path.join(output_dir, "test-suite")
-    os.makedirs(test_suite_dir, exist_ok=True)
-    content = testcomp_testsuite_metadata.replace(
-        "%%SPECIFICATION%%", property
-        ).replace(
-        "%%PROGRAM_FILE%%", os.path.basename(input_file)
-        ).replace(
-        "%%ARCHITECTURE%%", "32" if use_m32 is True else "64"
-        ).replace(
-        "%%CREATIONTIME%%", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        )
-    with open(os.path.join(test_suite_dir, "metadata.xml"), "w") as f:
-        f.write(content)
-
 
 def fuzz(self_dir, input_file, output_dir, options, start_time, silent_mode):
     target = os.path.join(output_dir, benchmark_target_name(input_file))
@@ -288,17 +257,6 @@ def help(self_dir):
     print("                     32-bit machine (cpu). Otherwise, 64-bit machine is assumed.")
     print("jsonc                When specified, Sala program with comments will be")
     print("                     generated together with the standard one.")
-    print("testcomp <PATH>      When specified, then the test suite will be produced in")
-    print("                     the competition's format. See")
-    print("                     https://gitlab.com/sosy-lab/test-comp/test-format")
-    print("                     The PATH refers to competition's '.prp' file. See")
-    print("                     https://test-comp.sosy-lab.org/2025/rules.php")
-    print("                     If PATH is the string 'branches', then the property in file")
-    print("                     'properties/coverage-branches.prp' is assumed.")
-    print("                     If PATH is the string 'call', then the property in file")
-    print("                     'properties/coverage-error-call.prp' is assumed.")
-    print("                     The option '--test_type testcomp' is automatically.")
-    print("                     passed to the fuzzer tool.")
     print("\nNext follows a listing of options of tools called from this script. When they are")
     print("passed to the script they will automatically be propagated to the corresponding tool.")
 
@@ -313,10 +271,6 @@ def help(self_dir):
     print("(unless you provided the isolation, e.g. by running the analysis in a Docker container).")
 
 
-def version(self_dir):
-    _execute([ os.path.join(self_dir, "tools", "@FUZZER_FILE@"), "--version"], None)
-
-
 def main():
     start_time = time.time()
     self_dir = os.path.normpath(os.path.abspath(os.path.dirname(__file__)))
@@ -328,7 +282,6 @@ def main():
     skip_fuzzing = False
     silent_mode = False
     copy_source_file = False
-    testcomp = None
     use_m32 = False
     generate_jsonc = False
     options = []
@@ -338,9 +291,6 @@ def main():
         arg = sys.argv[i]
         if arg == "--help":
             help(self_dir)
-            return
-        if arg == "--version":
-            version(self_dir)
             return
 
         if arg == "--silent_mode":
@@ -367,18 +317,6 @@ def main():
             use_m32 = True
         elif arg == "--jsonc":
             generate_jsonc = True
-        elif arg == "--testcomp" and i+1 < len(sys.argv):
-            if sys.argv[i+1] == 'branches':
-                testcomp = testcomp_property_coverage_branches
-            elif sys.argv[i+1] == 'call':
-                testcomp = testcomp_property_coverage_error_call
-            elif os.path.isfile(sys.argv[i+1]):
-                with open(sys.argv[i+1], "r") as f_prp:
-                    testcomp = f_prp.read().strip()
-            if testcomp is not None:
-                options.append("--test_type")
-                options.append("testcomp")
-            i += 1
         else:
             options.append(arg)
         i += 1
@@ -396,11 +334,9 @@ def main():
             raise Exception("Cannot find the input file.")
         if silent_mode is False: print("### starting fizzer's pipeline ###\n{", flush=True)
         if skip_building is False:
-            build(self_dir, input_file, output_dir, options_instument, use_m32, generate_jsonc, testcomp, silent_mode)
+            build(self_dir, input_file, output_dir, options_instument, use_m32, generate_jsonc, "testcomp" in options, silent_mode)
             adjust_timeouts(options, start_time, silent_mode)
         if skip_fuzzing is False:
-            if testcomp is not None:
-                generate_testcomp_metadata_xml(input_file, output_dir, use_m32, testcomp)
             fuzz(self_dir, input_file, output_dir, options, start_time, silent_mode)
             if silent_mode is False: print(",", flush=True)
         if silent_mode is False: print("\"exit_code\": 0,", flush=True)
