@@ -32,7 +32,8 @@ search_strategy::search_strategy()
 
 branching_node*  search_strategy::choose_target(branching_node* const  root, bool const  sensitive)
 {
-    ASSUMPTION(root != nullptr && !root->is_closed() && cursors[sensitive ? 1 : 0].location != locations.end());
+    if (root == nullptr || !root->is_closed() || cursors[sensitive ? 1 : 0].location != locations.end())
+        return nullptr;
 
     // enum struct  NAVIGATOR_TYPE : natural_8_bit
     // {
