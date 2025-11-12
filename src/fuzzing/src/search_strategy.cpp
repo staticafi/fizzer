@@ -1,4 +1,5 @@
 #include <fuzzing/search_strategy.hpp>
+#include <fuzzing/progress_recorder.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <unordered_map>
@@ -8,6 +9,32 @@
 #include <algorithm>
 
 namespace  fuzzing {
+
+
+static std::string  to_string(search_strategy::METRIC_TYPE const  type)
+{
+    switch (type)
+    {
+        case search_strategy::MT_BEST_VALUE: return "BestValue";
+        case search_strategy::MT_INPUT_SIZE: return "InputSize";
+        case search_strategy::MT_HIT_COUNT: return "HitCount";
+        default: UNREACHABLE(); return "";
+    }
+}
+
+static std::string  to_string(search_strategy::FILTER_TYPE const  type)
+{
+    switch (type)
+    {
+        case search_strategy::FT_ALL: return "All";
+        case search_strategy::FT_WARM: return "Warm";
+        case search_strategy::FT_COLD: return "Cold";
+        case search_strategy::FT_INPUT_USE: return "InputUse";
+        case search_strategy::FT_INPUT_WARM: return "InputWarm";
+        case search_strategy::FT_INPUT_COLD: return "InputCold";
+        default: UNREACHABLE(); return "";
+    }
+}
 
 
 struct  metric
@@ -471,8 +498,7 @@ branching_node*  navigator::step_in_tree(branching_node* const  node, bool const
 
 search_strategy::search_strategy()
     : locations{}
-    , location{ locations.end() }
-    , uncovered{}
+    , cursor{ &locations }
     , MAX_NODES{ 50U }
 {}
 
@@ -481,86 +507,134 @@ search_strategy::~search_strategy()
 {}
 
 
-branching_node*  search_strategy::choose(branching_node* const  root)
+branching_node*  search_strategy::choose_target(branching_node* const  root, bool const  sensitive)
 {
-    if (root == nullptr)
+    if (root == nullptr || !cursor.valid())
         return nullptr;
 
-    if (!locations.empty())
+    auto start_cursor = cursor;
+    do
     {
-        if (location == locations.end())
-            location = locations.begin();
-        auto start_location = location;
-        do
+        branching_node*  target;
         {
-            location_props&  props{ location->second };
-            auto start_metric_type = props.metric_type;
-            auto start_filter_type = props.filter_type;
-            do
+            location_props&  props{ cursor.location->second };
+            auto metric_ptr{ create_metric(cursor.metric) };
+            auto filter_ptr{ create_filter(cursor.filter) };
+            std::vector<branching_node*>  output;
+            filter_ptr->apply({ props.begin(), props.end() }, *metric_ptr, output);
+            navigator  nav{ output, *metric_ptr };
+            if (nav.valid())
             {
-                auto metric_ptr{ create_metric(props.metric_type) };
-                auto filter_ptr{ create_filter(props.filter_type) };
-                std::vector<branching_node*>  output;
-                filter_ptr->apply({ props.nodes.begin(), props.nodes.end() }, *metric_ptr, output);
-                navigator  nav{ output, *metric_ptr };
-                branching_node* const  winner{
-                    nav.valid() ? nav.run(root, choose_target_value(output, nav.get_values(), props.metric_type)) :
-                    nullptr
-                };
-    
-                props.filter_type = (FILTER_TYPE)(props.filter_type + 1);
-                if (props.filter_type == NUM_FILTER_TYPES)
-                {
-                    props.filter_type = (FILTER_TYPE)0;
-                    props.metric_type = (METRIC_TYPE)(props.metric_type + 1);
-                    if (props.metric_type == NUM_METRIC_TYPES)
-                        props.metric_type = (METRIC_TYPE)0;
-                }
+                float_32_bit const  value{ choose_target_value(output, nav.get_values(), cursor.metric) };
+                target = nav.run(root, value);
 
-                if (winner != nullptr)
-                    return winner;
+                recorder().on_strategy(
+                    std::to_string(cursor.location->first) + "_" +
+                    to_string(cursor.metric) + "_" +
+                    to_string(cursor.filter) + "_" +
+                    std::to_string(sensitive)
+                );
             }
-            while (props.metric_type != start_metric_type || props.filter_type != start_filter_type);
-
-            ++location;
-            if (location == locations.end())
-                location = locations.begin();
+            else
+                target = nullptr;
         }
-        while (location != start_location);
-    }
 
-    if (!uncovered.empty())
-    {
-        branching_node* const  winner{ *uncovered.begin() };
-        uncovered.erase(uncovered.begin());
-        return winner;
+        cursor.next();
+
+        if (is_valid_target(target, sensitive))
+            return target;
+
+        recorder().on_strategy();
     }
+    while (cursor != start_cursor);
 
     return nullptr;
+}
+
+
+search_strategy::navigation_cursor::navigation_cursor(locations_map* const  locations_)
+    : location{ locations_->end() }
+    , metric{ MT_BEST_VALUE }
+    , filter{ FT_ALL }
+    , locations{ locations_ }
+{}
+
+
+void  search_strategy::navigation_cursor::next()
+{
+    ASSUMPTION(location != locations->end());
+
+    filter = (FILTER_TYPE)(filter + 1);
+    if (filter == NUM_FILTER_TYPES)
+    {
+        filter = (FILTER_TYPE)0;
+        metric = (METRIC_TYPE)(metric + 1);
+        if (metric == NUM_METRIC_TYPES)
+        {
+            metric = (METRIC_TYPE)0;
+            ++location;
+            if (location == locations->end())
+                location = locations->begin();
+        }
+    }
+}
+
+
+void  search_strategy::navigation_cursor::on_insert_location(location_id const  id)
+{
+    if (location == locations->end())
+    {
+        location = locations->begin();
+        metric = MT_BEST_VALUE;
+        filter = FT_ALL;
+    }
+}
+
+
+void  search_strategy::navigation_cursor::on_erase_location(location_id const  id)
+{
+    if (location != locations->end() && location->first == id)
+    {
+        if (locations->size() == 1ULL)
+            location = locations->end();
+        else
+        {
+            ++location;
+            if (location == locations->end())
+                location = locations->begin();
+        }
+        metric = MT_BEST_VALUE;
+        filter = FT_ALL;
+    }
+}
+
+
+bool  search_strategy::is_valid_target(branching_node* const  node, bool const  sensitive) const
+{
+    if (node == nullptr || node->is_closed() || !node->has_unexplored_direction())
+        return false;
+    if (sensitive)
+        return node->was_sensitivity_performed() && node->has_pending_analysis();
+    else 
+        return !node->was_sensitivity_performed();
 }
 
 
 void  search_strategy::on_new_uncovered_node(branching_node* const  node)
 {
     auto const  it_and_state = locations.insert({ node->get_location_id(), {} });
-    auto&  nodes{ it_and_state.first->second.nodes };
+    auto&  nodes{ it_and_state.first->second };
     nodes.push_back(node);
     while (nodes.size() > MAX_NODES)
         nodes.pop_front();
-    uncovered.insert(node);
+    cursor.on_insert_location(node->get_location_id());
 }
 
 
 void  search_strategy::on_location_covered(location_id const id)
 {
-    if (location != locations.end() && location->first == id)
-        ++location;
+    cursor.on_erase_location(id);
     locations.erase(id);
-    for (auto it = uncovered.begin(); it != uncovered.end(); )
-        if ((*it)->get_location_id() == id)
-            it = uncovered.erase(it);
-        else
-            ++it;
 }
 
 
@@ -569,10 +643,9 @@ void  search_strategy::on_erase(branching_node* const  node)
     auto const  loc_it = locations.find(node->get_location_id());
     if (loc_it != locations.end())
     {
-        auto&  nodes{ loc_it->second.nodes };
+        auto&  nodes{ loc_it->second };
         nodes.erase(std::remove(nodes.begin(), nodes.end(), node), nodes.end());
     }
-    uncovered.erase(node);
 }
 
 

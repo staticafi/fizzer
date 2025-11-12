@@ -30,25 +30,40 @@ struct search_strategy
         NUM_FILTER_TYPES
     };
 
+    using  location_props = std::deque<branching_node*>;
+    using  locations_map = std::map<location_id, location_props>;
+
     search_strategy();
     ~search_strategy();
 
-    branching_node*  choose(branching_node* const  root);
+    branching_node*  choose_target(branching_node* const  root, bool  sensitive);
+    bool  is_valid_target(branching_node*  node, bool  sensitive) const;
     void  on_new_uncovered_node(branching_node*  node);
     void  on_location_covered(location_id  id);
     void  on_erase(branching_node*  node);
 
+    locations_map const&  get_locations_map() const { return locations; }
+
 private:
-    struct  location_props
+
+    struct  navigation_cursor
     {
-        std::deque<branching_node*>  nodes{};
-        METRIC_TYPE  metric_type{ MT_BEST_VALUE};
-        FILTER_TYPE  filter_type{ FT_ALL };
+        navigation_cursor(locations_map*  locations_);
+        void  next();
+        void  on_insert_location(location_id  id);
+        void  on_erase_location(location_id  id);
+        bool  operator==(navigation_cursor const&  other) const { return  location == other.location && metric == other.metric && filter == other.filter; }
+        bool  operator!=(navigation_cursor const&  other) const { return  !(*this == other); }
+        bool  valid() const { return location != locations->end(); }
+        locations_map::iterator  location;
+        METRIC_TYPE  metric;
+        FILTER_TYPE  filter;
+    private:
+        locations_map*  locations;
     };
 
-    std::map<location_id, location_props>  locations;
-    decltype(locations)::iterator  location;
-    std::unordered_set<branching_node*>  uncovered;
+    locations_map  locations;
+    navigation_cursor  cursor;
 
     natural_16_bit  MAX_NODES;
 };
