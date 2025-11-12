@@ -1,8 +1,8 @@
-#include <fuzzing/search_strategy.hpp>
-#include <fuzzing/search_metric.hpp>
-#include <fuzzing/search_filter.hpp>
-#include <fuzzing/search_navigator_expansion.hpp>
-#include <fuzzing/search_navigator_regression.hpp>
+#include <fuzzing/strategy/search_strategy.hpp>
+#include <fuzzing/strategy/search_metric.hpp>
+#include <fuzzing/strategy/search_filter.hpp>
+#include <fuzzing/strategy/search_navigator_expansion.hpp>
+#include <fuzzing/strategy/search_navigator_regression.hpp>
 #include <fuzzing/progress_recorder.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>

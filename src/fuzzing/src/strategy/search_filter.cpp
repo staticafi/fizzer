@@ -1,5 +1,5 @@
-#include <fuzzing/search_filter.hpp>
-#include <fuzzing/search_metric.hpp>
+#include <fuzzing/strategy/search_filter.hpp>
+#include <fuzzing/strategy/search_metric.hpp>
 #include <fuzzing/branching_node.hpp>
 #include <utility/invariants.hpp>
 #include <algorithm>

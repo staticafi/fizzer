@@ -2,13 +2,13 @@
 #   define FUZZING_FUZZER_HPP_INCLUDED
 
 #   include <fuzzing/termination_info.hpp>
-#   include <fuzzing/search_strategy.hpp>
 #   include <fuzzing/input_flow_analysis.hpp>
 #   include <fuzzing/bitshare_analysis.hpp>
 #   include <fuzzing/bitflip_analysis.hpp>
 #   include <fuzzing/local_search_analysis.hpp>
 #   include <fuzzing/test_suite_item.hpp>
 #   include <fuzzing/basic_types.hpp>
+#   include <fuzzing/strategy/search_strategy.hpp>
 #   include <sala/program.hpp>
 #   include <utility/math.hpp>
 #   include <utility/std_pair_hash.hpp>
