@@ -347,16 +347,6 @@ bool  fuzzer::generate_next_input(
     TERMINATION_REASON&  termination_reason
     )
 {
-    auto const  find_backup_target = [this](bool const  sensitive) -> branching_node* {
-        recorder().on_strategy("Backup_" + std::to_string(sensitive));
-        for (auto it = strategy.get_locations_map().begin(); it != strategy.get_locations_map().end(); ++it)
-            for (auto dit = it->second.begin(); dit != it->second.end(); ++dit)
-                if (strategy.is_valid_target(*dit, sensitive))
-                    return *dit;
-        recorder().on_strategy();
-        return nullptr;
-    };
-
     while (true)
     {
         if (get_performed_driver_executions() > 0U)
@@ -424,7 +414,7 @@ bool  fuzzer::generate_next_input(
                 }
         }
 
-        if (state == BITSHARE && strategy.is_valid_target(bitshare.get_node(), true))
+        if (state == BITSHARE && search_strategy::is_valid_target(bitshare.get_node(), true))
         {
             recorder().on_strategy();
             local_search.start(bitshare.get_node(), num_driver_executions);

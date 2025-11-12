@@ -1,7 +1,8 @@
 #include <fuzzing/search_strategy.hpp>
 #include <fuzzing/search_metric.hpp>
 #include <fuzzing/search_filter.hpp>
-#include <fuzzing/search_navigator.hpp>
+#include <fuzzing/search_navigator_expansion.hpp>
+#include <fuzzing/search_navigator_regression.hpp>
 #include <fuzzing/progress_recorder.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
@@ -96,21 +97,89 @@ bool  navigation_cursor::operator==(navigation_cursor const&  other) const
 
 struct  best_target_info
 {
-    bool  is_best_already() const { return  target != nullptr && all_values_same == false; }
-    bool  can_accept(bool const  all_values_same_) const { return  target == nullptr || (all_values_same == true && all_values_same_ == false); }
-    void  accept(branching_node*  target_, navigation_cursor const&  cursor_, bool  all_values_same_);
-    branching_node*  target{ nullptr };
-    navigation_cursor  cursor{ nullptr };
-    bool  all_values_same{ true };
+    enum NAVIGATOR_TYPE
+    {
+        NONE = 0,
+        BACKUP = 1,
+        // EXPANSION = 1,
+        REGRESSION = 2,
+    };
+
+    best_target_info(branching_node* const  root, bool const  sensitive);
+
+    bool  is_best_already() const;
+    void  accept_target_from(navigation_cursor const&  cursor_);
+
+    branching_node* const  root;
+    bool const  sensitive;
+
+    navigation_cursor  cursor;
+    branching_node*  target;
+    NAVIGATOR_TYPE  type;
 };
 
 
-void  best_target_info::accept(branching_node* const  target_, navigation_cursor const&  cursor_, bool const  all_values_same_)
+best_target_info::best_target_info(branching_node* const  root_, bool const  sensitive_)
+    : root{ root_ }
+    , sensitive{ sensitive_ }
+
+    , cursor{ nullptr }
+    , target{ nullptr }
+    , type{ NONE }
+{}
+
+
+bool  best_target_info::is_best_already() const
 {
-    ASSUMPTION(target_ != nullptr && can_accept(all_values_same_));
-    target = target_;
-    cursor = cursor_;
-    all_values_same = all_values_same_;
+    return  type == REGRESSION;
+}
+
+
+void  best_target_info::accept_target_from(navigation_cursor const&  cursor_)
+{
+    if (type == REGRESSION)
+        return;
+
+    search_strategy::location_props&  props{ cursor_.location->second };
+    auto metric_ptr{ create_metric(cursor_.metric) };
+    auto filter_ptr{ create_filter(cursor_.filter) };
+
+    std::vector<branching_node*>  nodes;
+    filter_ptr->apply({ props.begin(), props.end() }, *metric_ptr, nodes);
+
+    std::vector<float_64_bit>  values;
+    for (branching_node*  node : nodes)
+        values.push_back(metric_ptr->value(node));
+
+    navigator_regression  regression{ nodes, values };
+    if (regression.valid() && (type == NONE || !regression.are_all_values_same()))
+    {
+        float_64_bit const  value{ choose_target_value(nodes, values, cursor_.metric) };
+        branching_node* const  target_{ regression.run(root, value) };
+        if (search_strategy::is_valid_target(target_, sensitive))
+        {
+            target = target_;
+            cursor = cursor_;
+            type = regression.are_all_values_same() ? BACKUP : REGRESSION;
+            return;
+        }
+    }
+
+    // if (type == EXPANSION)
+    //     return;
+
+    // navigator_expansion  expansion{ nodes };
+    // if (expansion.valid())
+    // {
+    //     branching_node* const  target_{ expansion.run() };
+    //     if (search_strategy::is_valid_target(target_, sensitive))
+    //     {
+    //         target = target_;
+    //         cursor = cursor_;
+    //         type = EXPANSION;
+    //         return;
+    //     }
+    // }
 }
 
 
@@ -129,39 +198,23 @@ search_strategy::~search_strategy()
 
 branching_node*  search_strategy::choose_target(branching_node* const  root, bool const  sensitive)
 {
-    if (root == nullptr || !cursor->valid())
-        return nullptr;
+    ASSUMPTION(root != nullptr && !root->is_closed() && cursor->valid());
 
-    best_target_info  best_target{};
+    best_target_info  best_target{ root, sensitive };
     navigation_cursor const  start_cursor{ *cursor };
     do
     {
-        location_props&  props{ cursor->location->second };
-        auto metric_ptr{ create_metric(cursor->metric) };
-        auto filter_ptr{ create_filter(cursor->filter) };
-        std::vector<branching_node*>  output;
-        filter_ptr->apply({ props.begin(), props.end() }, *metric_ptr, output);
-        std::vector<float_64_bit>  values;
-        for (branching_node*  node : output)
-            values.push_back(metric_ptr->value(node));
-        navigator  nav{ output, values };
-        if (nav.valid() && best_target.can_accept(nav.are_all_values_same()))
-        {
-            float_64_bit const  value{ choose_target_value(output, values, cursor->metric) };
-            branching_node* const  target{ nav.run(root, value) };
-            if (is_valid_target(target, sensitive))
-            {
-                best_target.accept(target, *cursor, nav.are_all_values_same());
-                if (best_target.is_best_already())
-                    break;
-            }
-        }
+        best_target.accept_target_from(*cursor);
+        if (best_target.is_best_already())
+            break;
         cursor->next();
     }
     while (*cursor != start_cursor);
 
     if (best_target.target != nullptr)
     {
+        INVARIANT(search_strategy::is_valid_target(best_target.target, sensitive));
+
         *cursor = best_target.cursor;
 
         recorder().on_strategy(
@@ -174,17 +227,6 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
     cursor->next();
 
     return best_target.target;
-}
-
-
-bool  search_strategy::is_valid_target(branching_node* const  node, bool const  sensitive) const
-{
-    if (node == nullptr || node->is_closed() || !node->has_unexplored_direction())
-        return false;
-    if (sensitive)
-        return node->was_sensitivity_performed() && node->has_pending_analysis();
-    else 
-        return !node->was_sensitivity_performed();
 }
 
 
@@ -214,6 +256,17 @@ void  search_strategy::on_erase(branching_node* const  node)
         auto&  nodes{ loc_it->second };
         nodes.erase(std::remove(nodes.begin(), nodes.end(), node), nodes.end());
     }
+}
+
+
+bool  search_strategy::is_valid_target(branching_node* const  node, bool const  sensitive)
+{
+    if (node == nullptr || node->is_closed() || !node->has_unexplored_direction())
+        return false;
+    if (sensitive)
+        return node->was_sensitivity_performed() && node->has_pending_analysis();
+    else 
+        return !node->was_sensitivity_performed();
 }
 
 

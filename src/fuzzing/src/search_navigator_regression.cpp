@@ -1,4 +1,4 @@
-#include <fuzzing/search_navigator.hpp>
+#include <fuzzing/search_navigator_regression.hpp>
 #include <fuzzing/branching_node.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
@@ -7,7 +7,7 @@
 namespace  fuzzing {
 
 
-void  navigator::extrapolation::build(std::vector<vec2> const&  input)
+void  navigator_regression::extrapolation::build(std::vector<vec2> const&  input)
 {
     float_64_bit  A = 0.0, B = 0.0, C = 0.0, D = 0.0;
     for (std::size_t  i = 0ULL; i != input.size(); ++i) {
@@ -23,7 +23,7 @@ void  navigator::extrapolation::build(std::vector<vec2> const&  input)
 }
 
 
-navigator::navigator(std::vector<branching_node*> const&  nodes, std::vector<float_64_bit> const&  values)
+navigator_regression::navigator_regression(std::vector<branching_node*> const&  nodes, std::vector<float_64_bit> const&  values)
     : sids{}
     , extrapolations{}
     , all_values_are_same{
@@ -35,6 +35,14 @@ navigator::navigator(std::vector<branching_node*> const&  nodes, std::vector<flo
             }()
         }
 {
+    // if ([&values]() {
+    //         for (auto  v : values)
+    //             if (v != values.front())
+    //                 return false;
+    //         return true;
+    //     }())
+    //     return;
+
     std::vector<std::unordered_map<integer_32_bit, std::vector<float_64_bit> > >  consumptions;
     for (branching_node*  node : nodes)
     {
@@ -161,7 +169,7 @@ navigator::navigator(std::vector<branching_node*> const&  nodes, std::vector<flo
 }
 
 
-branching_node*  navigator::run(branching_node* const  root, float_64_bit const  value)
+branching_node*  navigator_regression::run(branching_node* const  root, float_64_bit const  value)
 {
     struct visit_counts
     {
@@ -224,7 +232,7 @@ branching_node*  navigator::run(branching_node* const  root, float_64_bit const 
 }
 
 
-branching_node*  navigator::step_in_tree(branching_node* const  node, bool const  desired_direction)
+branching_node*  navigator_regression::step_in_tree(branching_node* const  node, bool const  desired_direction)
 {
     INVARIANT(node != nullptr && !node->is_closed());
 
