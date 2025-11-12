@@ -441,8 +441,15 @@ branching_node*  navigator::run(branching_node* const  root, float_32_bit const 
             id_info  info;
             for (integer_32_bit j = 0; j != 2; ++j) {
                 info.counts[j] = std::round(extra.counts[j].apply(value));
+                float_32_bit sum{ 0.0f };
                 for (integer_32_bit k = 0; k != 3; ++k)
+                {
                     info.ratios[j][k] = extra.ratios[j][k].apply(value);
+                    sum += info.ratios[j][k];
+                }
+                if (std::fabs(sum) > 1e-10f)
+                    for (int k = 0; k != 3; ++k)
+                        info.ratios[j][k] /= sum;
             }
             std::vector<visit_counts>&  cnt{ counts.insert({ (natural_32_bit)std::abs(sid), {} }).first->second };
             for (integer_32_bit k = 0; k != 3; ++k)
