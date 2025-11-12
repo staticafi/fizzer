@@ -11,27 +11,48 @@
 namespace  fuzzing {
 
 
-static std::string  to_string(search_strategy::METRIC_TYPE const  type)
+enum struct  METRIC_TYPE : std::uint32_t
+{
+    BEST_VALUE  = 0U,
+    INPUT_SIZE  = 1U,
+    HIT_COUNT   = 2U,
+    NUM_METRIC_TYPES
+};
+
+
+enum struct  FILTER_TYPE : std::uint32_t
+{
+    ALL         = 0U,
+    WARM        = 1U,
+    COLD        = 2U,
+    INPUT_USE   = 3U,
+    INPUT_WARM  = 4U,
+    INPUT_COLD  = 5U,
+    NUM_FILTER_TYPES
+};
+
+
+static std::string  to_string(METRIC_TYPE const  type)
 {
     switch (type)
     {
-        case search_strategy::MT_BEST_VALUE: return "BestValue";
-        case search_strategy::MT_INPUT_SIZE: return "InputSize";
-        case search_strategy::MT_HIT_COUNT: return "HitCount";
+        case METRIC_TYPE::BEST_VALUE: return "BestValue";
+        case METRIC_TYPE::INPUT_SIZE: return "InputSize";
+        case METRIC_TYPE::HIT_COUNT: return "HitCount";
         default: UNREACHABLE(); return "";
     }
 }
 
-static std::string  to_string(search_strategy::FILTER_TYPE const  type)
+static std::string  to_string(FILTER_TYPE const  type)
 {
     switch (type)
     {
-        case search_strategy::FT_ALL: return "All";
-        case search_strategy::FT_WARM: return "Warm";
-        case search_strategy::FT_COLD: return "Cold";
-        case search_strategy::FT_INPUT_USE: return "InputUse";
-        case search_strategy::FT_INPUT_WARM: return "InputWarm";
-        case search_strategy::FT_INPUT_COLD: return "InputCold";
+        case FILTER_TYPE::ALL: return "All";
+        case FILTER_TYPE::WARM: return "Warm";
+        case FILTER_TYPE::COLD: return "Cold";
+        case FILTER_TYPE::INPUT_USE: return "InputUse";
+        case FILTER_TYPE::INPUT_WARM: return "InputWarm";
+        case FILTER_TYPE::INPUT_COLD: return "InputCold";
         default: UNREACHABLE(); return "";
     }
 }
@@ -78,13 +99,13 @@ float_32_bit  hit_count_metric::value(branching_node const* const  node)
 }
 
 
-static std::unique_ptr<metric>  create_metric(search_strategy::METRIC_TYPE const  type)
+static std::unique_ptr<metric>  create_metric(METRIC_TYPE const  type)
 {
     switch (type)
     {
-        case search_strategy::MT_BEST_VALUE: return std::unique_ptr<metric>{ new best_value_metric };
-        case search_strategy::MT_INPUT_SIZE: return std::unique_ptr<metric>{ new input_size_metric };
-        case search_strategy::MT_HIT_COUNT: return std::unique_ptr<metric>{ new hit_count_metric };
+        case METRIC_TYPE::BEST_VALUE: return std::unique_ptr<metric>{ new best_value_metric };
+        case METRIC_TYPE::INPUT_SIZE: return std::unique_ptr<metric>{ new input_size_metric };
+        case METRIC_TYPE::HIT_COUNT: return std::unique_ptr<metric>{ new hit_count_metric };
         default: UNREACHABLE(); return nullptr;
     }
 }
@@ -177,16 +198,16 @@ int  input_use_filter::max_read_index(branching_node*  node)
 }
 
 
-static std::unique_ptr<filter>  create_filter(search_strategy::FILTER_TYPE const  type)
+static std::unique_ptr<filter>  create_filter(FILTER_TYPE const  type)
 {
     switch (type)
     {
-        case search_strategy::FT_ALL: return std::unique_ptr<filter>{ new all_filter };
-        case search_strategy::FT_WARM: return std::unique_ptr<filter>{ new signed_filter(1.0f) };
-        case search_strategy::FT_COLD: return std::unique_ptr<filter>{ new signed_filter(-1.0f) };
-        case search_strategy::FT_INPUT_USE: return std::unique_ptr<filter>{ new input_use_filter };
-        case search_strategy::FT_INPUT_WARM: return std::unique_ptr<filter>{ (new input_use_filter)->after(new signed_filter(1.0f)) };
-        case search_strategy::FT_INPUT_COLD: return std::unique_ptr<filter>{ (new input_use_filter)->after(new signed_filter(-1.0f)) };
+        case FILTER_TYPE::ALL: return std::unique_ptr<filter>{ new all_filter };
+        case FILTER_TYPE::WARM: return std::unique_ptr<filter>{ new signed_filter(1.0f) };
+        case FILTER_TYPE::COLD: return std::unique_ptr<filter>{ new signed_filter(-1.0f) };
+        case FILTER_TYPE::INPUT_USE: return std::unique_ptr<filter>{ new input_use_filter };
+        case FILTER_TYPE::INPUT_WARM: return std::unique_ptr<filter>{ (new input_use_filter)->after(new signed_filter(1.0f)) };
+        case FILTER_TYPE::INPUT_COLD: return std::unique_ptr<filter>{ (new input_use_filter)->after(new signed_filter(-1.0f)) };
         default: UNREACHABLE(); return nullptr;
     }
 }
@@ -195,13 +216,13 @@ static std::unique_ptr<filter>  create_filter(search_strategy::FILTER_TYPE const
 static float_32_bit  choose_target_value(
         std::vector<branching_node*> const&  nodes,
         std::vector<float_32_bit> const&  values,
-        search_strategy::METRIC_TYPE const  type
+        METRIC_TYPE const  type
         )
 {
     if (nodes.empty())
         return 0.0f;
 
-    if (type == search_strategy::MT_BEST_VALUE)
+    if (type == METRIC_TYPE::BEST_VALUE)
     {
         float_32_bit constexpr  non_zero{ 1000.0f };
         branching_node* const  node{ nodes.front() };
@@ -503,80 +524,41 @@ branching_node*  navigator::step_in_tree(branching_node* const  node, bool const
 }
 
 
-search_strategy::search_strategy()
-    : locations{}
-    , cursor{ &locations }
-    , MAX_NODES{ 50U }
-{}
-
-
-search_strategy::~search_strategy()
-{}
-
-
-branching_node*  search_strategy::choose_target(branching_node* const  root, bool const  sensitive)
+struct  navigation_cursor
 {
-    if (root == nullptr || !cursor.valid())
-        return nullptr;
-
-    auto start_cursor = cursor;
-    do
-    {
-        branching_node*  target;
-        {
-            location_props&  props{ cursor.location->second };
-            auto metric_ptr{ create_metric(cursor.metric) };
-            auto filter_ptr{ create_filter(cursor.filter) };
-            std::vector<branching_node*>  output;
-            filter_ptr->apply({ props.begin(), props.end() }, *metric_ptr, output);
-            navigator  nav{ output, *metric_ptr };
-            if (nav.valid())
-            {
-                float_32_bit const  value{ choose_target_value(output, nav.get_values(), cursor.metric) };
-                target = nav.run(root, value);
-
-                recorder().on_strategy(
-                    std::to_string(cursor.location->first) + "_" +
-                    to_string(cursor.metric) + "_" +
-                    to_string(cursor.filter) + "_" +
-                    std::to_string(sensitive)
-                );
-            }
-            else
-                target = nullptr;
-        }
-
-        cursor.next();
-
-        if (is_valid_target(target, sensitive))
-            return target;
-
-        recorder().on_strategy();
-    }
-    while (cursor != start_cursor);
-
-    return nullptr;
-}
+    navigation_cursor(search_strategy::locations_map*  locations_);
+    void  next();
+    void  on_insert_location(location_id  id);
+    void  on_erase_location(location_id  id);
+    bool  operator==(navigation_cursor const&  other) const { return  location == other.location && metric == other.metric && filter == other.filter; }
+    bool  operator!=(navigation_cursor const&  other) const { return  !(*this == other); }
+    bool  valid() const { return location != locations->end(); }
+    search_strategy::locations_map::iterator  location;
+    METRIC_TYPE  metric;
+    FILTER_TYPE  filter;
+private:
+    search_strategy::locations_map*  locations;
+};
 
 
-search_strategy::navigation_cursor::navigation_cursor(locations_map* const  locations_)
+navigation_cursor::navigation_cursor(search_strategy::locations_map* const  locations_)
     : location{ locations_->end() }
-    , metric{ MT_BEST_VALUE }
-    , filter{ FT_ALL }
+    , metric{ METRIC_TYPE::BEST_VALUE }
+    , filter{ FILTER_TYPE::ALL }
     , locations{ locations_ }
 {}
 
 
-void  search_strategy::navigation_cursor::next()
+void  navigation_cursor::next()
 {
     ASSUMPTION(location != locations->end());
 
-    filter = (FILTER_TYPE)(filter + 1);
-    if (filter == NUM_FILTER_TYPES)
+    filter = (FILTER_TYPE)((std::uint32_t)filter + 1);
+    if (filter == FILTER_TYPE::NUM_FILTER_TYPES)
     {
         filter = (FILTER_TYPE)0;
-        metric = (METRIC_TYPE)(metric + 1);
-        if (metric == NUM_METRIC_TYPES)
+        metric = (METRIC_TYPE)((std::uint32_t)metric + 1);
+        if (metric == METRIC_TYPE::NUM_METRIC_TYPES)
         {
             metric = (METRIC_TYPE)0;
             ++location;
@@ -587,18 +569,18 @@ void  search_strategy::navigation_cursor::next()
 }
 
 
-void  search_strategy::navigation_cursor::on_insert_location(location_id const  id)
+void  navigation_cursor::on_insert_location(location_id const  id)
 {
     if (location == locations->end())
     {
         location = locations->begin();
-        metric = MT_BEST_VALUE;
-        filter = FT_ALL;
+        metric = METRIC_TYPE::BEST_VALUE;
+        filter = FILTER_TYPE::ALL;
     }
 }
 
 
-void  search_strategy::navigation_cursor::on_erase_location(location_id const  id)
+void  navigation_cursor::on_erase_location(location_id const  id)
 {
     if (location != locations->end() && location->first == id)
     {
@@ -610,8 +592,8 @@ void  search_strategy::navigation_cursor::on_erase_location(location_id const  i
             if (location == locations->end())
                 location = locations->begin();
         }
-        metric = MT_BEST_VALUE;
-        filter = FT_ALL;
+        metric = METRIC_TYPE::BEST_VALUE;
+        filter = FILTER_TYPE::ALL;
     }
 }
 
@@ -634,13 +616,13 @@ void  search_strategy::on_new_uncovered_node(branching_node* const  node)
     nodes.push_back(node);
     while (nodes.size() > MAX_NODES)
         nodes.pop_front();
-    cursor.on_insert_location(node->get_location_id());
+    cursor->on_insert_location(node->get_location_id());
 }
 
 
 void  search_strategy::on_location_covered(location_id const id)
 {
-    cursor.on_erase_location(id);
+    cursor->on_erase_location(id);
     locations.erase(id);
 }
 
@@ -653,6 +635,64 @@ void  search_strategy::on_erase(branching_node* const  node)
         auto&  nodes{ loc_it->second };
         nodes.erase(std::remove(nodes.begin(), nodes.end(), node), nodes.end());
     }
+}
+
+
+search_strategy::search_strategy()
+    : locations{}
+    , cursor{ new navigation_cursor(&locations) }
+    , MAX_NODES{ 50U }
+{}
+
+
+search_strategy::~search_strategy()
+{
+    delete cursor;
+}
+
+
+branching_node*  search_strategy::choose_target(branching_node* const  root, bool const  sensitive)
+{
+    if (root == nullptr || !cursor->valid())
+        return nullptr;
+
+    navigation_cursor const  start_cursor{ *cursor };
+    do
+    {
+        branching_node*  target;
+        {
+            location_props&  props{ cursor->location->second };
+            auto metric_ptr{ create_metric(cursor->metric) };
+            auto filter_ptr{ create_filter(cursor->filter) };
+            std::vector<branching_node*>  output;
+            filter_ptr->apply({ props.begin(), props.end() }, *metric_ptr, output);
+            navigator  nav{ output, *metric_ptr };
+            if (nav.valid())
+            {
+                float_32_bit const  value{ choose_target_value(output, nav.get_values(), cursor->metric) };
+                target = nav.run(root, value);
+
+                recorder().on_strategy(
+                    std::to_string(cursor->location->first) + "_" +
+                    to_string(cursor->metric) + "_" +
+                    to_string(cursor->filter) + "_" +
+                    std::to_string(sensitive)
+                );
+            }
+            else
+                target = nullptr;
+        }
+
+        cursor->next();
+
+        if (is_valid_target(target, sensitive))
+            return target;
+
+        recorder().on_strategy();
+    }
+    while (*cursor != start_cursor);
+
+    return nullptr;
 }
 
 
