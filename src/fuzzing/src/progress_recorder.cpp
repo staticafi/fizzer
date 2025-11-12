@@ -1,5 +1,6 @@
 #include <fuzzing/progress_recorder.hpp>
 #include <fuzzing/strategy/navigator_automaton.hpp>
+#include <fuzzing/strategy/value_and_node.hpp>
 #include <fuzzing/basic_types.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
@@ -153,6 +154,7 @@ void  progress_recorder::on_strategy_none()
 void  progress_recorder::on_strategy_automaton(
     std::string const&  metric_,
     std::string const&  filter_,
+    std::vector<value_and_node> const&  values_and_nodes_,
     location_id const  target_id_,
     branching_node const* const  best_node_,
     bool const  sensitive_,
@@ -165,6 +167,7 @@ void  progress_recorder::on_strategy_automaton(
     strategy = std::make_shared<strategy_automaton>(
         metric_,
         filter_,
+        values_and_nodes_,
         target_id_,
         best_node_,
         sensitive_,
@@ -405,6 +408,7 @@ std::string  progress_recorder::strategy_name(STRATEGY const s)
 progress_recorder::strategy_common_info::strategy_common_info(
         std::string const&  metric_,
         std::string const&  filter_,
+        std::vector<value_and_node> const&  values_and_nodes_,
         location_id const  target_id_,
         branching_node const* const  best_node_,
         bool const  sensitive_,
@@ -412,6 +416,7 @@ progress_recorder::strategy_common_info::strategy_common_info(
         )
     : metric{ metric_ }
     , filter{ filter_ }
+    , values_and_nodes{ values_and_nodes_ }
     , target_id{ target_id_ }
     , best_node_id{ best_node_->get_location_id() }
     , best_node_guid{ best_node_->guid() }
@@ -429,6 +434,16 @@ void  progress_recorder::strategy_common_info::save(std::string const&  output_d
     ostr << "{\n";
     if (save_info(ostr))
         ostr << ",\n";
+    ostr << "\"values_and_node_guids\": [";
+    {
+        bool  first = true;
+        for (auto const&  [value, node] : values_and_nodes)
+        {
+            if (first) first = false; else ostr << ',';
+            ostr << "\n    " << value << ",    " << node->guid();
+        }
+    }
+    ostr << "\n],\n";
     ostr << "\"metric\": \"" << metric << "\",\n";
     ostr << "\"filter\": \"" << filter << "\",\n";
     ostr << "\"navigator\": \"" << strategy_name(type()) << "\",\n";
@@ -444,13 +459,14 @@ void  progress_recorder::strategy_common_info::save(std::string const&  output_d
 progress_recorder::strategy_automaton::strategy_automaton(
         std::string const&  metric_,
         std::string const&  filter_,
+        std::vector<value_and_node> const&  values_and_nodes_,
         location_id const  target_id_,
         branching_node const* const  best_node_,
         bool const  sensitive_,
         float_64_bit const  value_,
         navigator_automaton const&  automaton_
         )
-    : strategy_common_info{ metric_, filter_, target_id_, best_node_, sensitive_, value_ }
+    : strategy_common_info{ metric_, filter_, values_and_nodes_, target_id_, best_node_, sensitive_, value_ }
     , info{ std::make_shared<automaton_info>(automaton_) }
 {}
 

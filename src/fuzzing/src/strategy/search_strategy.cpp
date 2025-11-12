@@ -68,6 +68,7 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
                 recorder().on_strategy_automaton(
                     to_string(metric_type),
                     to_string(metrics_and_filters.at(cursor.index).filter_ptr->type()),
+                    values_and_nodes,
                     cursor.location->first,
                     target,
                     sensitive,
