@@ -1,4 +1,6 @@
 #include <fuzzing/search_strategy.hpp>
+#include <utility/assumptions.hpp>
+#include <utility/invariants.hpp>
 #include <unordered_map>
 #include <array>
 #include <vector>
@@ -45,6 +47,18 @@ float_32_bit  hit_count_metric::value(branching_node const* const  node)
         it = cache.insert({ node, (float_32_bit)count }).first;
     }
     return it->second;
+}
+
+
+static std::unique_ptr<metric>  create_metric(search_strategy::METRIC_TYPE const  type)
+{
+    switch (type)
+    {
+        case search_strategy::MT_BEST_VALUE: return std::unique_ptr<metric>{ new best_value_metric };
+        case search_strategy::MT_INPUT_SIZE: return std::unique_ptr<metric>{ new input_size_metric };
+        case search_strategy::MT_HIT_COUNT: return std::unique_ptr<metric>{ new hit_count_metric };
+        default: UNREACHABLE(); return nullptr;
+    }
 }
 
 
@@ -135,6 +149,46 @@ int  input_use_filter::max_read_index(branching_node*  node)
 }
 
 
+static std::unique_ptr<filter>  create_filter(search_strategy::FILTER_TYPE const  type)
+{
+    switch (type)
+    {
+        case search_strategy::FT_ALL: return std::unique_ptr<filter>{ new all_filter };
+        case search_strategy::FT_WARM: return std::unique_ptr<filter>{ new signed_filter(1.0f) };
+        case search_strategy::FT_COLD: return std::unique_ptr<filter>{ new signed_filter(-1.0f) };
+        case search_strategy::FT_INPUT_USE: return std::unique_ptr<filter>{ new input_use_filter };
+        case search_strategy::FT_INPUT_WARM: return std::unique_ptr<filter>{ (new input_use_filter)->after(new signed_filter(1.0f)) };
+        case search_strategy::FT_INPUT_COLD: return std::unique_ptr<filter>{ (new input_use_filter)->after(new signed_filter(-1.0f)) };
+        default: UNREACHABLE(); return nullptr;
+    }
+}
+
+
+static float_32_bit  choose_target_value(std::vector<branching_node*> const&  nodes, search_strategy::METRIC_TYPE const  type)
+{
+    // TODO!
+    return 0.0f;
+}
+
+
+struct  navigator
+{
+    navigator(std::vector<branching_node*> const&  nodes);
+    branching_node*  run(branching_node*  root, float_32_bit  value);
+};
+
+navigator::navigator(std::vector<branching_node*> const&  nodes)
+{
+    // TODO!
+}
+
+branching_node*  navigator::run(branching_node* const  root, float_32_bit const  value)
+{
+    // TODO!
+    return nullptr;
+}
+
+
 search_strategy::search_strategy()
     : locations{}
     , location{ locations.end() }
@@ -151,6 +205,47 @@ branching_node*  search_strategy::choose(branching_node* const  root)
 {
     if (root == nullptr)
         return nullptr;
+
+    if (!locations.empty())
+    {
+        if (location == locations.end())
+            location = locations.begin();
+        auto start_location = location;
+        do
+        {
+            location_props&  props{ location->second };
+            auto start_metric_type = props.metric_type;
+            auto start_filter_type = props.filter_type;
+            do
+            {
+                auto metric_ptr{ create_metric(props.metric_type) };
+                auto filter_ptr{ create_filter(props.filter_type) };
+                std::vector<branching_node*>  output;
+                filter_ptr->apply({ props.nodes.begin(), props.nodes.end() }, *metric_ptr, output);
+                float_32_bit const  value{ choose_target_value(output, props.metric_type) };
+                navigator  nav{ output };
+                branching_node* const  winner{ nav.run(root, value) };
+    
+                props.filter_type = (FILTER_TYPE)(props.filter_type + 1);
+                if (props.filter_type == NUM_FILTER_TYPES)
+                {
+                    props.filter_type = (FILTER_TYPE)0;
+                    props.metric_type = (METRIC_TYPE)(props.metric_type + 1);
+                    if (props.metric_type == NUM_METRIC_TYPES)
+                        props.metric_type = (METRIC_TYPE)0;
+                }
+
+                if (winner != nullptr)
+                    return winner;
+            }
+            while (props.metric_type != start_metric_type || props.filter_type != start_filter_type);
+
+            ++location;
+            if (location == locations.end())
+                location = locations.begin();
+        }
+        while (location != start_location);
+    }
 
     if (!uncovered.empty())
     {
