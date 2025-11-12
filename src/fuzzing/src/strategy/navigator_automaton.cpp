@@ -14,6 +14,8 @@ navigator_automaton::navigator_automaton(std::vector<value_and_node> const&  val
     : extrapolations{}
     , errors{}
     , constraints{}
+    , target_counters{}
+    , best_counters{}
 {
     TMPROF_BLOCK();
 
@@ -88,7 +90,6 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
     if (root->is_closed())
         return nullptr;
 
-    edge_counters  target_counters{};
     for (auto const&  edge_and_line : extrapolations)
         target_counters.insert({ edge_and_line.first, (natural_32_bit)std::max(0.0, std::round(edge_and_line.second.apply(value))) });
     apply_constraints(target_counters);
@@ -121,6 +122,7 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
         {
             best_error = state.error();
             best_node = state.node();
+            best_counters = state.counters();
         }
 
         for (bool const  dir : { false, true })
