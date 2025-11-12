@@ -42,14 +42,12 @@ struct  navigator_regression
     navigator_regression(std::vector<branching_node*> const&  nodes, std::vector<float_64_bit> const&  values);
     bool  valid() const { return !extrapolations.empty(); }
     branching_node*  run(branching_node*  root, float_64_bit  value);
-    bool  are_all_values_same() const { return all_values_are_same; }
 
 private:
     static branching_node*  step_in_tree(branching_node*  node, bool  desired_direction);
 
     std::unordered_set<integer_32_bit>  sids;
     std::unordered_map<integer_32_bit, id_extra>  extrapolations;
-    bool  all_values_are_same;
 };
 
 

@@ -27,8 +27,6 @@ struct search_strategy
 
     locations_map const&  get_locations_map() const { return locations; }
 
-    static bool  is_valid_target(branching_node*  node, bool  sensitive);
-
 private:
 
     locations_map  locations;
@@ -36,6 +34,9 @@ private:
 
     natural_16_bit  MAX_NODES;
 };
+
+
+bool  is_valid_target(branching_node*  node, bool  sensitive);
 
 
 }
