@@ -94,6 +94,10 @@ execution_results_ptr  target_executor::run(input_bytes const&  bytes, com::inpu
     auto const error_result = [](){
         return std::make_shared<execution_results>(target_termination::ERROR_IN_DATA, make_shared_wrapper<com::input_metadata>());
     };
+    auto const partial_result = [](execution_results_ptr const  results){
+        results->get_termination() = target_termination::ERROR_IN_DATA;
+        return results;
+    };
 
     get_medium().clear();
 
@@ -141,16 +145,15 @@ execution_results_ptr  target_executor::run(input_bytes const&  bytes, com::inpu
     execution_results_ptr const  results{ std::make_shared<execution_results>(termination, make_shared_wrapper<com::input_metadata>()) };
     while (!get_medium().exhausted())
     {
-        if (!get_medium().can_deliver_bytes(1ULL))
-            return error_result();
+        if (!get_medium().can_deliver_bytes(1ULL)) return partial_result(results);
         natural_8_bit  rec_id;
         get_medium() >> rec_id;
         switch (com::from_record_id(rec_id))
         {
-            case com::record_type::TRACE: if (!parse_trace_record(*results, get_medium())) return error_result(); break;
-            case com::record_type::CMDLINE: if (!m_io_cmdline->parse_record(*results, get_medium())) return error_result(); break;
-            case com::record_type::SIMPLE: if (!m_io_simple->parse_record(*results, get_medium())) return error_result(); break;
-            default: return error_result();
+            case com::record_type::TRACE: if (!parse_trace_record(*results, get_medium())) return partial_result(results); break;
+            case com::record_type::CMDLINE: if (!m_io_cmdline->parse_record(*results, get_medium())) return partial_result(results); break;
+            case com::record_type::SIMPLE: if (!m_io_simple->parse_record(*results, get_medium())) return partial_result(results); break;
+            default: return partial_result(results);
         }
     }
 
