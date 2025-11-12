@@ -7,22 +7,6 @@
 namespace  fuzzing {
 
 
-void  navigator_regression::extrapolation::build(std::vector<vec2> const&  input)
-{
-    float_64_bit  A = 0.0, B = 0.0, C = 0.0, D = 0.0;
-    for (std::size_t  i = 0ULL; i != input.size(); ++i) {
-        vec2 const  p = input.at(i);
-        A += p.x * p.x;
-        B += p.x;
-        C += p.x * p.y;
-        D += p.y;
-    }
-    float_64_bit const  size{ (float_64_bit)input.size() };
-    c1 = input.empty() || size * A - B * B == 0.0 ? 0.0 : (size * C - B * D) / (size * A - B * B);
-    c0 = input.empty() ? 0.0 : (D - c1 * B) / size;
-}
-
-
 navigator_regression::navigator_regression(std::vector<value_and_node> const&  values_and_nodes)
     : sids{}
     , extrapolations{}
