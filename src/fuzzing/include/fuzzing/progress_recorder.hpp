@@ -44,7 +44,8 @@ struct  progress_recorder
         std::string const&  filter_,
         location_id  target_id_,
         branching_node const*  best_node_,
-        bool  sensitive_
+        bool  sensitive_,
+        float_64_bit  value_
         );
 
     void  on_bitshare_start(branching_node const*  node_ptr, START attribute);
@@ -81,7 +82,8 @@ private:
             std::string const&  filter_,
             location_id  target_id_,
             branching_node const*  best_node_,
-            bool  sensitive_
+            bool  sensitive_,
+            float_64_bit  value_
             );
         virtual ~strategy_common_info() = default;
         virtual STRATEGY  type() const = 0;
@@ -93,6 +95,7 @@ private:
         location_id  best_node_id;
         branching_node::guid_type  best_node_guid;
         bool  sensitive;
+        float_64_bit  value;
     };
 
     struct  strategy_automaton : public strategy_common_info
@@ -102,7 +105,8 @@ private:
             std::string const&  filter_,
             location_id const  target_id_,
             branching_node const* const  best_node_,
-            bool  sensitive_
+            bool  sensitive_,
+            float_64_bit  value_
             );
         STRATEGY  type() const override { return STRATEGY::AUTOMATON; }
         bool  save_info(std::ostream&  ostr) const override;
