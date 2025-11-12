@@ -1,4 +1,4 @@
-#include <fuzzing/strategy/search_navigator_regression.hpp>
+#include <fuzzing/strategy/navigator_regression.hpp>
 #include <fuzzing/branching_node.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>

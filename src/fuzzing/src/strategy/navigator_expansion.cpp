@@ -1,4 +1,4 @@
-#include <fuzzing/strategy/search_navigator_expansion.hpp>
+#include <fuzzing/strategy/navigator_expansion.hpp>
 #include <fuzzing/branching_node.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
