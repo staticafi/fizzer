@@ -630,6 +630,7 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
                     construction_props.uncovered_locations.erase(info.id);
                     construction_props.covered_locations.insert(info.id);
 
+                    strategy.on_location_covered(info.id);
                     coverage_control.increment_num_covered_branchings();
                 }
             }
