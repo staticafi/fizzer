@@ -165,7 +165,11 @@ static std::unique_ptr<filter>  create_filter(search_strategy::FILTER_TYPE const
 }
 
 
-static float_32_bit  choose_target_value(std::vector<branching_node*> const&  nodes, search_strategy::METRIC_TYPE const  type)
+static float_32_bit  choose_target_value(
+        std::vector<branching_node*> const&  nodes,
+        std::vector<float_32_bit> const&  values,
+        search_strategy::METRIC_TYPE const  type
+        )
 {
     // TODO!
     return 0.0f;
@@ -200,11 +204,14 @@ struct  navigator
     };
 
     navigator(std::vector<branching_node*> const&  nodes, metric&  metric);
+    bool  valid() const { return !extrapolations.empty(); }
+    std::vector<float_32_bit> const&  get_values() const { return values; }
     branching_node*  run(branching_node*  root, float_32_bit  value);
 
 private:
 
     std::unordered_set<integer_32_bit>  sids;
+    std::vector<float_32_bit>  values;
     std::unordered_map<integer_32_bit, id_extra>  extrapolations;
 };
 
@@ -228,7 +235,6 @@ navigator::navigator(std::vector<branching_node*> const&  nodes, metric&  metric
     , extrapolations{}
 {
     std::vector<std::unordered_map<integer_32_bit, std::vector<float_32_bit> > >  consumptions;
-    std::vector<float_32_bit>  values;
     for (branching_node*  node : nodes)
     {
         consumptions.push_back({});
@@ -245,6 +251,18 @@ navigator::navigator(std::vector<branching_node*> const&  nodes, metric&  metric
             sids.insert(it->first);
         }
         values.push_back(metric.value(node));
+    }
+
+    {
+        bool all_same{ true };
+        for (auto  v : values)
+            if (v != values.front())
+            {
+                all_same = false;
+                break;
+            }
+        if (all_same)
+            return;
     }
 
     std::vector<std::unordered_map<integer_32_bit, id_info>>  infos;
@@ -460,9 +478,11 @@ branching_node*  search_strategy::choose(branching_node* const  root)
                 auto filter_ptr{ create_filter(props.filter_type) };
                 std::vector<branching_node*>  output;
                 filter_ptr->apply({ props.nodes.begin(), props.nodes.end() }, *metric_ptr, output);
-                float_32_bit const  value{ choose_target_value(output, props.metric_type) };
                 navigator  nav{ output, *metric_ptr };
-                branching_node* const  winner{ nav.run(root, value) };
+                branching_node* const  winner{
+                    nav.valid() ? nav.run(root, choose_target_value(output, nav.get_values(), props.metric_type)) :
+                    nullptr
+                };
     
                 props.filter_type = (FILTER_TYPE)(props.filter_type + 1);
                 if (props.filter_type == NUM_FILTER_TYPES)
