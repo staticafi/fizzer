@@ -348,7 +348,7 @@ bool  fuzzer::generate_next_input(
     )
 {
     auto const  find_backup_target = [this](bool const  sensitive) -> branching_node* {
-        recorder().on_strategy("Backup");
+        recorder().on_strategy("Backup_" + std::to_string(sensitive));
         for (auto it = strategy.get_locations_map().begin(); it != strategy.get_locations_map().end(); ++it)
             for (auto dit = it->second.begin(); dit != it->second.end(); ++dit)
                 if (strategy.is_valid_target(*dit, sensitive))
