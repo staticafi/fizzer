@@ -171,6 +171,26 @@ static float_32_bit  choose_target_value(
         search_strategy::METRIC_TYPE const  type
         )
 {
+    if (nodes.empty())
+        return 0.0f;
+
+    if (type == search_strategy::MT_BEST_VALUE)
+    {
+        float_32_bit constexpr  non_zero{ 1000.0f };
+        branching_node* const  node{ nodes.front() };
+        bool const  dir{ node->is_direction_unexplored(true) };
+        switch (node->get_atomic_predicate())
+        {
+            case atomic_predicate::EQUAL: return dir ? 0.0f : non_zero;
+            case atomic_predicate::UNEQUAL: return dir ? non_zero : 0.0f;
+            case atomic_predicate::LESS: return dir ? -non_zero : non_zero;
+            case atomic_predicate::LESS_EQUAL: return dir ? -non_zero : non_zero;
+            case atomic_predicate::GREATER: return dir ? non_zero : -non_zero;
+            case atomic_predicate::GREATER_EQUAL: return dir ? non_zero : -non_zero;
+            default: UNREACHABLE();
+            }
+    }
+
     // TODO!
     return 0.0f;
 }
