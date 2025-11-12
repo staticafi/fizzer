@@ -480,7 +480,7 @@ bool  progress_recorder::strategy_automaton::save_info(std::ostream&  ostr) cons
         for (auto const&  [edge, line] : info->extrapolations)
         {
             if (first) first = false; else ostr << ',';
-            ostr << "\n    " << edge.first << ',' << edge.second << ",    " << line.get_c0() << ',' << line.get_c1();
+            ostr << "\n    " << edge << ",    " << line.get_c0() << ',' << line.get_c1();
         }
     }
     ostr << "\n],\n";
@@ -491,7 +491,7 @@ bool  progress_recorder::strategy_automaton::save_info(std::ostream&  ostr) cons
         for (auto const&  [edge, error] : info->errors)
         {
             if (first) first = false; else ostr << ',';
-            ostr << "\n    " << edge.first << ',' << edge.second << ",    " << error;
+            ostr << "\n    " << edge << ",    " << error;
         }
     }
     ostr << "\n],\n";
@@ -503,7 +503,7 @@ bool  progress_recorder::strategy_automaton::save_info(std::ostream&  ostr) cons
             if (counter > 0U)
             {
                 if (first) first = false; else ostr << ',';
-                ostr << "\n    " << edge.first << ',' << edge.second << ",    " << counter;
+                ostr << "\n    " << edge << ",    " << counter;
             }
     }
     ostr << "\n],\n";
@@ -514,8 +514,8 @@ bool  progress_recorder::strategy_automaton::save_info(std::ostream&  ostr) cons
         for (auto const&  [edge, counter] : info->best_counters)
             if (counter > 0U)
             {
-                if (first) first = false; else ostr << ",\n";
-                ostr << "\n    " << edge.first << ',' << edge.second << ",    " << counter;
+                if (first) first = false; else ostr << ',';
+                ostr << "\n    " << edge << ",    " << counter;
             }
     }
     ostr << "\n],\n";
@@ -526,7 +526,7 @@ bool  progress_recorder::strategy_automaton::save_info(std::ostream&  ostr) cons
         for (auto const&  [e1, e2] : info->constraints)
         {
             if (first) first = false; else ostr << ',';
-            ostr << "\n    " << e1.first << ',' << e1.second << ",    " << e2.first << ',' << e2.second;
+            ostr << "\n    " << e1 << ",    " << e2;
         }
     }
     ostr << "\n]";
