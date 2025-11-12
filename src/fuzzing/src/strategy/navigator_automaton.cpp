@@ -137,8 +137,16 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
         for (bool const  dir : { false, true })
         {
             branching_node* const  successor{ state.node()->successor(dir).pointer };
-            if (successor != nullptr && successor->is_closed())
-                continue;
+            if (successor == nullptr)
+            {
+                if (!state.node()->has_pending_analysis())
+                    continue;
+            }
+            else
+            {
+                 if (successor->is_closed())
+                    continue;
+            }
 
             edge_type const  edge{ (dir ? 1 : -1) * (integer_32_bit)state.node()->get_location_id() };
 
