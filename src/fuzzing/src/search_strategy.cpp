@@ -5,6 +5,7 @@
 #include <array>
 #include <vector>
 #include <memory>
+#include <algorithm>
 
 namespace  fuzzing {
 
@@ -173,19 +174,256 @@ static float_32_bit  choose_target_value(std::vector<branching_node*> const&  no
 
 struct  navigator
 {
-    navigator(std::vector<branching_node*> const&  nodes);
+    struct  id_info
+    {
+        natural_32_bit counts[2] = { 0U, 0U };
+        float_32_bit ratios[2][3] = { { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
+    };
+
+    struct vec2 { float_32_bit  x,y; };
+
+    struct extrapolation
+    {
+        extrapolation() : c0{ 0.0f }, c1{ 0.0f } {}
+        void build(std::vector<vec2> const&  input);
+        static float_32_bit  apply(float_32_bit const  c0, float_32_bit const  c1, float_32_bit const  value) { return c0 + value * c1; }
+        float_32_bit  apply(float_32_bit const  value) const { return apply(c0, c1, value); }
+    private:
+        float_32_bit  c0;
+        float_32_bit  c1;
+    };
+
+    struct  id_extra
+    {
+        extrapolation  counts[2] = { {}, {} };
+        extrapolation  ratios[2][3] = { { {}, {}, {} }, { {}, {}, {} } };
+    };
+
+    navigator(std::vector<branching_node*> const&  nodes, metric&  metric);
     branching_node*  run(branching_node*  root, float_32_bit  value);
+
+private:
+
+    std::unordered_set<integer_32_bit>  sids;
+    std::unordered_map<integer_32_bit, id_extra>  extrapolations;
 };
 
-navigator::navigator(std::vector<branching_node*> const&  nodes)
+void navigator::extrapolation::build(std::vector<vec2> const&  input)
 {
-    // TODO!
+    float_32_bit  A = 0.0f, B = 0.0f, C = 0.0f, D = 0.0f;
+    for (std::size_t  i = 0ULL; i != input.size(); ++i) {
+        vec2 const  p = input.at(i);
+        A += p.x * p.x;
+        B += p.x;
+        C += p.x * p.y;
+        D += p.y;
+    }
+    float_32_bit const  size{ (float_32_bit)input.size() };
+    c1 = input.empty() || size * A - B * B == 0.0f ? 0.0f : (size * C - B * D) / (size * A - B * B);
+    c0 = input.empty() ? 0.0f : (D - c1 * B) / size;
+}
+
+navigator::navigator(std::vector<branching_node*> const&  nodes, metric&  metric)
+    : sids{}
+    , extrapolations{}
+{
+    std::vector<std::unordered_map<integer_32_bit, std::vector<float_32_bit> > >  consumptions;
+    std::vector<float_32_bit>  values;
+    for (branching_node*  node : nodes)
+    {
+        consumptions.push_back({});
+        auto&  map{ consumptions.back() };
+        for (branching_node*  n = node->get_predecessor(), *m = node; n != nullptr; m = n, n = n->get_predecessor())
+        {
+            integer_32_bit const  sid{ (n->successor_direction(m) ? -1 : 1) * (integer_32_bit)n->get_location_id() };
+            float_32_bit const x{ n->get_trace_index() / (float_32_bit)std::max(1U, node->get_trace_index()) };
+            map.insert({ sid, {} }).first->second.push_back(x);
+        }
+        for (auto  it = map.begin(); it != map.end(); ++it)
+        {
+            std::reverse(it->second.begin(), it->second.end());
+            sids.insert(it->first);
+        }
+        values.push_back(metric.value(node));
+    }
+
+    std::vector<std::unordered_map<integer_32_bit, id_info>>  infos;
+    for (auto& con_map : consumptions)
+    {
+        infos.push_back({});
+        auto&  map{ infos.back() };
+        for (auto  it = con_map.begin(); it != con_map.end(); ++it)
+            map.insert({ std::abs(it->first), {} }).first->second.counts[it->first < 0 ? 0 : 1] = (natural_32_bit)con_map.at(it->first).size();
+    }
+    std::unordered_set<integer_32_bit>  processed;
+    for (integer_32_bit  sid : sids)
+    {
+        if (processed.contains(sid))
+            continue;
+        processed.insert(sid);
+        processed.insert(-sid);
+        integer_32_bit  avgCount = 0;
+        float_32_bit  avgRatios[2][3] { { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
+        std::unordered_map<std::size_t, integer_32_bit>  singular;
+        for (std::size_t  i = 0ULL; i != consumptions.size(); ++i)
+        {
+            auto const&  con_map{ consumptions.at(i) };
+            decltype(consumptions)::value_type::const_iterator const  x[2] { con_map.find(-std::abs(sid)), con_map.find( std::abs(sid)) };
+            if (x[0] != con_map.end() && x[1] != con_map.end())
+            {
+                id_info&  info = infos.at(i).at(std::abs(sid));
+                for (int k = 0; k != 2; ++k)
+                {
+                    std::vector<float_32_bit> const& f = x[k]->second;
+                    std::vector<float_32_bit> const& g = x[(k + 1) % 2]->second;
+                    for (int j = 0; j < f.size() && f.at(j) < g.back(); ++j)
+                        ++info.ratios[k][0];
+                    for (int j = f.size() - 1; j >= 0 && f.at(j) > g.back(); --j)
+                        ++info.ratios[k][2];
+                    info.ratios[k][1] = f.size() - info.ratios[k][0] - info.ratios[k][2];
+                    for (int l = 0; l != 3; ++l) {
+                        info.ratios[k][l] /= f.size();
+                        avgRatios[k][l] += info.ratios[k][l];
+                    }
+                }
+                ++avgCount;
+            }
+            else if (x[0] != con_map.end())
+                singular.insert({ i, 0 });
+            else if (x[1] != con_map.end())
+                singular.insert({ i, 1 });
+        }
+        if (avgCount == 0)
+            for (int k = 0; k != 2; ++k)
+                avgRatios[k][0] = 1.0f;
+        else
+            for (int k = 0; k != 2; ++k)
+            {
+                float sum = 0.0f;
+                for (int l = 0; l != 3; ++l)
+                {
+                    avgRatios[k][l] /= avgCount;
+                    sum += avgRatios[k][l];
+                }
+                for (int l = 0; l != 3; ++l)
+                    avgRatios[k][l] /= sum;
+            }
+        for (auto const&  entry : singular)
+        {
+            id_info&  info{ infos.at(entry.first).at(std::abs(sid)) };
+            for (int l = 0; l != 3; ++l)
+                info.ratios[entry.second][l] = avgRatios[entry.second][l];
+        }
+    }
+
+    for (integer_32_bit sid : sids)
+    {
+        if (extrapolations.contains(std::abs(sid)))
+            continue;
+
+        id_extra&  extra{ extrapolations.insert({ std::abs(sid), {} }).first->second };
+
+        struct  inputs
+        {
+            std::vector<vec2> counts[2] { {}, {} };
+            std::vector<vec2> ratios[2][3] { { {}, {}, {} }, { {}, {}, {} } };
+        };
+        inputs  inputs;
+        for (int i = 0; i != infos.size(); ++i)
+        {
+            auto const  it{ infos.at(i).find(std::abs(sid)) };
+            if (it == infos.at(i).end())
+                continue;
+            for (int j = 0; j != 2; ++j)
+            {
+                inputs.counts[j].push_back({ values.at(i), (float_32_bit)it->second.counts[j] });
+                for (int k = 0; k != 3; ++k)
+                    inputs.ratios[j][k].push_back({ values.at(i), it->second.ratios[j][k] });
+            }
+        }
+        for (int j = 0; j != 2; ++j)
+        {
+            extra.counts[j].build(inputs.counts[j]);
+            for (int k = 0; k != 3; ++k)
+                extra.ratios[j][k].build(inputs.ratios[j][k]);
+        }
+    }
 }
 
 branching_node*  navigator::run(branching_node* const  root, float_32_bit const  value)
 {
-    // TODO!
-    return nullptr;
+    struct visit_counts
+    {
+        visit_counts() : visit_counts(0, 0) {}
+        visit_counts(natural_32_bit const  total0, natural_32_bit const  total1) : total{ total0, total1 } , current{ 0, 0 } {}
+        bool  depleted() { return current[0] >= total[0] && current[1] >= total[1]; }
+        void  increment(integer_32_bit dir) { ++current[dir]; }
+        bool  choose_dir() { return ratio(0) <= ratio(1) ? false : true; }
+    private:
+        float_32_bit  ratio(integer_32_bit dir) { return (current[dir] + 1) / (float_32_bit)(total[dir] + 1); }
+        natural_32_bit  total[2];
+        natural_32_bit  current[2];
+    };
+
+    std::unordered_map<natural_32_bit, std::vector<visit_counts>>  counts;
+    for (integer_32_bit sid : sids)
+        if (!counts.contains(std::abs(sid)))
+        {
+            id_extra const&  extra = extrapolations.at(std::abs(sid));
+            id_info  info;
+            for (integer_32_bit j = 0; j != 2; ++j) {
+                info.counts[j] = std::round(extra.counts[j].apply(value));
+                for (integer_32_bit k = 0; k != 3; ++k)
+                    info.ratios[j][k] = extra.ratios[j][k].apply(value);
+            }
+            std::vector<visit_counts>&  cnt{ counts.insert({ (natural_32_bit)std::abs(sid), {} }).first->second };
+            for (integer_32_bit k = 0; k != 3; ++k)
+                cnt.push_back({
+                    (natural_32_bit)std::round(info.counts[0] * info.ratios[0][k]),
+                    (natural_32_bit)std::round(info.counts[1] * info.ratios[1][k])
+                });
+            std::reverse(cnt.begin(), cnt.end());
+        }
+
+    bool dirOpen[2]{ false, false };
+    branching_node*  node{ root };
+    while (true)
+    {
+        std::vector<visit_counts>&  cnt{ counts.insert({ node->get_location_id(), { { 0U, 0U } } }).first->second };
+
+        bool  dir;
+        for (integer_32_bit i = 0; i != 2; ++i)
+            switch (node->successor(i == 0 ? false : true).label)
+            {
+                case branching_node::successor_pointer::END_EXCEPTIONAL:
+                case branching_node::successor_pointer::END_NORMAL:
+                    dirOpen[i] = false;
+                    break;
+                case branching_node::successor_pointer::VISITED:
+                    dirOpen[i] = !node->successor(i == 0 ? false : true).pointer->is_closed();
+                    break;
+                default:
+                    dirOpen[i] = true;
+                    break;
+            }
+        if (dirOpen[0] && dirOpen[1])
+            dir = cnt.back().choose_dir();
+        else if (dirOpen[0])
+            dir = false;
+        else if (dirOpen[1])
+            dir = true;
+        else { UNREACHABLE(); }
+
+        cnt.back().increment(dir);
+        if (cnt.back().depleted() && cnt.size() > 1ULL)
+            cnt.pop_back();
+
+        branching_node*  n = node->successor(dir).pointer;
+        if (n == nullptr)
+            return node;
+
+        node = n;
+    }
 }
 
 
@@ -223,7 +461,7 @@ branching_node*  search_strategy::choose(branching_node* const  root)
                 std::vector<branching_node*>  output;
                 filter_ptr->apply({ props.nodes.begin(), props.nodes.end() }, *metric_ptr, output);
                 float_32_bit const  value{ choose_target_value(output, props.metric_type) };
-                navigator  nav{ output };
+                navigator  nav{ output, *metric_ptr };
                 branching_node* const  winner{ nav.run(root, value) };
     
                 props.filter_type = (FILTER_TYPE)(props.filter_type + 1);
@@ -274,7 +512,7 @@ void  search_strategy::on_location_covered(location_id const id)
     if (location != locations.end() && location->first == id)
         ++location;
     locations.erase(id);
-    for (auto it = uncovered.begin(); it != uncovered.end(); ++it)
+    for (auto it = uncovered.begin(); it != uncovered.end(); )
         if ((*it)->get_location_id() == id)
             it = uncovered.erase(it);
         else
