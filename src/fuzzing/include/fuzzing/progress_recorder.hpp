@@ -13,6 +13,9 @@
 namespace  fuzzing {
 
 
+struct  navigator_automaton;
+
+
 struct  progress_recorder
 {
     enum struct START
@@ -45,7 +48,8 @@ struct  progress_recorder
         location_id  target_id_,
         branching_node const*  best_node_,
         bool  sensitive_,
-        float_64_bit  value_
+        float_64_bit  value_,
+        navigator_automaton const&  automaton_
         );
 
     void  on_bitshare_start(branching_node const*  node_ptr, START attribute);
@@ -106,10 +110,14 @@ private:
             location_id const  target_id_,
             branching_node const* const  best_node_,
             bool  sensitive_,
-            float_64_bit  value_
+            float_64_bit  value_,
+            navigator_automaton const&  automaton_
             );
         STRATEGY  type() const override { return STRATEGY::AUTOMATON; }
         bool  save_info(std::ostream&  ostr) const override;
+    private:
+        struct  automaton_info;
+        std::shared_ptr<automaton_info>  info;
     };
 
     enum struct ANALYSIS

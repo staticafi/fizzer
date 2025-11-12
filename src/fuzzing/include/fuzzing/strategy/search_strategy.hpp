@@ -41,14 +41,6 @@ private:
         natural_32_bit  index;
     };
 
-    enum struct  NAVIGATOR_TYPE : natural_8_bit
-    {
-        NONE = 0,
-        EXPANSION = 1,
-        REGRESSION = 2,
-        AUTOMATON = 3,
-    };
-
     void  next(navigation_cursor&  cursor);
 
     std::vector<metric_and_filter>  metrics_and_filters;
