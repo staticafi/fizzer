@@ -104,13 +104,8 @@ void fuzzer::render() const
     RENDER("    \"boundary_violations\": " << get_fuzzer_statistics().boundary_violations << ",");
     RENDER("    \"medium_overflows\": " << get_fuzzer_statistics().medium_overflows << ",");
     RENDER("    \"primary_coverage_targets\": {");
-    RENDER("        \"loop_heads_sensitive\": " << primary_coverage_targets.get_loop_heads_sensitive().size() << ",");
-    RENDER("        \"loop_heads_others\": " << primary_coverage_targets.get_loop_heads_others().size() << ",");
     RENDER("        \"sensitive\": " << primary_coverage_targets.get_sensitive().size() << ",");
     RENDER("        \"untouched\": " << primary_coverage_targets.get_untouched().size() << ",");
-    RENDER("        \"iid_twins_sensitive\": " << primary_coverage_targets.get_iid_twins_sensitive().size() << ",");
-    RENDER("        \"iid_twins_others\": " << primary_coverage_targets.get_iid_twins_others().size() << ",");
-    RENDER("        \"iid_pivots\": " << iid_pivots.size());
     RENDER("    }");
     RENDER("},");
 }
