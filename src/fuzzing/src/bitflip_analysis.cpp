@@ -40,8 +40,7 @@ void  bitflip_analysis::start(std::unordered_set<branching_node*> const&  leaf_b
     ASSUMPTION(is_ready());
     ASSUMPTION(!leaf_branchings.empty());
 
-    node_ptr = nullptr;
-    current_input = nullptr;
+    branching_node*  winner{ nullptr };
     auto const  it_end = std::next(leaf_branchings.begin(), get_random_natural_32_bit_in_range(0UL, leaf_branchings.size() - 1UL, rnd_generator));
     auto  it = it_end;
     do
@@ -50,8 +49,7 @@ void  bitflip_analysis::start(std::unordered_set<branching_node*> const&  leaf_b
             if (node->get_best_stdin() != nullptr && !node->get_best_stdin()->bits().empty()
                     && !processed_inputs.contains(node->get_best_stdin().get()))
             {
-                current_input = node->get_best_stdin();
-                node_ptr = node;
+                winner = node;
                 break;
             }
 
@@ -59,10 +57,21 @@ void  bitflip_analysis::start(std::unordered_set<branching_node*> const&  leaf_b
         if (it == leaf_branchings.end())
             it = leaf_branchings.begin();
     }
-    while (current_input == nullptr && it != it_end);
-    
-    if (current_input == nullptr)
+    while (winner == nullptr && it != it_end);
+
+    if (winner == nullptr)
         return;
+
+    start(winner);
+}
+
+
+void  bitflip_analysis::start(branching_node* const  node)
+{
+    ASSUMPTION(node != nullptr);
+
+    node_ptr = node;
+    current_input = node->get_best_stdin();
 
     state = BUSY;
 

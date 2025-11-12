@@ -2,6 +2,7 @@
 #   define FUZZING_FUZZER_HPP_INCLUDED
 
 #   include <fuzzing/termination_info.hpp>
+#   include <fuzzing/search_strategy.hpp>
 #   include <fuzzing/input_flow_analysis.hpp>
 #   include <fuzzing/bitshare_analysis.hpp>
 #   include <fuzzing/bitflip_analysis.hpp>
@@ -10,11 +11,11 @@
 #   include <fuzzing/basic_types.hpp>
 #   include <sala/program.hpp>
 #   include <utility/math.hpp>
-#   include <utility/random.hpp>
 #   include <utility/std_pair_hash.hpp>
 #   include <string>
 #   include <unordered_set>
 #   include <unordered_map>
+#   include <deque>
 #   include <chrono>
 #   include <memory>
 #   include <thread>
@@ -51,8 +52,6 @@ struct  fuzzer final
         std::size_t  boundary_violations{ 0 };
         std::size_t  medium_overflows{ 0 };
         std::size_t  data_errors_in_medium{ 0 };
-        std::size_t  strategy_sensitive{ 0 };
-        std::size_t  strategy_untouched{ 0 };
         std::size_t  coverage_failure_resets{ 0 };
     };
 
@@ -135,48 +134,6 @@ private:
         std::unordered_map<location_id, std::unordered_set<branching_node*> >  uncovered_locations{};
     };
 
-    struct  primary_coverage_target_branchings
-    {
-        primary_coverage_target_branchings(
-                std::function<bool(location_id)> const&  is_covered_,
-                performance_statistics*  statistics_ptr_
-                );
-
-        void  process_potential_coverage_target(branching_node* const  node);
-        void  erase(branching_node*  node);
-
-        bool  empty() const;
-        void  clear();
-
-        void  do_cleanup();
-        branching_node*  get_best_sensitive();
-        branching_node*  get_best_untouched();
-
-        std::size_t  num_sensitive_targets() const { return sensitive.size(); }
-
-        std::unordered_set<branching_node*> const&  get_sensitive() const { return sensitive; }
-        std::unordered_set<branching_node*> const&  get_untouched() const { return untouched; }
-        std::unordered_map<location_id, natural_32_bit> const&  get_sensitive_counts() const { return sensitive_counts; }
-        std::unordered_map<location_id, natural_32_bit> const&  get_untouched_counts() const { return untouched_counts; }
-
-    private:
-        static void  update_counts(
-                std::unordered_map<location_id, natural_32_bit>&  counts,
-                std::unordered_set<branching_node*> const&  data
-                );
-        branching_node*  get_best(
-                std::unordered_set<branching_node*>&  targets,
-                std::unordered_map<location_id, natural_32_bit>&  counts
-                );
-
-        std::unordered_set<branching_node*>  sensitive;
-        std::unordered_set<branching_node*>  untouched;
-        std::unordered_map<location_id, natural_32_bit>  sensitive_counts;
-        std::unordered_map<location_id, natural_32_bit>  untouched_counts;
-        std::function<bool(location_id)>  is_covered;
-        performance_statistics*  statistics;
-    };
-
     struct  input_flow_analysis_thread
     {
         input_flow_analysis_thread(sala::Program const*  sala_program_ptr, target_executor const* const  tgt_exec);
@@ -240,11 +197,12 @@ private:
 
     void  do_cleanup();
     void  select_next_state();
-
-    bool  try_start_input_flow_analysis(branching_node*  winner);
+    bool  try_start_input_flow_analysis();
+    branching_node*  next_sensitive_node();
+    branching_node*  next_untouched_node();
+    void  read_strategy();
 
     void  remove_leaf_branching_node(branching_node*  node);
-    bool  apply_coverage_failures_with_hope();
 
     void  recording_interrupt();
     void  recording_resume();
@@ -268,10 +226,11 @@ private:
     std::unordered_set<location_and_direction>  uncovered_branchings;
     std::unordered_set<location_id>  branchings_to_crashes;
 
-    primary_coverage_target_branchings  primary_coverage_targets;
+    search_strategy  strategy;
+    std::deque<branching_node*> chosen_sensitive_nodes;
+    std::deque<branching_node*> chosen_untouched_nodes;
 
     std::unordered_set<branching_node*>  dead_nodes_buffer;
-    std::unordered_set<branching_node*>  coverage_failures_with_hope;
 
     input_flow_analysis_thread  input_flow_thread;
 
@@ -280,8 +239,6 @@ private:
     bitshare_analysis  bitshare;
     local_search_analysis  local_search;
     bitflip_analysis  bitflip;
-
-    mutable random_generator_for_natural_32_bit  generator_for_generator_selection;
 
     enum struct  RENDER_STATE
     {

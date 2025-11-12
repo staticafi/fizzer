@@ -221,8 +221,6 @@ void  print_fuzzing_outcomes(std::ostream&  ostr, fuzzing_outcomes const&  resul
          << shift << shift << "\"crashes\": " << results.fuzzer_statistics.crashes << ",\n"
          << shift << shift << "\"boundary_violations\": " << results.fuzzer_statistics.boundary_violations << ",\n"
          << shift << shift << "\"medium_overflows\": " << results.fuzzer_statistics.medium_overflows << ",\n"
-         << shift << shift << "\"strategy_sensitive\": " << results.fuzzer_statistics.strategy_sensitive << ",\n"
-         << shift << shift << "\"strategy_untouched\": " << results.fuzzer_statistics.strategy_untouched << ",\n"
          << shift << shift << "\"coverage_failure_resets\": " << results.fuzzer_statistics.coverage_failure_resets << "\n"
          << shift << "},\n"
          ;
