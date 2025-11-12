@@ -11,15 +11,6 @@ namespace  fuzzing {
 
 struct search_strategy
 {
-    search_strategy();
-    ~search_strategy();
-
-    branching_node*  choose(branching_node* const  root);
-    void  on_new_uncovered_node(branching_node*  node);
-    void  on_location_covered(location_id  id);
-    void  on_erase(branching_node*  node);
-
-private:
     enum METRIC_TYPE
     {
         MT_BEST_VALUE  = 0U,
@@ -28,7 +19,7 @@ private:
         NUM_METRIC_TYPES
     };
 
-    enum FILTER_TYPE : natural_8_bit
+    enum FILTER_TYPE
     {
         FT_ALL         = 0U,
         FT_WARM        = 1U,
@@ -39,6 +30,15 @@ private:
         NUM_FILTER_TYPES
     };
 
+    search_strategy();
+    ~search_strategy();
+
+    branching_node*  choose(branching_node* const  root);
+    void  on_new_uncovered_node(branching_node*  node);
+    void  on_location_covered(location_id  id);
+    void  on_erase(branching_node*  node);
+
+private:
     struct  location_props
     {
         std::deque<branching_node*>  nodes{};
