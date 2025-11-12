@@ -16,6 +16,7 @@
                 "--input",
                     // "all"
                     "fast"
+                    // "iid_testing"
                     // "pending"
                     // "fast/_.c"
                 // , ">", "./dist/benchmarks/benman_output.txt"

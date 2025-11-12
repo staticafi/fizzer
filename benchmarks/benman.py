@@ -258,7 +258,7 @@ class Benman:
         fuzzing_group.add_argument("--fuzz", action='store_true', help="Applies fuzzing on the input benchmark(s).")
         fuzzing_group.add_argument("--client_mode", action='store_true', help="Runs the fuzzer on the benchmark(s) in client mode.")
         parser.add_argument("--input", help="Benchmark(s) to be processed. Possible values: "
-                                           "all, fast, medium, slow, pending, fast/..., medium/..., slow/..., pending/...")
+                                           "all, fast, iid_testing, medium, slow, pending, fast/..., iid_testing/..., medium/..., slow/..., pending/...")
         parser.add_argument("--verbose", action='store_true', help="Enables the verbose mode.")
         self.args = parser.parse_args()
 
@@ -288,7 +288,7 @@ class Benman:
                             pass
             return benchmarks
 
-        kinds = ["fast", "medium", "slow", "pending"]
+        kinds = ["fast", "iid_testing", "testcomp-selection-selection", "medium", "slow", "pending"]
         benchmarks = []
         if name == "all":
             for kind in kinds:

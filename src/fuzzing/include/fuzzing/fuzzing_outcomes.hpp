@@ -40,6 +40,7 @@ struct fuzzing_outcomes
     bitshare_analysis::performance_statistics   bitshare_statistics{};
     local_search_analysis::performance_statistics   local_search_statistics{};
     bitflip_analysis::performance_statistics   bitflip_statistics{};
+    iid_vector_analysis_statistics   iid_vector_analysis_statistics{};
     fuzzer::performance_statistics  fuzzer_statistics{};
     std::unordered_map<std::string, output_statistics>  output_statistics{};
 };

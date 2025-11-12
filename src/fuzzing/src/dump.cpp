@@ -270,6 +270,176 @@ void  print_fuzzing_outcomes(std::ostream&  ostr, fuzzing_outcomes const&  resul
 }
 
 
+void save_iid_vector_analysis( std::ostream& ostr, iid_vector_analysis_statistics const& iid_vector_analysis_statistics )
+{
+    bool print_dependencies = true;
+
+    std::string const shift = "    ";
+    auto indent = [ & ]( int level ) -> std::string {
+        std::string result;
+        for ( int i = 0; i < level; ++i ) {
+            result += shift;
+        }
+        return result;
+    };
+
+    fuzzing::iid_node_generations_stats total_stats;
+    for ( const auto& [ _ ,node_stat ] : iid_vector_analysis_statistics.iid_nodes_stats ) {
+        total_stats.method_calls += node_stat.generation_stats.method_calls;
+        total_stats.generation_starts += node_stat.generation_stats.generation_starts;
+        total_stats.successful_generations += node_stat.generation_stats.successful_generations;
+        total_stats.successful_generations_artificial_data += node_stat.generation_stats.successful_generations_artificial_data;
+        total_stats.failed_generations += node_stat.generation_stats.failed_generations;
+        total_stats.generate_artificial_data_count += node_stat.generation_stats.generate_artificial_data_count;
+        total_stats.generated_for_other_node_count += node_stat.generation_stats.generated_for_other_node_count;
+    }
+
+    ostr << "{\n";
+
+    ostr << indent( 1 ) << "\"Total statistics\": {\n";
+    ostr << indent( 2 ) << "\"Processed nodes\": " << iid_vector_analysis_statistics.processed_nodes << ",\n";
+    ostr << indent( 2 ) << "\"Dependencies computed\": " << iid_vector_analysis_statistics.dependencies_computed << ",\n";
+    ostr << indent( 2 ) << "\"Method calls\": " << total_stats.method_calls << ",\n";
+    ostr << indent( 2 ) << "\"Generation starts\": " << total_stats.generation_starts << ",\n";
+    ostr << indent( 2 ) << "\"Successful generations\": " << total_stats.successful_generations << ",\n";
+    ostr << indent( 2 ) << "\"Successful generations of artificial data\": " << total_stats.successful_generations_artificial_data << ",\n";
+    ostr << indent( 2 ) << "\"Failed generations\": " << total_stats.failed_generations << ",\n";
+    ostr << indent( 2 ) << "\"Artificial generations\": " << total_stats.generate_artificial_data_count << ",\n";
+    ostr << indent( 2 ) << "\"For other node generations\": " << total_stats.generated_for_other_node_count << "\n";
+    ostr << indent( 1 ) << "},\n";
+
+    ostr << indent( 1 ) << "\"Dependencies\": [\n";
+    for ( auto loop_it = iid_vector_analysis_statistics.loop_to_properties.loops.begin();
+          loop_it != iid_vector_analysis_statistics.loop_to_properties.loops.end();
+          ++loop_it ) {
+
+        ostr << indent( 2 ) << "{\n";
+        ostr << indent( 3 ) << "\"Loop heads\": [\n";
+        for ( auto head_it = loop_it->heads.begin(); head_it != loop_it->heads.end(); ++head_it ) {
+            ostr << indent( 4 ) << std::dec << "\"" << head_it->first << "\""
+                 << ( std::next( head_it ) != loop_it->heads.end() ? "," : "" ) << '\n';
+        }
+        ostr << indent( 3 ) << "],\n";
+
+        ostr << indent( 3 ) << "\"Loop bodies\": [\n";
+        for ( auto body_it = loop_it->bodies.begin(); body_it != loop_it->bodies.end(); ++body_it ) {
+            ostr << indent( 4 ) << std::dec << "\"" << *body_it << "\""
+                 << ( std::next( body_it ) != loop_it->bodies.end() ? "," : "" ) << '\n';
+        }
+        ostr << indent( 3 ) << "],\n";
+
+        ostr << indent( 3 )
+             << "\"Is loading loop\": " << ( loop_it->is_loading_loop ? "true," : "false" ) << "\n";
+
+        if ( !loop_it->is_loading_loop ) {
+            ostr << indent( 2 ) << "}"
+                 << ( std::next( loop_it ) != iid_vector_analysis_statistics.loop_to_properties.loops.end() ? "," : "" )
+                 << '\n';
+            continue;
+        }
+
+        ostr << indent( 3 ) << "\"Loaded bits per loop\": " << loop_it->loaded_bits_per_loop.mean << ",\n";
+        ostr << indent( 3 ) << "\"Dependent nodes\": [\n";
+        for ( auto body_it = loop_it->bits_read_by_node.begin();
+              body_it != loop_it->bits_read_by_node.end();
+              ++body_it ) {
+            ostr << indent( 4 ) << "{\n";
+            ostr << indent( 5 ) << "\"Node\": " << std::dec << body_it->first << ",\n";
+            ostr << indent( 5 ) << "\"Bits read\": " << body_it->second.average_bits_read.mean << ",\n";
+            ostr << indent( 5 ) << "\"Minimal bit offset\": " << body_it->second.minimal_bit_offset
+                 << '\n';
+            ostr << indent( 4 ) << "}"
+                 << ( std::next( body_it ) != loop_it->bits_read_by_node.end() ? "," : "" ) << '\n';
+        }
+        ostr << indent( 3 ) << "]\n";
+
+        ostr << indent( 2 ) << "}"
+             << ( std::next( loop_it ) != iid_vector_analysis_statistics.loop_to_properties.loops.end() ? "," : "" ) << '\n';
+    }
+
+    ostr << indent( 1 ) << "],\n";
+
+    ostr << indent( 1 ) << "\"Ignored nodes\": [\n";
+    for ( std::size_t i = 0, n = iid_vector_analysis_statistics.ignored_node_ids.size(); i < n; ++i ) {
+        ostr << indent( 2 ) << std::dec << iid_vector_analysis_statistics.ignored_node_ids.at( i );
+        if ( i + 1 < n )
+            ostr << ',';
+        ostr << '\n';
+    }
+    ostr << indent( 1 ) << "],\n";
+
+    ostr << indent( 1 ) << "\"Covered nodes\": [\n";
+    for ( std::size_t i = 0, n = iid_vector_analysis_statistics.covered_node_ids.size(); i < n; ++i ) {
+        ostr << indent( 2 ) << std::dec << "\"" << iid_vector_analysis_statistics.covered_node_ids.at( i ) <<"\"";
+        if ( i + 1 < n )
+            ostr << ',';
+        ostr << '\n';
+    }
+    ostr << indent( 1 ) << "],\n";
+
+    ostr << indent( 1 ) << "\"Analyzed nodes\": {\n";
+
+    for ( auto it = iid_vector_analysis_statistics.iid_nodes_stats.begin();
+          it != iid_vector_analysis_statistics.iid_nodes_stats.end();
+          ++it ) {
+        ostr << indent( 2 ) << std::dec << "\"" << it->first << "\"" << ": {\n";
+
+        ostr << indent( 3 ) << "\"Generation state\": \"";
+        switch ( it->second.generation_stats.state ) {
+            case generation_state::STATE_NOT_COVERED: ostr << "STATE_NOT_COVERED"; break;
+            case generation_state::STATE_GENERATING_ARTIFICIAL_DATA:
+                ostr << "STATE_GENERATING_ARTIFICIAL_DATA";
+                break;
+            case generation_state::STATE_GENERATION_MORE: ostr << "STATE_GENERATION_MORE"; break;
+            case generation_state::STATE_COVERED: ostr << "STATE_COVERED"; break;
+            case generation_state::STATE_GENERATION_DATA_FOR_NEXT_NODE:
+                ostr << "STATE_GENERATION_DATA_FOR_NEXT_NODE";
+                break;
+            case generation_state::STATE_COVERED_BY_OTHER: ostr << "STATE_COVERED_BY_OTHER"; break;
+            default: ostr << "UNKNOWN"; break;
+        }
+        ostr << "\",\n";
+
+        ostr << indent( 3 ) << "\"Method calls\": " << it->second.generation_stats.method_calls << ",\n";
+        ostr << indent( 3 ) << "\"Generation starts\": " << it->second.generation_stats.generation_starts << ",\n";
+        ostr << indent( 3 )
+             << "\"Successful generations\": " << it->second.generation_stats.successful_generations << ",\n";
+        ostr << indent( 3 ) << "\"Successful generations artificial data\": "
+             << it->second.generation_stats.successful_generations_artificial_data << ",\n";
+        ostr << indent( 3 ) << "\"Failed generations\": " << it->second.generation_stats.failed_generations
+             << ",\n";
+        ostr << indent( 3 )
+             << "\"Artificial generations\": " << it->second.generation_stats.generate_artificial_data_count
+             << ",\n";
+        ostr << indent( 3 )
+             << "\"For other node generations\": " << it->second.generation_stats.generated_for_other_node_count
+             << ",\n";
+        ostr << indent( 3 ) << "\" Is matrix generated\": " << ( it->second.matrix_generated ? "true" : "false" )
+             << ",\n";
+        ostr << indent( 3 ) << "\"Matrix dimension\": {\n";
+        ostr << indent( 4 ) << "\"Rows\": " << it->second.vector_dimensions.first << ",\n";
+        ostr << indent( 4 ) << "\"Columns\": " << it->second.vector_dimensions.second << "\n";
+        ostr << indent( 3 ) << "},\n";
+        ostr << indent( 3 ) << "\"Possible nodes\": [\n";
+        for ( std::size_t i = 0, n = it->second.node_ids.size(); i < n; ++i ) {
+            ostr << indent( 4 ) << std::dec << it->second.node_ids.at( i );
+            if ( i + 1 < n )
+                ostr << ',';
+            ostr << '\n';
+        }
+        ostr << indent( 3 ) << "]\n";
+
+        ostr << indent( 2 ) << "}"
+             << ( std::next( it ) != iid_vector_analysis_statistics.iid_nodes_stats.end() ? "," : "" )
+             << '\n';
+    }
+
+    ostr << indent( 1 ) << "}\n";
+
+    ostr << "}";
+}
+
+
 void  log_fuzzing_outcomes(fuzzing_outcomes const&  results)
 {
     std::stringstream sstr;
@@ -287,6 +457,12 @@ void  save_fuzzing_outcomes(
     std::filesystem::path const  test_file_path = output_dir / (benchmark + "_outcomes.json");
     std::ofstream  ostr(test_file_path.c_str(), std::ios::binary);
     print_fuzzing_outcomes(ostr, results);
+    
+    if ( true ) {
+        std::filesystem::path const iid_vector_analysis_path = output_dir / (benchmark + "_iid_vector_analysis.json");
+        std::ofstream iid_ostr( iid_vector_analysis_path.c_str(), std::ios::binary );
+        save_iid_vector_analysis( iid_ostr, results.iid_vector_analysis_statistics );
+    }
 }
 
 

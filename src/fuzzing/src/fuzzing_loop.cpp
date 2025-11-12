@@ -110,6 +110,7 @@ fuzzing_outcomes  run(
     outcomes.bitshare_statistics = analyzer.get_bitshare_statistics();
     outcomes.local_search_statistics = analyzer.get_local_search_statistics();
     outcomes.bitflip_statistics = analyzer.get_bitflip_statistics();
+    outcomes.iid_vector_analysis_statistics = analyzer.get_iid_vector_analysis_statistics();
     outcomes.fuzzer_statistics = analyzer.get_fuzzer_statistics();
 
     return  outcomes;

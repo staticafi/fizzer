@@ -42,6 +42,7 @@ struct  branching_node final
 
     location_id const&  get_location_id() const { return id; }
     trace_index_type  get_trace_index() const { return trace_index; }
+    trace_index_type get_depth() const { return get_trace_index(); }
     natural_32_bit  get_num_stdin_bytes() const { return num_stdin_bytes; }
     natural_32_bit  get_num_stdin_bits() const { return 8U * num_stdin_bytes; }
     bool  get_xor_like_branching_function() const { return xor_like_branching_function; }
@@ -79,6 +80,7 @@ struct  branching_node final
     void  set_closed(bool const  state = true) { closed = state; }
     bool  is_pending() const { return  has_unexplored_direction() && has_pending_analysis(); }
     bool  is_iid_branching() const { return sensitivity_performed && sensitive_stdin_bits.empty(); }
+    bool  is_did_branching() const { return sensitivity_performed && !sensitive_stdin_bits.empty(); }
 
     natural_32_bit  get_sensitivity_start_execution() const { return sensitivity_start_execution; }
     natural_32_bit  get_bitshare_start_execution() const { return bitshare_start_execution; }
