@@ -8,23 +8,6 @@ import re
 from datetime import datetime
 
 
-testcomp_testsuite_metadata = """<?xml version='1.0' encoding='UTF-8' standalone='no'?>
-<!DOCTYPE test-metadata PUBLIC "+//IDN sosy-lab.org//DTD test-format test-metadata 1.1//EN" "https://sosy-lab.org/test-format/test-metadata-1.1.dtd">
-<test-metadata>
-  <sourcecodelang>C</sourcecodelang>
-  <producer>fizzer</producer>
-  <specification>%%SPECIFICATION%%</specification>
-  <programfile>%%PROGRAM_FILE%%</programfile>
-  <programhash>null</programhash>
-  <entryfunction>main</entryfunction>
-  <architecture>%%ARCHITECTURE%%</architecture>
-  <creationtime>%%CREATIONTIME%%</creationtime>
-</test-metadata>
-"""
-testcomp_property_coverage_branches = "COVER( init(main()), FQL(COVER EDGES(@DECISIONEDGE)) )"
-testcomp_property_coverage_error_call = "COVER( init(main()), FQL(COVER EDGES(@CALL(reach_error))) )"
-
-
 FIZZER_MODEL_PREFIX = "__fizzer_model__"
 FIZZER_METHOD_UNDER_TEST = "__fizzer_method_under_test__"
 FIZZER_ENTRY_FUNCTION = "__fizzer_private_entry_function"
