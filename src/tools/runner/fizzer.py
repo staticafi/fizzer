@@ -13,11 +13,14 @@ FIZZER_METHOD_UNDER_TEST = "__fizzer_method_under_test__"
 FIZZER_ENTRY_FUNCTION = "__fizzer_private_entry_function"
 
 class AstFnInfo:
+    __slots__ = ("name", "offset", "used", "type")
+
+    _re_name = re.compile(r'"name":\s*"([^"]+)"')
+    _re_offset = re.compile(r'"offset":\s*(\d+)')
+    _re_type = re.compile(r'"qualType":\s*"([^"]+)"')
+
     def __init__(self) -> None:
-        self.name = None
-        self.offset = None
-        self.used = False
-        self.type = None
+        self.reset()
 
     def reset(self):
         self.name = None
@@ -25,31 +28,27 @@ class AstFnInfo:
         self.used = False
         self.type = None
 
-    def parse_str(line, pre, post):
-        return line[line.index(pre) + len(pre): line.rindex(post)] if pre in line else None
-
-    def parse_int(line, pre, post):
-        try:
-            return int(AstFnInfo.parse_str(line, pre, post)) if pre in line else None
-        except Exception as e:
-            print(str(e))
-            return None
-
     def try_parse_name(self, line: str):
         if self.name is None:
-            self.name = AstFnInfo.parse_str(line, '"name": "', '",')
+            m = self._re_name.search(line)
+            if m:
+                self.name = m.group(1)
 
     def try_parse_offset(self, line: str):
         if self.offset is None:
-            self.offset = AstFnInfo.parse_int(line, '"offset": ', ',')
+            m = self._re_offset.search(line)
+            if m:
+                self.offset = int(m.group(1))
 
     def try_parse_usage(self, line: str):
-        if '"isUsed": true,' in line:
+        if not self.used and '"isUsed": true' in line:
             self.used = True
 
     def try_parse_type(self, line: str):
         if self.type is None:
-            self.type = AstFnInfo.parse_str(line, '"qualType": "', '"')
+            m = self._re_type.search(line)
+            if m:
+                self.type = m.group(1)
 
     def valid(self):
         return self.name is not None and self.used and self.offset is not None
@@ -67,7 +66,10 @@ class AstFnInfo:
 
 def process_ast(ast_file, used_external_functions: dict[str, set[int]]) -> AstFnInfo:
     def compute_depth(line):
-        return len(line) - len(line.lstrip())
+        for i, ch in enumerate(line):
+            if not ch.isspace():
+                return i
+        return len(line)
     depth = None
     fn_info = AstFnInfo()
     main_info = AstFnInfo()
