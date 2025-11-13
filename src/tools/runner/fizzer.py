@@ -180,7 +180,7 @@ def preprocess(self_dir, original_file, output_dir, testcomp, silent_mode):
     t0 = time.time()
 
     preprocessed_file = os.path.join(output_dir, "preprocessed.c")
-    _execute(["clang", "-E", "-P", original_file, "-o", preprocessed_file])
+    _execute(["clang-18", "-E", "-P", original_file, "-o", preprocessed_file])
 
     t1 = time.time()
     if silent_mode is False: print("%.2f," % (t1 - t0), flush=True)
@@ -192,7 +192,7 @@ def preprocess(self_dir, original_file, output_dir, testcomp, silent_mode):
     with open(ast_json, "w") as f:
         _execute(
             [
-                "clang",
+                "clang-18",
                 "-Wno-everything",
                 "-fbracket-depth=1024",
                 "-Xclang",
@@ -290,7 +290,7 @@ def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, si
     if silent_mode is False: print("    \"Compiling[C->LLVM]\": ", end='', flush=True)
     t0 = time.time()
     if _execute(
-            [ "clang" ] +
+            [ "clang-18" ] +
                 (["-m32"] if use_m32 is True else []) +
                 [ "-O0", "-g", "-S", "-emit-llvm", "-Wno-everything", "-fbracket-depth=1024", input_file, "-o", ll_file]
             ).returncode:
@@ -319,7 +319,7 @@ def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, si
     if silent_mode is False: print("    \"Linking\": ", end='', flush=True)
     t0 = time.time()
     if _execute(
-            [ "clang++" ] +
+            [ "clang++-18" ] +
                 (["-m32"] if use_m32 is True else []) +
                 [ "-O3", instrumented_ll_file ] +
                 "@FUZZ_TARGET_NEEDED_COMPILATION_FLAGS@".split() +
