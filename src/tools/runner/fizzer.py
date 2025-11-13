@@ -66,33 +66,40 @@ class AstFnInfo:
 
 
 def process_ast(ast_file, used_external_functions: dict[str, set[int]]) -> AstFnInfo:
-    in_fn = False
+    def compute_depth(line):
+        return len(line) - len(line.lstrip())
+    depth = None
     fn_info = AstFnInfo()
     main_info = AstFnInfo()
+    defined = set()
     for i, line in enumerate(ast_file):
         if '"kind": "FunctionDecl",' in line:
             fn_info.try_save(used_external_functions)
             fn_info.reset()
-            in_fn = True
+            depth = compute_depth(line)
             continue
         if '"kind": "CompoundStmt",' in line:
-            in_fn = False
+            if depth is not None:
+                defined.add(fn_info.name)
             if not main_info.valid_main() and fn_info.valid_main():
                 main_info = fn_info
                 fn_info = AstFnInfo()
             else:
                 fn_info.reset()
+            depth = None
             continue
-        if in_fn is False:
+        if depth is None:
             continue
-        if '"id": "0x' in line:
-            in_fn = False
+        if depth > compute_depth(line):
+            depth = None
             continue
         fn_info.try_parse_name(line)
         fn_info.try_parse_offset(line)
         fn_info.try_parse_usage(line)
         fn_info.try_parse_type(line)
     fn_info.try_save(used_external_functions)
+    for key in defined:
+        used_external_functions.pop(key, None)
     return main_info
 
 
