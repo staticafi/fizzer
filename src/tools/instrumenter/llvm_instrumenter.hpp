@@ -4,7 +4,7 @@
 #   include <utility/config.hpp>
 
 #   if COMPILER() == COMPILER_VC()
-#       pragma warning(push)
+#      pragma warning(push)
 #      pragma warning(disable:4244) // LLVM: warning C4244: 'return': conversion from 'uint64_t' to 'unsigned long', possible loss of data
 #      pragma warning(disable:4267) // LLVM: warning C4267: '+=': conversion from 'size_t' to 'unsigned int', possible loss of data 
 #      pragma warning(disable:4624) // LLVM: warning C4624: 'llvm::detail::copy_construction_triviality_helper<T>': destructor was implicitly defined
@@ -49,9 +49,6 @@ struct llvm_instrumenter {
 
     bool doInitialization(llvm::Module *M);
 
-    void renameFunctions();
-    void wrapMain();
-
     bool runOnFunction(llvm::Function &F);
 
     void printErrCond(llvm::Value *cond);
@@ -64,9 +61,6 @@ struct llvm_instrumenter {
                           llvm::IRBuilder<> &builder);
 
     void propagateMissingBasicBlockDbgInfo();
-
-    std::string const&  mut() const { return mut_name; }
-    std::string const&  entry_function() const { return entry_function_name; }
 
     basic_block_dbg_info_map const&  getBasicBlockDbgInfo() const { return basicBlockDbgInfo; }
     instruction_dbg_info_vector const&  getCondInstrDbgInfo() const { return condInstrDbgInfo; }
@@ -94,9 +88,6 @@ private:
     unsigned int basicBlockCounter;
     unsigned int condCounter;
     unsigned int callSiteCounter;
-
-    std::string  mut_name;
-    std::string  entry_function_name;
 
     basic_block_dbg_info_map basicBlockDbgInfo;
     instruction_dbg_info_vector condInstrDbgInfo;

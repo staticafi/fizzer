@@ -4,7 +4,6 @@
 #   include <connection/shared_memory.hpp>
 #   include <iomodels/cmdline.hpp>
 #   include <iomodels/simple.hpp>
-#   include <com/mut_type.hpp>
 #   include <com/target_termination.hpp>
 #   include <memory>
 #   include <mutex>
@@ -21,8 +20,6 @@ struct driver
 
     connection::medium*  medium() { return &m_shared_memory; }
     std::mutex&  mutex() { return m_mutex; }
-
-    com::mut_type  mut() const { return m_mut; }
 
     com::target_termination  on_location_hit(
         com::location_id  loc_id,
@@ -46,7 +43,6 @@ private:
     natural_32_bit  m_trace_length;
     natural_32_bit  m_max_trace_length;
     natural_16_bit  m_max_exec_megabytes;
-    com::mut_type  m_mut;
     iomodels::cmdline_ptr  m_io_cmdline;
     iomodels::simple_ptr  m_io_simple;
 };
@@ -61,8 +57,6 @@ void  check(com::target_termination  termination);
 
 inline connection::medium*  medium() { return driver().medium(); }
 inline std::mutex&  mutex() { return driver().mutex(); }
-
-inline com::mut_type  mut() { return driver().mut(); }
 
 inline iomodels::cmdline&  io_cmdline() { return driver().io_cmdline(); }
 inline iomodels::simple&  io_simple() { return driver().io_simple(); }

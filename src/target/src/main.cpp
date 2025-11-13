@@ -8,7 +8,6 @@
 
 extern "C" {
     int  __fizzer_private_entry_function();
-    int  __fizzer_private_entry_function_with_params();
 }
 
 int main(int argc, char* argv[])
@@ -32,20 +31,9 @@ int main(int argc, char* argv[])
     if (!driver().valid())
         return 1;
 
-    switch (mut())
-    {
-        case com::mut_type::WITH_ARGS:
-            __fizzer_private_entry_function_with_params();
-            break;
-        case com::mut_type::NO_ARGS:
-            __fizzer_private_entry_function();
-            break;
-        default:
-            set_termination(com::target_termination::ERROR_IN_DATA);
-            return 2;
-    }
+    int retval = __fizzer_private_entry_function();
 
     set_termination(com::target_termination::NORMAL);
 
-    return 0;
+    return retval;
 }

@@ -4,69 +4,267 @@ import sys
 import os
 import time
 import shutil
+import re
 from datetime import datetime
 
 
-dummy_mut_versions = """
-int  __fizzer_private_int_method_under_test(void) { return 0; }
-void  __fizzer_private_void_method_under_test(void) {}
-int  __fizzer_private_int_method_under_test_with_params(int  argc, char*  argv[]) { return 0; }
-void  __fizzer_private_void_method_under_test_with_params(int  argc, char*  argv[]) {}
+testcomp_testsuite_metadata = """<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<!DOCTYPE test-metadata PUBLIC "+//IDN sosy-lab.org//DTD test-format test-metadata 1.1//EN" "https://sosy-lab.org/test-format/test-metadata-1.1.dtd">
+<test-metadata>
+  <sourcecodelang>C</sourcecodelang>
+  <producer>fizzer</producer>
+  <specification>%%SPECIFICATION%%</specification>
+  <programfile>%%PROGRAM_FILE%%</programfile>
+  <programhash>null</programhash>
+  <entryfunction>main</entryfunction>
+  <architecture>%%ARCHITECTURE%%</architecture>
+  <creationtime>%%CREATIONTIME%%</creationtime>
+</test-metadata>
 """
-
-empty_cmdline_options = """
-#define  __FIZZER_PRIVATE_IO_MODEL_CMDLINE_PASS_DATA_TO(PREFIX, ENTRY_FUNCTION_NAME, SUFFIX)    \\
-    char* argv[1] = { 0 }; PREFIX ENTRY_FUNCTION_NAME(0, argv); SUFFIX
-"""
-
-reading_cmdline_options = """
-extern unsigned char  __fizzer_private_io_model_cmdline_read_argc(void);
-extern char  __fizzer_private_io_model_cmdline_read_char(void);
-#define __FIZZER_PRIVATE_IO_MODEL_CMDLINE_MAX_NUM_CHARS  4095U
-static struct  __fizzer_private_io_model_cmdline_data_type
-{
-    char*  argv[255];
-    char  chars[__FIZZER_PRIVATE_IO_MODEL_CMDLINE_MAX_NUM_CHARS];
-    unsigned char  argc;
-} __fizzer_private_io_model_cmdline_data;
-static void  __fizzer_private_io_model_cmdline_read_data(struct __fizzer_private_io_model_cmdline_data_type* const  data)
-{
-    unsigned short  j = 0U;
-    data->argc = __fizzer_private_io_model_cmdline_read_argc();
-    for (unsigned char  i = 0U; i < data->argc; ++i)
-    {
-        j = (j & __FIZZER_PRIVATE_IO_MODEL_CMDLINE_MAX_NUM_CHARS);
-        data->argv[i] = &data->chars[j];
-        do
-        {
-            j = (j & __FIZZER_PRIVATE_IO_MODEL_CMDLINE_MAX_NUM_CHARS);
-            data->chars[j] = __fizzer_private_io_model_cmdline_read_char();
-            ++j;
-        }
-        while (data->chars[j - 1U] != '\\0');
-    }
-    data->argv[data->argc] = (char*)0;
-}
-#define  __FIZZER_PRIVATE_IO_MODEL_CMDLINE_PASS_DATA_TO(PREFIX, ENTRY_FUNCTION_NAME, SUFFIX)                    \\
-    struct __fizzer_private_io_model_cmdline_data_type* const  data = &__fizzer_private_io_model_cmdline_data;  \\
-    __fizzer_private_io_model_cmdline_read_data(data);                                                          \\
-    PREFIX ENTRY_FUNCTION_NAME((int)data->argc, data->argv); SUFFIX
-"""
-
-entry_function_versions = """
-int  __fizzer_private_int_entry_function(void) { return __fizzer_private_int_method_under_test(); }
-int  __fizzer_private_void_entry_function(void) { __fizzer_private_void_method_under_test(); return 0; }
-int  __fizzer_private_int_entry_function_with_params(void)
-{ __FIZZER_PRIVATE_IO_MODEL_CMDLINE_PASS_DATA_TO(return, __fizzer_private_int_method_under_test_with_params, ); }
-int  __fizzer_private_void_entry_function_with_params(void)
-{ __FIZZER_PRIVATE_IO_MODEL_CMDLINE_PASS_DATA_TO(, __fizzer_private_void_method_under_test_with_params, return 0); }
-"""
+testcomp_property_coverage_branches = "COVER( init(main()), FQL(COVER EDGES(@DECISIONEDGE)) )"
+testcomp_property_coverage_error_call = "COVER( init(main()), FQL(COVER EDGES(@CALL(reach_error))) )"
 
 
-def _execute(command_and_args, timeout_ = None):
+FIZZER_MODEL_PREFIX = "__fizzer_model__"
+FIZZER_METHOD_UNDER_TEST = "__fizzer_method_under_test__"
+FIZZER_ENTRY_FUNCTION = "__fizzer_private_entry_function"
+
+class AstFnInfo:
+    def __init__(self) -> None:
+        self.name = None
+        self.offset = None
+        self.used = False
+        self.type = None
+
+    def reset(self):
+        self.name = None
+        self.offset = None
+        self.used = False
+        self.type = None
+
+    def parse_str(line, pre, post):
+        return line[line.index(pre) + len(pre): line.rindex(post)] if pre in line else None
+
+    def parse_int(line, pre, post):
+        try:
+            return int(AstFnInfo.parse_str(line, pre, post)) if pre in line else None
+        except Exception as e:
+            print(str(e))
+            return None
+
+    def try_parse_name(self, line: str):
+        if self.name is None:
+            self.name = AstFnInfo.parse_str(line, '"name": "', '",')
+
+    def try_parse_offset(self, line: str):
+        if self.offset is None:
+            self.offset = AstFnInfo.parse_int(line, '"offset": ', ',')
+
+    def try_parse_usage(self, line: str):
+        if '"isUsed": true,' in line:
+            self.used = True
+
+    def try_parse_type(self, line: str):
+        if self.type is None:
+            self.type = AstFnInfo.parse_str(line, '"qualType": "', '"')
+
+    def valid(self):
+        return self.name is not None and self.used and self.offset is not None
+
+    def valid_main(self):
+        return self.name == "main" and self.offset is not None and self.type is not None
+
+    def try_save(self, result: dict[str, set[int]]):
+        if self.valid():
+            if self.name in result:
+                result[self.name].add(self.offset)
+            else:
+                result[self.name] = {self.offset}
+
+
+def process_ast(ast_file, used_external_functions: dict[str, set[int]]) -> AstFnInfo:
+    in_fn = False
+    fn_info = AstFnInfo()
+    main_info = AstFnInfo()
+    for i, line in enumerate(ast_file):
+        if '"kind": "FunctionDecl",' in line:
+            fn_info.try_save(used_external_functions)
+            fn_info.reset()
+            in_fn = True
+            continue
+        if '"kind": "CompoundStmt",' in line:
+            in_fn = False
+            if not main_info.valid_main() and fn_info.valid_main():
+                main_info = fn_info
+                fn_info = AstFnInfo()
+            else:
+                fn_info.reset()
+            continue
+        if in_fn is False:
+            continue
+        if '"id": "0x' in line:
+            in_fn = False
+            continue
+        fn_info.try_parse_name(line)
+        fn_info.try_parse_offset(line)
+        fn_info.try_parse_usage(line)
+        fn_info.try_parse_type(line)
+    fn_info.try_save(used_external_functions)
+    return main_info
+
+
+def obtain_model_files(root_folder) -> dict[str, str]:
+    file_dict: dict[str, str] = {}
+    for dirpath, _, filenames in os.walk(root_folder):
+        for filename in filenames:
+            name, ext = os.path.splitext(filename)
+            if ext == ".h":
+                file_dict[name] = os.path.abspath(os.path.join(dirpath, name))
+    return file_dict
+
+
+def save_model_declarations(out_file, functions_to_save, model_files) -> set[str]:
+    pattern = f'\\b({FIZZER_MODEL_PREFIX}[A-Za-z0-9_]*)\\b' # Regular expression to match identifiers starting with FIZZER_MODEL_PREFIX
+    work_list = list(functions_to_save)
+    done = set()
+    while len(work_list) > 0:
+        name = work_list.pop()
+        if name in done:
+            continue
+        done.add(name)
+
+        with open(model_files[name] + ".h", "r", encoding="utf-8") as in_file:
+            content = in_file.read()
+        out_file.write(content)
+
+        for match in re.findall(pattern, content):
+            work_list.append(match[len(FIZZER_MODEL_PREFIX):])
+    return done
+
+
+def save_model_definitions(out_file, models_to_save, model_files):
+    for name in models_to_save:
+        with open(model_files[name] + ".c", "r", encoding="utf-8") as in_file:
+            content = in_file.read()
+        out_file.write(content)
+
+
+def save_main(out_file, data_root_dir: str, main_type: str, for_testcomp):
+    fn_type = main_type.strip().replace(" ", "")
+    file_names = []
+    if fn_type == "void(void)" or fn_type == "void()":
+        file_names.append("void_void.c")
+    elif fn_type == "int(int,char**)":
+        if for_testcomp:
+            file_names.append("int_args_testcomp.c")
+        else:
+            file_names.append("cmdline_model.c")
+            file_names.append("int_args.c")
+    elif fn_type == "int(void)" or fn_type == "int()":
+        file_names.append("int_void.c")
+    elif fn_type == "void(int,char**)":
+        if for_testcomp:
+            file_names.append("void_args_testcomp.c")
+        else:
+            file_names.append("cmdline_model.c")
+            file_names.append("void_args.c")
+    else:
+        raise Exception("Unknown format of the main function.")
+    for name in file_names:
+        with open(os.path.join(data_root_dir, "main_versions", name), encoding="utf-8") as in_file:
+            out_file.write(in_file.read())
+
+
+def _execute(command_and_args, timeout_ = None, stdout_=None, stderr_=None):
     cmd = [x for x in command_and_args if len(x) > 0]
     # print("*** CALLING ***\n" + " ".join(cmd) + "\n************\n")
-    return subprocess.run(cmd, timeout=timeout_)
+    return subprocess.run(cmd, timeout=timeout_, stdout=stdout_, stderr=stderr_)
+
+
+def preprocess(self_dir, original_file, output_dir, testcomp, silent_mode):
+    if silent_mode is False: print("\"preparation\": {", flush=True)
+
+    if silent_mode is False: print("    \"preprocessing\": ", end='', flush=True)
+    t0 = time.time()
+
+    preprocessed_file = os.path.join(output_dir, "preprocessed.c")
+    _execute(["clang", "-E", "-P", original_file, "-o", preprocessed_file])
+
+    t1 = time.time()
+    if silent_mode is False: print("%.2f," % (t1 - t0), flush=True)
+
+    if silent_mode is False: print("    \"ast_build\": ", end='', flush=True)
+    t0 = time.time()
+
+    ast_json = os.path.join(output_dir, "ast.json")
+    with open(ast_json, "w") as f:
+        _execute(
+            [
+                "clang",
+                "-Wno-everything",
+                "-fbracket-depth=1024",
+                "-Xclang",
+                "-ast-dump=json",
+                "-fsyntax-only",
+                preprocessed_file
+            ],
+            stdout_=f,
+            stderr_=subprocess.DEVNULL,
+        )
+
+    t1 = time.time()
+    if silent_mode is False: print("%.2f," % (t1 - t0), flush=True)
+
+    if silent_mode is False: print("    \"ast_scan\": ", end='', flush=True)
+    t0 = time.time()
+
+    used_external_functions: dict[str, set[int]] = {}
+    with open(ast_json, "r", encoding="utf-8") as f:
+        main_info = process_ast(f, used_external_functions)
+
+    model_files = obtain_model_files(os.path.join(self_dir, "data", "models", "c"))
+    for name in list(used_external_functions.keys()):
+        if name not in model_files:
+            del used_external_functions[name]
+
+    t1 = time.time()
+    if silent_mode is False: print("%.2f," % (t1 - t0), flush=True)
+
+    if silent_mode is False: print("    \"source_composition\": ", end='', flush=True)
+    t0 = time.time()
+
+    source_file = os.path.join(output_dir, "source.c")
+    with open(source_file, "w", encoding="utf-8") as out_file:
+        model_declaration = save_model_declarations(out_file, used_external_functions.keys(), model_files)
+
+        with open(preprocessed_file, "r", encoding="utf-8") as in_file:
+            content = in_file.read()
+
+        splitters = list((name, idx) for name, indices in used_external_functions.items() for idx in indices)
+        if main_info.valid_main():
+            splitters.append((main_info.name, main_info.offset))
+        splitters.append(("", len(content)))
+        splitters.sort(key=lambda x: x[1])
+
+        start_idx = 0
+        for name, end_idx in splitters:
+            text = content[start_idx:end_idx]
+            for fn_name in used_external_functions.keys():
+                text = re.sub(f'\\b{fn_name}\\b', FIZZER_MODEL_PREFIX + fn_name, text)
+            out_file.write(text)
+            out_file.write(FIZZER_METHOD_UNDER_TEST if name == main_info.name else name)
+            start_idx = end_idx + len(name)
+
+        save_model_definitions(out_file, model_declaration, model_files)
+        if main_info.valid_main():
+            save_main(out_file, os.path.join(self_dir, "data"), main_info.type, testcomp is not None)
+
+    t1 = time.time()
+    if silent_mode is False: print("%.2f," % (t1 - t0), flush=True)
+
+    if silent_mode is False: print("},", flush=True)
+
+    return source_file
 
 
 def  benchmark_file_name(input_file):
@@ -77,20 +275,12 @@ def  benchmark_name(input_file):
     return os.path.splitext(benchmark_file_name(input_file))[0]
 
 
-def  benchmark_c_name(input_file):
-    return benchmark_name(input_file) + "_source.c"
-
-
 def  benchmark_ll_name(input_file):
     return benchmark_name(input_file) + ".ll"
 
 
 def  benchmark_instrumented_ll_name(input_file):
     return benchmark_name(input_file) + "_instrumented.ll"
-
-
-def  benchmark_entry_function_name(input_file):
-    return benchmark_name(input_file) + "_entry_function.txt"
 
 
 def  benchmark_target_name(input_file):
@@ -107,24 +297,11 @@ def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, on
     if silent_mode is False: print("\"build_times\": {", flush=True)
     if silent_mode is False: print("    \"Compiling[C->LLVM]\": ", end='', flush=True)
     t0 = time.time()
-    benchmark_file = os.path.join(output_dir, benchmark_c_name(input_file))
-    shutil.copyfile(input_file, benchmark_file)
-    with open(benchmark_file, "a") as fw:
-        fw.write("\n\n")
-        fw.write("/************************************************************************/\n")
-        fw.write("/*   BELOW ARE FIZZER'S PRIVATE IMPLEMENTATION DETAILS - IGNORE THEM    */\n")
-        fw.write("/************************************************************************/\n")
-        if only_simple_input is True:
-            fw.write(empty_cmdline_options)
-        else:
-            fw.write(reading_cmdline_options)
-        fw.write(dummy_mut_versions)
-        fw.write(entry_function_versions)
     if _execute(
             [ "clang" ] +
                 (["-m32"] if use_m32 is True else []) +
-                [ "-O0", "-g", "-S", "-emit-llvm", "-Wno-everything", "-fbracket-depth=1024", benchmark_file, "-o", ll_file],
-            None).returncode:
+                [ "-O0", "-g", "-S", "-emit-llvm", "-Wno-everything", "-fbracket-depth=1024", input_file, "-o", ll_file]
+            ).returncode:
         raise Exception("Compilation[C->LLVM] has failed: " + input_file)
     t1 = time.time()
     if silent_mode is False: print("%.2f," % (t1 - t0), flush=True)
@@ -135,8 +312,8 @@ def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, on
     if _execute(
             [ os.path.join(self_dir, "tools", "@INSTRUMENTER_FILE@") ] +
                 options +
-                ["--input", ll_file, "--output", instrumented_ll_file],
-            None).returncode:
+                ["--input", ll_file, "--output", instrumented_ll_file]
+            ).returncode:
         raise Exception("Instrumentation has failed: " + ll_file)
     t1 = time.time()
     if silent_mode is False: print("%.2f," % (t1 - t0), flush=True)
@@ -155,24 +332,23 @@ def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, on
                 [ "-O3", instrumented_ll_file ] +
                 "@FUZZ_TARGET_NEEDED_COMPILATION_FLAGS@".split() +
                 fuzz_target_libraries +
-                [ "-o", target_file ],
-            None).returncode:
+                [ "-o", target_file ]
+            ).returncode:
         raise Exception("Linking has failed: " + input_file)
     t1 = time.time()
     if silent_mode is False: print("%.2f," % (t1 - t0), flush=True)
 
     if silent_mode is False: print("    \"Compiling[LLVM->sala]\": ", end='', flush=True)
     t0 = time.time()
-    with open(os.path.join(output_dir, benchmark_entry_function_name(input_file)), "r") as f:
-        entry_function_name = f.read()
     if _execute(
             [ os.path.join(self_dir, "tools", "salac", "salac.py") ] +
                 (["--jsonc"] if generate_jsonc is True else []) + [
                 "--input", instrumented_ll_file,
                 "--output", output_dir,
                 "--rename", os.path.splitext(benchmark_sala_name(input_file))[0],
-                "--entry", entry_function_name ],
-            None).returncode:
+                "--entry", FIZZER_ENTRY_FUNCTION
+                ]
+            ).returncode:
         if silent_mode is False: print("},", flush=True)
         return 
     t1 = time.time()
@@ -238,8 +414,8 @@ def fuzz(self_dir, input_file, output_dir, options, start_time, silent_mode):
                 "--path_to_target", target ] +
                 ([ "--path_to_sala", sala_program ] if sala_program is not None else []) +
                 [ "--output_dir", output_dir] +
-                options,
-            None).returncode:
+                options
+            ).returncode:
         raise Exception("Fuzzing has failed.")
 
 
@@ -261,9 +437,9 @@ def help(self_dir):
     print("passed to the script they will automatically be propagated to the corresponding tool.")
 
     print("\nThe options of the LLVM 'instrumenter' tool:")
-    _execute([ os.path.join(self_dir, "tools", "@INSTRUMENTER_FILE@"), "--help"], None)
+    _execute([ os.path.join(self_dir, "tools", "@INSTRUMENTER_FILE@"), "--help"])
     print("\nThe options of the 'fuzzer' tool:")
-    _execute([ os.path.join(self_dir, "tools", "@FUZZER_FILE@"), "--help"], None)
+    _execute([ os.path.join(self_dir, "tools", "@FUZZER_FILE@"), "--help"])
 
     print("\n!!! WARNING !!!!")
     print("An analyzed program is currently *NOT* executed in an isolated environment. It is thus")
@@ -281,7 +457,6 @@ def main():
     skip_building = False
     skip_fuzzing = False
     silent_mode = False
-    copy_source_file = False
     use_m32 = False
     generate_jsonc = False
     options = []
@@ -295,9 +470,6 @@ def main():
 
         if arg == "--silent_mode":
             silent_mode = True
-        elif arg == "--progress_recording":
-            copy_source_file = True
-
         if arg == "--input_file" and i+1 < len(sys.argv) and os.path.isfile(sys.argv[i+1]):
             input_file = os.path.normpath(os.path.abspath(sys.argv[i+1]))
             i += 1
@@ -323,18 +495,19 @@ def main():
 
     if clear_output_dir is True and os.path.isdir(output_dir):
         shutil.rmtree(output_dir)
-    if copy_source_file is True:
-        os.makedirs(output_dir, exist_ok=True)
-        shutil.copy(input_file, output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
     old_cwd = os.getcwd()
     os.chdir(output_dir)
     try:
         if input_file is None:
-            raise Exception("Cannot find the input file.")
+            raise Exception("Cannot find the input file. Check the option --input_file.")
         if silent_mode is False: print("### starting fizzer's pipeline ###\n{", flush=True)
         if skip_building is False:
-            build(self_dir, input_file, output_dir, options_instument, use_m32, generate_jsonc, "testcomp" in options, silent_mode)
+            original_file = os.path.join(output_dir, "original.c")
+            shutil.copy(input_file, original_file)
+            input_file = preprocess(self_dir, original_file, output_dir, "testcomp" in options, silent_mode)
+            build(self_dir, input_file, output_dir, options_instument, use_m32, generate_jsonc, silent_mode)
             adjust_timeouts(options, start_time, silent_mode)
         if skip_fuzzing is False:
             fuzz(self_dir, input_file, output_dir, options, start_time, silent_mode)

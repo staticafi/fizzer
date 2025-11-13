@@ -6,7 +6,6 @@
 #   include <connection/shared_memory.hpp>
 #   include <iomodels/cmdline.hpp>
 #   include <iomodels/simple.hpp>
-#   include <com/mut_type.hpp>
 #   include <string>
 
 namespace fuzzing {
@@ -25,7 +24,6 @@ struct  target_executor final
         natural_16_bit  max_exec_milliseconds,
         natural_16_bit  max_exec_megabytes,
         natural_32_bit  max_trace_length,
-        com::mut_type  mut,
         iomodels::cmdline_ptr  io_cmdline,
         iomodels::simple_ptr  io_simple
         );
@@ -57,7 +55,6 @@ private:
 
     natural_16_bit  m_max_exec_megabytes;
     natural_32_bit  m_max_trace_length;
-    com::mut_type  m_mut;
     iomodels::cmdline_ptr  m_io_cmdline;
     iomodels::simple_ptr  m_io_simple;
     connection::target_executor  m_executor;

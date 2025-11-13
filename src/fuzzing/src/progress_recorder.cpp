@@ -76,7 +76,7 @@ void  progress_recorder::start(std::filesystem::path const&  path_to_target_, st
 
     program_name = executable_name.substr(0, executable_name.find("_target"));
 
-    copy_file(input_dir, program_name + "_source.c", "source.c", output_dir);
+    copy_file(input_dir, program_name + ".c", "source.c", output_dir);
     copy_file(input_dir, program_name + "_instrumented.ll", "source.ll", output_dir);
     copy_file(input_dir, program_name + "_dbg_cond_map.json", "cond_map.json", output_dir);
 

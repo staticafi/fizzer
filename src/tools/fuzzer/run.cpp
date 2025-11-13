@@ -12,7 +12,6 @@
 #include <fuzzing/dump_testcomp.hpp>
 #include <sala/program.hpp>
 #include <sala/streaming.hpp>
-#include <com/mut_type.hpp>
 #include <iostream>
 #include <fstream>
 #include <memory>
@@ -93,20 +92,6 @@ void run(int argc, char* argv[])
         }
     }
 
-    com::mut_type  mut_type;
-    {
-        std::string const mut_name{ sala_program_ptr->functions().at(sala_program_ptr->entry_function()).name() };
-        if (mut_name == "__fizzer_private_entry_function")
-            mut_type = com::mut_type::NO_ARGS;
-        else if (mut_name == "__fizzer_private_entry_function_with_params")    
-            mut_type = com::mut_type::WITH_ARGS;
-        else
-        {
-            std::cerr << "ERROR: Unsupported format of program's entry function.\n";
-            return;
-        }
-    }
-
     fuzzing::termination_info  terminator{
             .max_executions = (natural_32_bit)std::max(0UL, std::stoul(get_program_options()->value("max_executions"))),
             .max_seconds = (natural_32_bit)std::max(0UL, std::stoul(get_program_options()->value("max_seconds"))),
@@ -132,7 +117,6 @@ void run(int argc, char* argv[])
             (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_exec_milliseconds"))),
             (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_exec_megabytes"))),
             (natural_32_bit)std::max(0UL, std::stoul(get_program_options()->value("max_trace_length"))),
-            mut_type,
             iomodels::cmdline::create(),
             iomodels::simple::create(
                 (natural_64_bit)std::max(0ULL, std::stoull(get_program_options()->value("max_bytes")))
