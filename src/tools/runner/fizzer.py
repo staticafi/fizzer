@@ -55,7 +55,7 @@ def build(self_dir, input_file, output_dir, options, use_m32, main_no_args, gene
     benchmark_file = os.path.join(output_dir, benchmark_c_name(input_file))
     shutil.copyfile(input_file, benchmark_file)
     if _execute(
-            [ "clang" ] +
+            [ "clang-18" ] +
                 (["-m32"] if use_m32 is True else []) +
                 [ "-O0", "-g", "-S", "-emit-llvm", "-Wno-everything", "-fbracket-depth=1024", benchmark_file, "-o", ll_file]
             ).returncode:
@@ -97,7 +97,7 @@ def build(self_dir, input_file, output_dir, options, use_m32, main_no_args, gene
     if silent_mode is False: print("    \"Linking\": ", end='', flush=True)
     t0 = time.time()
     if _execute(
-            [ "clang++" ] +
+            [ "clang++-18" ] +
                 (["-m32"] if use_m32 is True else []) +
                 [ "-O3", instrumented_ll_file ] +
                 "@FUZZ_TARGET_NEEDED_COMPILATION_FLAGS@".split() +
