@@ -1,0 +1,121 @@
+#include <stddef.h>
+
+
+/* Simplified FILE type */
+typedef struct __fizzer_model__FILE
+{
+    char *buffer;
+    size_t pos;
+    size_t size;
+} __fizzer_model__FILE;
+
+
+/* -------------------------------------------------------------------------
+ * __fizzer_model__fgets — read at most n-1 characters into str, stop at newline
+ * Declaration: char *fgets(char *str, int n, FILE *stream);
+ * -------------------------------------------------------------------------
+ */
+char *__fizzer_model__fgets(char *str, int n, __fizzer_model__FILE *stream)
+{
+    if (n <= 0 || stream == 0 || str == 0)
+    {
+        return 0;
+    }
+
+    int i = 0;
+
+    while (i < n - 1 && stream->pos < stream->size)
+    {
+        char c = stream->buffer[stream->pos];
+        str[i] = c;
+        i++;
+        stream->pos++;
+        if (c == '\n')
+        {
+            break;
+        }
+    }
+
+    str[i] = 0;
+
+    if (i == 0)
+    {
+        return 0;
+    }
+    return str;
+}
+
+/* -------------------------------------------------------------------------
+ * __fizzer_model__fputs — write string to stream
+ * Declaration: int fputs(const char *str, FILE *stream);
+ * -------------------------------------------------------------------------
+ */
+int __fizzer_model__fputs(const char *str, __fizzer_model__FILE *stream)
+{
+    if (str == 0 || stream == 0)
+    {
+        return -1;
+    }
+
+    int i = 0;
+    while (str[i] != 0 && stream->pos < stream->size)
+    {
+        stream->buffer[stream->pos] = str[i];
+        i++;
+        stream->pos++;
+    }
+
+    return 0;
+}
+
+/* -------------------------------------------------------------------------
+ * __fizzer_model__fread — read nmemb elements of size bytes into ptr
+ * Declaration: size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
+ * -------------------------------------------------------------------------
+ */
+size_t __fizzer_model__fread(void *ptr, size_t size, size_t nmemb, __fizzer_model__FILE *stream)
+{
+    if (ptr == 0 || stream == 0 || size == 0 || nmemb == 0)
+    {
+        return 0;
+    }
+
+    char *cptr = (char *)ptr;
+    size_t total_bytes = size * nmemb;
+    size_t i = 0;
+
+    while (i < total_bytes && stream->pos < stream->size)
+    {
+        cptr[i] = stream->buffer[stream->pos];
+        i++;
+        stream->pos++;
+    }
+
+    return i / size;
+}
+
+/* -------------------------------------------------------------------------
+ * __fizzer_model__fwrite — write nmemb elements of size bytes from ptr
+ * Declaration: size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
+ * -------------------------------------------------------------------------
+ */
+size_t __fizzer_model__fwrite(const void *ptr, size_t size, size_t nmemb, __fizzer_model__FILE *stream)
+{
+    if (ptr == 0 || stream == 0 || size == 0 || nmemb == 0)
+    {
+        return 0;
+    }
+
+    const char *cptr = (const char *)ptr;
+    size_t total_bytes = size * nmemb;
+    size_t i = 0;
+
+    while (i < total_bytes && stream->pos < stream->size)
+    {
+        stream->buffer[stream->pos] = cptr[i];
+        i++;
+        stream->pos++;
+    }
+
+    return i / size;
+}
