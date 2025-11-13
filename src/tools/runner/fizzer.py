@@ -274,7 +274,7 @@ def  benchmark_sala_name(input_file):
     return benchmark_name(input_file) + "_sala" + ".json"
 
 
-def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, only_simple_input, silent_mode):
+def build(self_dir, input_file, output_dir, options, use_m32, generate_jsonc, silent_mode):
     ll_file = os.path.join(output_dir, benchmark_ll_name(input_file))
 
     if silent_mode is False: print("\"build_times\": {", flush=True)
