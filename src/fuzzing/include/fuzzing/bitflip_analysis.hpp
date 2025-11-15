@@ -31,7 +31,7 @@ struct  bitflip_analysis
 
     branching_node*  get_node() const { return node_ptr; }
 
-    void  start(std::unordered_set<branching_node*> const&  leaf_branchings);
+    void  start(branching_node*  root_node);
     void  stop();
 
     bool  generate_next_input(vecb&  bits_ref, input_types_ptr&  types_ref, input_metadata_ptr&  metadata_ref);
@@ -39,6 +39,7 @@ struct  bitflip_analysis
     performance_statistics const&  get_statistics() const { return statistics; }
 
 private:
+    branching_node*  search_for_current_input(branching_node* const  root);
 
     bool  is_mutated_bit_index_valid() const;
     bool  is_mutated_type_index_valid() const;
