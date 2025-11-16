@@ -1605,6 +1605,8 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
 
         test.any_location_discovered = construction_props.any_location_discovered;
         test.covered_locations.assign(construction_props.covered_locations.begin(), construction_props.covered_locations.end());
+
+        bitflip.on_any_execution_results(construction_props.leaf);
     }
 
     switch (results->get_termination())
@@ -1656,7 +1658,6 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
             UNREACHABLE();
             break;
     }
-    bitflip.on_any_execution_results(construction_props.leaf);
 
     return true;
 }
