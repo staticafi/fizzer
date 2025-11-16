@@ -186,13 +186,13 @@ void  progress_recorder::on_local_search_stop(STOP const  attribute)
 }
 
 
-void  progress_recorder::on_bitflip_start(branching_node const* const  node_ptr, START const  attribute)
+void  progress_recorder::on_bitflip_start(START const  attribute)
 {
     if (!is_started())
         return;
 
     bitflip.start_type = attribute;
-    on_analysis_start(ANALYSIS::BITFLIP, bitflip, node_ptr);
+    on_analysis_start(ANALYSIS::BITFLIP, bitflip, nullptr);
 }
 
 

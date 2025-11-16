@@ -44,7 +44,7 @@ struct  progress_recorder
     void  on_local_search_start(branching_node const*  node_ptr, START attribute);
     void  on_local_search_stop(STOP  attribute);
 
-    void  on_bitflip_start(branching_node const*  node_ptr, START attribute);
+    void  on_bitflip_start(START attribute);
     void  on_bitflip_stop(STOP  attribute);
 
     void  on_taint_request_start(branching_node const*  node_ptr, START attribute);
@@ -81,7 +81,7 @@ private:
     struct  analysis_common_info
     {
         virtual ~analysis_common_info() = default;
-        virtual natural_32_bit  get_num_coverage_failure_resets() const { return node->get_num_coverage_failure_resets(); }
+        virtual natural_32_bit  get_num_coverage_failure_resets() const { return node == nullptr ? 0U : node->get_num_coverage_failure_resets(); }
         virtual void  save_info(std::ostream&  ostr) const {}
         void  save() const;
 

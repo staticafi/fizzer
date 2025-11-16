@@ -51,7 +51,7 @@ bool  fuzzer::coverage_progress_control_props::interruption_enter()
 
     if (fuzzer_ptr->bitflip.is_ready())
     {
-        fuzzer_ptr->bitflip.start(fuzzer_ptr->leaf_branchings);
+        fuzzer_ptr->bitflip.start();
         if (fuzzer_ptr->bitflip.is_ready())
         {
             fuzzer_ptr->recording_resume();
@@ -59,7 +59,7 @@ bool  fuzzer::coverage_progress_control_props::interruption_enter()
         }
     }
     else
-        recorder().on_bitflip_start(fuzzer_ptr->bitflip.get_node(), progress_recorder::START::REGULAR);
+        recorder().on_bitflip_start(progress_recorder::START::REGULAR);
 
     interrupted_state = fuzzer_ptr->state;
     fuzzer_ptr->state = BITFLIP;
@@ -1381,7 +1381,7 @@ bool  fuzzer::generate_next_input(
                 if (coverage_control.is_analysis_interrupted())
                 {
                     if (bitflip.is_ready())
-                        bitflip.start(leaf_branchings);
+                        bitflip.start();
                     if (bitflip.is_ready())
                     {
                         coverage_control.interruption_exit();
@@ -1646,12 +1646,17 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
         case BITFLIP:
             INVARIANT(bitflip.is_busy());
             recorder().on_execution_results_available(test, construction_props.leaf);
+            bitflip.process_execution_results(
+                    construction_props.any_location_discovered ? 1U : 0U,
+                    (natural_32_bit)construction_props.covered_locations.size()
+                    );
             break;
 
         default:
             UNREACHABLE();
             break;
     }
+    bitflip.on_any_execution_results(construction_props.leaf);
 
     return true;
 }
@@ -1903,12 +1908,12 @@ void  fuzzer::select_next_state()
             state = BITFLIP;
             if (bitflip.is_ready())
             {
-                bitflip.start(leaf_branchings);
+                bitflip.start();
                 if (bitflip.is_ready()) // The start has failed.
                     state = FINISHED;
             }
             else
-                recorder().on_bitflip_start(bitflip.get_node(), progress_recorder::START::REGULAR);
+                recorder().on_bitflip_start(progress_recorder::START::REGULAR);
         }
         else
             state = FINISHED;
@@ -2181,7 +2186,7 @@ void  fuzzer::recording_resume()
             break;
         case BITFLIP:
             if (bitflip.is_busy())
-                recorder().on_bitflip_start(bitflip.get_node(), progress_recorder::START::RESUMED);
+                recorder().on_bitflip_start(progress_recorder::START::RESUMED);
             break;
         default:
             break;

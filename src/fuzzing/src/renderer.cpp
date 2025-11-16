@@ -84,7 +84,6 @@ void fuzzer::render() const
             {
                 case BITSHARE: node = bitshare.get_node(); break;
                 case LOCAL_SEARCH: node = local_search.get_node(); break;
-                case BITFLIP: node = bitflip.get_node(); break;
                 default: node = nullptr; break;
             }
             return node == nullptr ? "N/A" : std::to_string(node->get_location_id());

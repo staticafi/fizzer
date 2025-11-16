@@ -9,73 +9,22 @@ namespace  fuzzing {
 
 bitflip_analysis::bitflip_analysis()
     : state{ READY }
-    , node_ptr{ nullptr }
-    , current_input{ nullptr }
-    , mutated_bit_index{ 0U }
-    , mutated_type_index{ 0U }
-    , mutated_value_index{ 0U }
-    , probed_bit_start_index{ 0U }
-    , probed_bit_end_index{ 0U }
-    , processed_inputs{ nullptr }
-    , rnd_generator{}
+    , tasks{}
+    , current{ tasks.end() }
+    , seen_nodes{}
     , statistics{}
 {}
 
 
-bool  bitflip_analysis::is_mutated_bit_index_valid() const
-{
-    return mutated_bit_index < current_input->bits().size();
-}
-
-
-bool  bitflip_analysis::is_mutated_type_index_valid() const
-{
-    return mutated_type_index < current_input->types()->size() &&
-                current_input->type_end_bit_index(mutated_type_index) < current_input->bits().size();
-}
-
-
-void  bitflip_analysis::start(std::unordered_set<branching_node*> const&  leaf_branchings)
+void  bitflip_analysis::start()
 {
     ASSUMPTION(is_ready());
-    ASSUMPTION(!leaf_branchings.empty());
-
-    node_ptr = nullptr;
-    current_input = nullptr;
-    auto const  it_end = std::next(leaf_branchings.begin(), get_random_natural_32_bit_in_range(0UL, leaf_branchings.size() - 1UL, rnd_generator));
-    auto  it = it_end;
-    do
-    {
-        for (auto*  node{ *it }; node != nullptr; node = node->get_predecessor())
-            if (node->get_best_stdin() != nullptr && !node->get_best_stdin()->bits().empty()
-                    && !processed_inputs.contains(node->get_best_stdin().get()))
-            {
-                current_input = node->get_best_stdin();
-                node_ptr = node;
-                break;
-            }
-
-        ++it;
-        if (it == leaf_branchings.end())
-            it = leaf_branchings.begin();
-    }
-    while (current_input == nullptr && it != it_end);
-    
-    if (current_input == nullptr)
-        return;
 
     state = BUSY;
 
-    processed_inputs.insert(current_input.get());
-
-    mutated_bit_index = 0;
-    mutated_type_index = 0;
-    mutated_value_index = 0;
-
     ++statistics.start_calls;
-    statistics.max_bits = std::max(statistics.max_bits, current_input->bits().size());
 
-    recorder().on_bitflip_start(node_ptr, progress_recorder::START::REGULAR);
+    recorder().on_bitflip_start(progress_recorder::START::REGULAR);
 }
 
 
@@ -90,6 +39,13 @@ void  bitflip_analysis::stop()
 }
 
 
+void  bitflip_analysis::on_any_execution_results(branching_node* const  leaf)
+{
+    //if (seen_nodes.insert(leaf).second)
+        tasks.insert({ leaf, task{ leaf->get_best_stdin() } });
+}
+
+
 bool  bitflip_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  types_ref, input_metadata_ptr&  metadata_ref)
 {
     TMPROF_BLOCK();
@@ -97,9 +53,64 @@ bool  bitflip_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  t
     if (!is_busy())
         return false;
 
+    while (true)
+    {
+        if (current == tasks.end())
+        {
+            if (tasks.empty())
+            {
+                stop();
+                return false;
+            }
+            current = tasks.begin();
+        }
+
+        if (current->second.generator.generate_next_input(bits_ref, types_ref, metadata_ref))
+        {
+            ++statistics.generated_inputs;
+            return true;
+        }
+
+        current = tasks.erase(current);
+    }
+}
+
+
+void  bitflip_analysis::process_execution_results(natural_32_bit const  num_discovered, natural_32_bit const  num_covered)
+{
+    ASSUMPTION(is_busy() && current != tasks.end());
+
+    current->second.turn_buffer += 32U * num_discovered + 64U * num_covered;
+    if (current->second.turn_buffer == 0U)
+        ++current;
+    else
+        --current->second.turn_buffer;
+}
+
+
+bitflip_analysis::task::task(typed_input_ptr  input_)
+    : generator{ input_ }
+    , turn_buffer{ 0U }
+{}
+
+
+bitflip_analysis::input_generator::input_generator(typed_input_ptr  input_)
+    : input{ input_ }
+    , mutated_bit_index{ 0U }
+    , mutated_type_index{ 0U }
+    , mutated_value_index{ 0U }
+    , probed_bit_start_index{ 0U }
+    , probed_bit_end_index{ 0U }
+{}
+
+
+bool  bitflip_analysis::input_generator::generate_next_input(vecb&  bits_ref, input_types_ptr&  types_ref, input_metadata_ptr&  metadata_ref)
+{
+    TMPROF_BLOCK();
+
     if (is_mutated_bit_index_valid())
     {
-        bits_ref = current_input->bits();
+        bits_ref = input->bits();
         bits_ref.at(mutated_bit_index) = !bits_ref.at(mutated_bit_index);
 
         probed_bit_start_index = 8 * (mutated_bit_index / 8);
@@ -108,22 +119,29 @@ bool  bitflip_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  t
         ++mutated_bit_index;
     }
     else if (!generate_next_typed_value(bits_ref))
-    {
-        stop();
         return false;
-    }
 
-    types_ref = current_input->types();
-    metadata_ref = current_input->meta();
-
-    ++statistics.generated_inputs;
+    types_ref = input->types();
+    metadata_ref = input->meta();
 
     return true;
 }
 
 
+bool  bitflip_analysis::input_generator::is_mutated_bit_index_valid() const
+{
+    return mutated_bit_index < input->bits().size();
+}
+
+
+bool  bitflip_analysis::input_generator::is_mutated_type_index_valid() const
+{
+    return mutated_type_index < input->types()->size() && input->type_end_bit_index(mutated_type_index) < input->bits().size();
+}
+
+
 template<typename T, int N>
-bool  bitflip_analysis::write_bits(vecb&  bits_ref, T const  (&values)[N])
+bool  bitflip_analysis::input_generator::write_bits(vecb&  bits_ref, T const  (&values)[N])
 {
     if (mutated_value_index >= N)
     {
@@ -131,14 +149,14 @@ bool  bitflip_analysis::write_bits(vecb&  bits_ref, T const  (&values)[N])
         return false;
     }
 
-    probed_bit_start_index = current_input->type_start_bit_index(mutated_type_index);
+    probed_bit_start_index = input->type_start_bit_index(mutated_type_index);
     probed_bit_end_index = probed_bit_start_index + 8 * sizeof(T);
 
     vecb  bits;
     natural_8_bit const* const  value_ptr = (natural_8_bit const*)&values[mutated_value_index];
     bytes_to_bits(value_ptr, value_ptr + sizeof(T), bits);
 
-    bits_ref = current_input->bits();
+    bits_ref = input->bits();
     std::copy(bits.begin(), bits.end(), std::next(bits_ref.begin(), probed_bit_start_index));
 
     ++mutated_value_index;
@@ -146,10 +164,10 @@ bool  bitflip_analysis::write_bits(vecb&  bits_ref, T const  (&values)[N])
 }
 
 
-bool  bitflip_analysis::generate_next_typed_value(vecb&  bits_ref)
+bool  bitflip_analysis::input_generator::generate_next_typed_value(vecb&  bits_ref)
 {
     for ( ; is_mutated_type_index_valid(); ++mutated_type_index)
-        switch (current_input->types()->at(mutated_type_index))
+        switch (input->types()->at(mutated_type_index))
         {
         case data_type::BOOLEAN:
             break;
