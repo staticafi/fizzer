@@ -20,6 +20,9 @@ void  bitflip_analysis::start()
 {
     ASSUMPTION(is_ready());
 
+    if (tasks.empty())
+        return;
+
     state = BUSY;
 
     ++statistics.start_calls;
@@ -42,6 +45,7 @@ void  bitflip_analysis::stop()
 void  bitflip_analysis::on_any_execution_results(branching_node* const  leaf)
 {
     //if (seen_nodes.insert(leaf).second)
+    if (leaf->get_best_stdin() != nullptr)
         tasks.insert({ leaf, task{ leaf->get_best_stdin() } });
 }
 
@@ -101,7 +105,9 @@ bitflip_analysis::input_generator::input_generator(typed_input_ptr  input_)
     , mutated_value_index{ 0U }
     , probed_bit_start_index{ 0U }
     , probed_bit_end_index{ 0U }
-{}
+{
+    ASSUMPTION(input != nullptr);
+}
 
 
 bool  bitflip_analysis::input_generator::generate_next_input(vecb&  bits_ref, input_types_ptr&  types_ref, input_metadata_ptr&  metadata_ref)
