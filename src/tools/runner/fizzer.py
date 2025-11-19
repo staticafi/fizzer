@@ -10,7 +10,7 @@ from datetime import datetime
 
 def _execute(command_and_args, timeout_ = None, stdout_=None, stderr_=None):
     cmd = [x for x in command_and_args if len(x) > 0]
-    # print("*** CALLING ***\n" + " ".join(cmd) + "\n************\n")
+    print("*** CALLING ***\n" + " ".join(cmd) + "\n************\n")
     return subprocess.run(cmd, timeout=timeout_, stdout=stdout_, stderr=stderr_)
 
 
@@ -28,6 +28,10 @@ def  benchmark_c_name(input_file):
 
 def  benchmark_ll_name(input_file):
     return benchmark_name(input_file) + ".ll"
+
+
+def  benchmark_composed_ll_name(input_file):
+    return benchmark_name(input_file) + "_composed.ll"
 
 
 def  benchmark_instrumented_ll_name(input_file):
@@ -59,7 +63,7 @@ def build(self_dir, input_file, output_dir, options, use_m32, main_no_args, gene
     t1 = time.time()
     if silent_mode is False: print("%.2f," % (t1 - t0), flush=True)
 
-    composed_ll_file = os.path.join(output_dir, benchmark_instrumented_ll_name(input_file))
+    composed_ll_file = os.path.join(output_dir, benchmark_composed_ll_name(input_file))
     if silent_mode is False: print("    \"Composing\": ", end='', flush=True)
     t0 = time.time()
     if _execute(
