@@ -34,6 +34,8 @@ set(FUZZER_FILE "$<TARGET_FILE_NAME:fuzzer>")
 
 set(INSTRUMENTER_FILE "$<TARGET_FILE_NAME:instrumenter>")
 
+set(COMPOSER_FILE "$<TARGET_FILE_NAME:composer>")
+
 set(FIZZER_TARGET_NAME fizzer.py)
 
 configure_file(${FIZZER_TARGET_NAME} ${FIZZER_TARGET_NAME} @ONLY)
