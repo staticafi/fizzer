@@ -8,6 +8,7 @@ program_options::program_options(int argc, char* argv[])
     add_option("input", "Pathname to the input .ll file.", "1");
     add_option("data", "The data root directory comprising models of library functions.", "1");
     add_option("output", "Pathname to the output .ll file.", "1");
+    add_option("noargs", "Pass fixed dummy arguments to the main function.", "0");
 }
 
 static program_options_ptr  global_program_options;
