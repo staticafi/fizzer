@@ -37,7 +37,7 @@ void dump_dbg_mapping(
     TMPROF_BLOCK();
 
     std::filesystem::path const output_dir{ std::filesystem::path(get_program_options()->value("output")).parent_path() };
-    std::filesystem::path const input_file_name { std::filesystem::path(get_program_options()->value("input")).filename().replace_extension("") };
+    std::filesystem::path const input_file_name { std::filesystem::path(get_program_options()->value("output")).filename().replace_extension("") };
     std::filesystem::path pathname = output_dir / (input_file_name.string() + "_dbg_" + type + "_map.json");
     std::ofstream  ostr(pathname.c_str(), std::ios::binary);
     ostr << "{";
