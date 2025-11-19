@@ -10,7 +10,7 @@ from datetime import datetime
 
 def _execute(command_and_args, timeout_ = None, stdout_=None, stderr_=None):
     cmd = [x for x in command_and_args if len(x) > 0]
-    print("*** CALLING ***\n" + " ".join(cmd) + "\n************\n")
+    # print("*** CALLING ***\n" + " ".join(cmd) + "\n************\n")
     return subprocess.run(cmd, timeout=timeout_, stdout=stdout_, stderr=stderr_)
 
 
