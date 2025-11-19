@@ -33,6 +33,7 @@
 
 
 static std::string const  FIZZER_MODEL_PREFIX = "__fizzer_model__";
+static std::string const  FIZZER_METHOD_UNDER_TEST = "__fizzer_method_under_test__";
 
 
 static std::vector<llvm::Function*>  get_defined_fizzer_functions(llvm::Module&  M)
@@ -55,9 +56,9 @@ static std::vector<llvm::Function*>  get_declared_functions(llvm::Module&  M)
 }
 
 
-static std::string  get_or_build_model_file(std::string const&  models_root_dir, std::string const&  out_dir, bool const  m32)
+static std::string  get_or_build_model_file(std::string const&  data_root_dir, std::string const&  out_dir, bool const  m32)
 {
-    std::filesystem::path const  out_file{ models_root_dir + "/ll/models" + (m32 ? "_m32" : "") + ".ll" };
+    std::filesystem::path const  out_file{ data_root_dir + "/models/ll/models" + (m32 ? "_m32" : "") + ".ll" };
     if (std::filesystem::is_regular_file(out_file))
         return out_file.string();
     std::filesystem::create_directories(out_file.parent_path());
@@ -67,7 +68,7 @@ static std::string  get_or_build_model_file(std::string const&  models_root_dir,
     std::unique_ptr<llvm::Module> M;
     std::unique_ptr<llvm::Linker> L;
 
-    for (auto const&  entry : std::filesystem::recursive_directory_iterator(models_root_dir))
+    for (auto const&  entry : std::filesystem::recursive_directory_iterator(data_root_dir + "/models/c/"))
     {
         if (!entry.is_regular_file())
             continue;
@@ -77,7 +78,7 @@ static std::string  get_or_build_model_file(std::string const&  models_root_dir,
             std::filesystem::path cfile = entry.path();
             
             // Make output .ll file path (mirror directory structure)
-            std::filesystem::path relative = std::filesystem::relative(cfile, models_root_dir);
+            std::filesystem::path relative = std::filesystem::relative(cfile, data_root_dir);
             std::filesystem::path llfile = out_dir / relative;
             llfile.replace_extension(".ll");
             std::filesystem::create_directories(llfile.parent_path());
@@ -116,6 +117,52 @@ static std::string  get_or_build_model_file(std::string const&  models_root_dir,
     ros.flush();
 
     return out_file.string();
+}
+
+
+static std::string  get_or_build_main_file(std::string const&  data_root_dir, std::string const&  main_version, bool const  m32)
+{
+    std::filesystem::path const  out_file{ data_root_dir + "/main_versions/ll/" + main_version + (m32 ? "_m32" : "") + ".ll" };
+    if (std::filesystem::is_regular_file(out_file))
+        return out_file.string();
+    std::filesystem::create_directories(out_file.parent_path());
+
+    llvm::SMDiagnostic D;
+    llvm::LLVMContext C;
+    std::unique_ptr<llvm::Module> M;
+    std::unique_ptr<llvm::Linker> L;
+
+    for (auto const&  entry : std::filesystem::recursive_directory_iterator(data_root_dir + "/main_versions/c/"))
+    {
+        if (!entry.is_regular_file())
+            continue;
+
+        if (entry.path().extension() == ".c")
+        {
+            std::filesystem::path cfile = entry.path();
+            
+            // Make output .ll file path (mirror directory structure)
+            std::filesystem::path relative = std::filesystem::relative(cfile, data_root_dir + "/main_versions/c/");
+            std::filesystem::path llfile = std::filesystem::path(data_root_dir) / "main_versions" / "ll" / relative;
+            llfile.replace_extension("");
+            llfile = llfile.string() + (m32 ? "_m32" : "") + ".ll";
+            std::filesystem::create_directories(llfile.parent_path());
+
+            std::string const  cmd {
+                "clang -O0 -g -S -emit-llvm -Wno-everything -fbracket-depth=1024 "
+                + std::string(m32 ? "-m32 " : "") + " \""
+                + cfile.string() + "\" -o \""
+                + llfile.string() + "\""
+            };
+
+            std::system(cmd.c_str());
+        }
+    }
+
+    if (std::filesystem::is_regular_file(out_file))
+        return out_file.string();
+
+    return {};
 }
 
 
@@ -189,13 +236,15 @@ void run(int argc, char* argv[])
         }
     }
 
+    llvm::Linker  linker(*M);
+
     //bool const  m32{ M->getDataLayout().getPointerSize() == 4 };
     std::string const  target_triple = M->getTargetTriple();
     llvm::Triple const  llvm_triple{ target_triple };
     bool const  m32{ llvm_triple.isArch32Bit() };
 
     std::string const  model_ll_file{ get_or_build_model_file(
-            get_program_options()->value("data") + "/models/c/",
+            get_program_options()->value("data"),
             std::filesystem::path(get_program_options()->value("output")).parent_path().string(),
             m32
             )
@@ -205,7 +254,6 @@ void run(int argc, char* argv[])
         std::unique_ptr<llvm::Module> M2 = llvm::parseIRFile(model_ll_file, D, C);
         if (M2 != nullptr)
         {
-            llvm::Linker  linker(*M);
             if (linker.linkInModule(std::move(M2)) == false)
             {
                 std::unordered_map<std::string, llvm::Function*>  fizzer_functions;
@@ -232,7 +280,43 @@ void run(int argc, char* argv[])
         }
     }
 
-    // TODO: Fix main function here!
+    llvm::Function *main_function = M->getFunction("main");
+    if (main_function != nullptr)
+    {
+        llvm::FunctionType* const  FT = main_function->getFunctionType();
+        llvm::Type* const  ret_type = FT->getReturnType();
+        if ((ret_type->isVoidTy() || ret_type->isIntegerTy(32)) && (FT->getNumParams() == 0 || FT->getNumParams() == 2))
+        {
+            main_function->setName(FIZZER_METHOD_UNDER_TEST);
+
+            std::string  main_version;
+            if (FT->getNumParams() == 0)
+            {
+                main_version = ret_type->isVoidTy() ? "void_void" : "int_void";
+            }
+            else if (get_program_options()->has("noargs"))
+            {
+                main_version = ret_type->isVoidTy() ? "void_args_dummy" : "int_args_dummy";
+            }
+            else
+            {
+                main_version = ret_type->isVoidTy() ? "void_args" : "int_args";
+            }
+            //std::cout << "MAIN: " << main_version << "\n\n";
+            std::string const  main_ll_file{ get_or_build_main_file(
+                    get_program_options()->value("data"),
+                    main_version,
+                    m32
+                )
+            };
+            if (!main_ll_file.empty())
+            {
+                std::unique_ptr<llvm::Module> M2 = llvm::parseIRFile(main_ll_file, D, C);
+                if (M2 != nullptr)
+                    linker.linkInModule(std::move(M2));
+            }
+        }
+    }
 
     remove_unused_code(*M);
 
