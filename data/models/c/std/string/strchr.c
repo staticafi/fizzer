@@ -1,3 +1,4 @@
+#include "strchr.h"
 char *__fizzer_model__strchr(const char *s, int c)
 {
     while (*s != 0)

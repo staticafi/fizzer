@@ -1,3 +1,4 @@
+#include "atoi.h"
 int __fizzer_model__atoi(const char *nptr)
 {
     int result = 0;

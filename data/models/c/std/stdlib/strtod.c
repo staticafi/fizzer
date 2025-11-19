@@ -1,3 +1,4 @@
+#include "strtod.h"
 double __fizzer_model__strtod(const char *nptr, char **endptr)
 {
     double result = 0.0;

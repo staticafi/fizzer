@@ -1,3 +1,4 @@
+#include "isupper.h"
 int __fizzer_model__isupper(int c)
 {
     if (c >= 'A' && c <= 'Z')

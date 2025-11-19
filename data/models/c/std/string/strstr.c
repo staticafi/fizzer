@@ -1,3 +1,4 @@
+#include "strstr.h"
 char *__fizzer_model__strstr(const char *haystack, const char *needle)
 {
     if (*needle == 0)

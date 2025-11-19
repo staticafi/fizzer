@@ -1,3 +1,4 @@
+#include "isgraph.h"
 int __fizzer_model__isgraph(int c)
 {
     if (c >= 33 && c <= 126)

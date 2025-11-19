@@ -1,3 +1,4 @@
+#include "ctime.h"
 char *__fizzer_model__ctime(const time_t *timep, char *buffer)
 {
     const char template[] = "Wed Jan 01 00:00:00 1970\n";

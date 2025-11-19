@@ -1,3 +1,4 @@
+#include "vsprintf.h"
 int __fizzer_model__vsprintf(char *str, const char *format, va_list ap)
 {
     size_t i = 0; /* index for format string */

@@ -1,3 +1,4 @@
+#include "getopt.h"
 int __fizzer_model__getopt(int argc, char * const argv[], const char *optstring)
 {
     if (__fizzer_model__optind >= argc)

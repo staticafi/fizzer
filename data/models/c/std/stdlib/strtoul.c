@@ -1,3 +1,4 @@
+#include "strtoul.h"
 unsigned long __fizzer_model__strtoul(const char *nptr, char **endptr, int base)
 {
     unsigned long result = 0;

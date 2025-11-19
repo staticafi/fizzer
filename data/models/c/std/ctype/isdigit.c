@@ -1,3 +1,4 @@
+#include "isdigit.h"
 int __fizzer_model__isdigit(int c)
 {
     if (c >= '0' && c <= '9')

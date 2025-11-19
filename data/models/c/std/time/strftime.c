@@ -1,3 +1,5 @@
+#include "strftime.h"
+#include <time.h>
 size_t __fizzer_model__strftime(char *s, size_t max, const char *format, const struct tm *tm)
 {
     size_t i = 0; /* index in format */

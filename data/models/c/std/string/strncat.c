@@ -1,3 +1,4 @@
+#include "strncat.h"
 char *__fizzer_model__strncat(char *dest, const char *src, size_t n)
 {
     char *d = dest;

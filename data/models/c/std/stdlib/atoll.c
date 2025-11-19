@@ -1,3 +1,4 @@
+#include "atoll.h"
 long long __fizzer_model__atoll(const char *nptr)
 {
     long long result = 0;

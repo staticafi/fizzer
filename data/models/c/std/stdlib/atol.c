@@ -1,3 +1,4 @@
+#include "atol.h"
 long __fizzer_model__atol(const char *nptr)
 {
     long result = 0;

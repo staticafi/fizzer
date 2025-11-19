@@ -1,3 +1,4 @@
+#include "fabs.h"
 double __fizzer_model__fabs(double x)
 {
     if (x < 0.0)

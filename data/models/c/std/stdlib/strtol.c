@@ -1,3 +1,4 @@
+#include "strtol.h"
 long __fizzer_model__strtol(const char *nptr, char **endptr, int base)
 {
     long result = 0;

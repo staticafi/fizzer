@@ -1,3 +1,5 @@
+#include "getopt_long.h"
+#include <getopt.h>
 int __fizzer_model__getopt_long(int argc, char * const argv[], const char *optstring,
                                 const struct option *longopts, int *longindex)
 {

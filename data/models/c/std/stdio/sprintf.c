@@ -1,3 +1,4 @@
+#include "sprintf.h"
 int __fizzer_model__sprintf(char *str, const char *format, ...)
 {
     va_list ap;

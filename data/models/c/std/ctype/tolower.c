@@ -1,3 +1,4 @@
+#include "tolower.h"
 int __fizzer_model__tolower(int c)
 {
     if (__fizzer_model__isupper(c))

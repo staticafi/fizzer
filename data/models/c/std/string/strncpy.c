@@ -1,3 +1,4 @@
+#include "strncpy.h"
 char *__fizzer_model__strncpy(char *dest, const char *src, size_t n)
 {
     size_t i = 0;

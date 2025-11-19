@@ -1,3 +1,4 @@
+#include "strxfrm.h"
 size_t __fizzer_model__strxfrm(char *dest, const char *src, size_t n)
 {
     size_t len = 0;

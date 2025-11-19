@@ -1,3 +1,4 @@
+#include "strcspn.h"
 size_t __fizzer_model__strcspn(const char *s, const char *reject)
 {
     size_t count = 0;

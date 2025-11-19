@@ -1,3 +1,4 @@
+#include "isxdigit.h"
 int __fizzer_model__isxdigit(int c)
 {
     if ((__fizzer_model__isdigit(c)) ||
