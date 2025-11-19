@@ -6,6 +6,8 @@ endif()
 
 add_subdirectory(./fuzzer)
     message("  fuzzer")
+add_subdirectory(./composer)
+    message("  composer")
 add_subdirectory(./instrumenter)
     message("  instrumenter")
 add_subdirectory(./runner)
