@@ -3,8 +3,72 @@
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <utility/timeprof.hpp>
+#include <vector>
 
 namespace  fuzzing {
+
+
+struct search_stack
+{
+    enum struct command : natural_8_bit {
+        GO_TO_FALSE_CHILD               = 0U,
+        GO_TO_TRUE_CHILD                = 1U,
+        TRY_SELECT_FOR_CURRENT_INPUT    = 2U,
+    };
+    using record = std::pair<branching_node*, command>;
+
+    search_stack(branching_node* const  root, random_generator_for_natural_32_bit&  rnd_generator_);
+
+    void  push(branching_node* node);
+    void  push_child(branching_node* node, bool  dir);
+    record  pop();
+    bool  empty() { return stack.empty(); };
+
+private:
+    std::vector<record> stack;
+    random_generator_for_natural_32_bit&  rnd_generator;
+};
+
+
+search_stack::search_stack(branching_node* const  root, random_generator_for_natural_32_bit&  rnd_generator_)
+    : stack{}
+    ,rnd_generator{ rnd_generator_ }
+{
+    ASSUMPTION(root != nullptr);
+    push(root);
+}
+
+
+void  search_stack::push(branching_node* node)
+{
+    stack.push_back({ node,  command::TRY_SELECT_FOR_CURRENT_INPUT });
+    if (get_random_natural_32_bit_in_range(0U, 1000U, rnd_generator) < 500U)
+    {
+        stack.push_back({ node,  command::GO_TO_TRUE_CHILD });
+        stack.push_back({ node,  command::GO_TO_FALSE_CHILD });
+    }
+    else
+    {
+        stack.push_back({ node,  command::GO_TO_FALSE_CHILD });
+        stack.push_back({ node,  command::GO_TO_TRUE_CHILD });
+    }
+}
+
+
+void  search_stack::push_child(branching_node* const  node, bool const  dir)
+{
+    branching_node* const  succ{ node->successor(dir).pointer };
+    if (succ != nullptr)
+        push(succ);
+}
+
+
+search_stack::record  search_stack::pop()
+{
+    record const  rec{ stack.back() };
+    stack.pop_back();
+    return rec;
+}
 
 
 bitflip_analysis::bitflip_analysis()
@@ -35,34 +99,39 @@ bool  bitflip_analysis::is_mutated_type_index_valid() const
 }
 
 
-void  bitflip_analysis::start(std::unordered_set<branching_node*> const&  leaf_branchings)
+branching_node*  bitflip_analysis::search_for_current_input(branching_node* const  root)
 {
-    ASSUMPTION(is_ready());
-    ASSUMPTION(!leaf_branchings.empty());
-
-    node_ptr = nullptr;
-    current_input = nullptr;
-    auto const  it_end = std::next(leaf_branchings.begin(), get_random_natural_32_bit_in_range(0UL, leaf_branchings.size() - 1UL, rnd_generator));
-    auto  it = it_end;
+    if (root == nullptr)
+        return  nullptr;
+    search_stack  stack{ root, rnd_generator };
     do
     {
-        for (auto*  node{ *it }; node != nullptr; node = node->get_predecessor())
-            if (node->get_best_stdin() != nullptr && !node->get_best_stdin()->bits().empty()
-                    && !processed_inputs.contains(node->get_best_stdin().get()))
-            {
-                current_input = node->get_best_stdin();
-                node_ptr = node;
+        search_stack::record const  top{ stack.pop() };
+        switch (top.second)
+        {
+            case search_stack::command::GO_TO_FALSE_CHILD: stack.push_child(top.first, false); break;
+            case search_stack::command::GO_TO_TRUE_CHILD: stack.push_child(top.first, true); break;
+            case search_stack::command::TRY_SELECT_FOR_CURRENT_INPUT:
+                if (top.first->get_best_stdin() != nullptr && !top.first->get_best_stdin()->bits().empty()
+                        && !processed_inputs.contains(top.first->get_best_stdin().get()))
+                    return top.first;
                 break;
-            }
-
-        ++it;
-        if (it == leaf_branchings.end())
-            it = leaf_branchings.begin();
+        }
     }
-    while (current_input == nullptr && it != it_end);
-    
-    if (current_input == nullptr)
+    while (!stack.empty());
+    return  nullptr;
+}
+
+
+void  bitflip_analysis::start(branching_node* const  root_node)
+{
+    ASSUMPTION(is_ready());
+
+    current_input = nullptr;
+    node_ptr = search_for_current_input(root_node);
+    if (node_ptr == nullptr)
         return;
+    current_input = node_ptr->get_best_stdin();
 
     state = BUSY;
 

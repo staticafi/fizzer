@@ -51,7 +51,7 @@ bool  fuzzer::coverage_progress_control_props::interruption_enter()
 
     if (fuzzer_ptr->bitflip.is_ready())
     {
-        fuzzer_ptr->bitflip.start(fuzzer_ptr->leaf_branchings);
+        fuzzer_ptr->bitflip.start(fuzzer_ptr->entry_branching);
         if (fuzzer_ptr->bitflip.is_ready())
         {
             fuzzer_ptr->recording_resume();
@@ -1381,7 +1381,7 @@ bool  fuzzer::generate_next_input(
                 if (coverage_control.is_analysis_interrupted())
                 {
                     if (bitflip.is_ready())
-                        bitflip.start(leaf_branchings);
+                        bitflip.start(entry_branching);
                     if (bitflip.is_ready())
                     {
                         coverage_control.interruption_exit();
@@ -1903,7 +1903,7 @@ void  fuzzer::select_next_state()
             state = BITFLIP;
             if (bitflip.is_ready())
             {
-                bitflip.start(leaf_branchings);
+                bitflip.start(entry_branching);
                 if (bitflip.is_ready()) // The start has failed.
                     state = FINISHED;
             }
