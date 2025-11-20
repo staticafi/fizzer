@@ -56,6 +56,7 @@ private:
     natural_32_bit  mutated_value_index;
     natural_32_bit  probed_bit_start_index;
     natural_32_bit  probed_bit_end_index;
+    natural_32_bit  counter;
     std::unordered_set<typed_input const*>  processed_inputs;
     random_generator_for_natural_32_bit  rnd_generator;
 

@@ -8,6 +8,20 @@
 namespace  fuzzing {
 
 
+static natural_32_bit constexpr  MAX_BIT_MUTATIONS = 8U * 16U;
+static natural_32_bit constexpr  MAX_TYPE_MUTATIONS = 8U;
+
+
+natural_32_bit  compute_next_index(natural_32_bit&  counter, natural_32_bit&  index, natural_32_bit const  n, natural_32_bit const  N)
+{
+    ++counter;
+    index = n <= N ? index + 1 : (natural_32_bit)std::floor((float_32_bit)counter * (float_32_bit)n / (float_32_bit)N);
+    if (index >= n)
+        counter = 0;
+    return index;
+}
+
+
 struct search_stack
 {
     enum struct command : natural_8_bit {
@@ -80,6 +94,7 @@ bitflip_analysis::bitflip_analysis()
     , mutated_value_index{ 0U }
     , probed_bit_start_index{ 0U }
     , probed_bit_end_index{ 0U }
+    , counter{ 0U }
     , processed_inputs{ nullptr }
     , rnd_generator{}
     , statistics{}
@@ -140,6 +155,7 @@ void  bitflip_analysis::start(branching_node* const  root_node)
     mutated_bit_index = 0;
     mutated_type_index = 0;
     mutated_value_index = 0;
+    counter = 0;
 
     ++statistics.start_calls;
     statistics.max_bits = std::max(statistics.max_bits, current_input->bits().size());
@@ -174,7 +190,7 @@ bool  bitflip_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  t
         probed_bit_start_index = 8 * (mutated_bit_index / 8);
         probed_bit_end_index = probed_bit_start_index + 8;
 
-        ++mutated_bit_index;
+        compute_next_index(counter, mutated_bit_index, current_input->bits().size(), MAX_BIT_MUTATIONS);
     }
     else if (!generate_next_typed_value(bits_ref))
     {
@@ -217,7 +233,7 @@ bool  bitflip_analysis::write_bits(vecb&  bits_ref, T const  (&values)[N])
 
 bool  bitflip_analysis::generate_next_typed_value(vecb&  bits_ref)
 {
-    for ( ; is_mutated_type_index_valid(); ++mutated_type_index)
+    for ( ; is_mutated_type_index_valid(); compute_next_index(counter, mutated_type_index, current_input->types()->size(), MAX_TYPE_MUTATIONS))
         switch (current_input->types()->at(mutated_type_index))
         {
         case data_type::BOOLEAN:
