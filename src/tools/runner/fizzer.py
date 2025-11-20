@@ -23,7 +23,7 @@ def  benchmark_name(input_file):
 
 
 def  benchmark_c_name(input_file):
-    return benchmark_name(input_file) + "_source.c"
+    return benchmark_name(input_file) + ".c"
 
 
 def  benchmark_ll_name(input_file):
@@ -132,13 +132,12 @@ def adjust_timeouts(options, start_time, silent_mode):
         return
 
     def find_option_value_and_index(option):
-        try: idx = options.index(option)
-        except Exception: return None, None
-        if idx >= len(options):
-            return None
-        idx += 1
-        try: return int(options[idx]), idx
-        except: return None, None
+        for idx, opt in enumerate(options):
+            if opt == option:
+                idx += 1
+                try: return int(options[idx]), idx
+                except: pass
+        return None, None
     
     def reduce_option_value(name, value, idx, total_time, suffix=""):
         if total_time > time_taken:

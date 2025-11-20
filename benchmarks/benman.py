@@ -44,7 +44,7 @@ class Benchmark:
             "opt_max_bytes"
             ]), "Benchmark's JSON file does not contain all required options for running the tool.")
 
-        self.fuzz_target_file = os.path.join(self.output_dir, "source_target")
+        self.fuzz_target_file = os.path.join(self.output_dir, self.name + "_target")
 
         self.dir_stack = []
 
@@ -192,7 +192,7 @@ class Benchmark:
                 self.python_binary,
                 self.runner_script,
                 "--skip_building",
-                "--input_file", os.path.join(self.output_dir, "source.c"),
+                "--input_file", os.path.join(self.output_dir, self.fname),
                 "--output_dir", self.output_dir,
                 "--max_executions", str(self.config["args"]["max_executions"]),
                 "--max_seconds", str(self.config["args"]["max_seconds"]),
@@ -211,7 +211,7 @@ class Benchmark:
 
         errors = []
         try:
-            outcomes_pathname = os.path.join(self.output_dir, "source_outcomes.json")
+            outcomes_pathname = os.path.join(self.output_dir, self.name + "_outcomes.json")
             with open(outcomes_pathname, "rb") as fp:
                 outcomes = json.load(fp)
             if self._check_outcomes(outcomes, self.config["results"], errors) is True:
@@ -249,7 +249,7 @@ class Benman:
         self._benchmarks_dir = os.getcwd()
         self.benchmarks_dir = self._benchmarks_dir
         self.output_dir = os.path.normpath(os.path.join(self._benchmarks_dir, "..", "output", "benchmarks"))
-        self.self_dir = os.path.dirname(__file__)
+        self.self_dir = os.path.abspath(os.path.dirname(__file__))
         self.runner_script = os.path.join(self.self_dir, "..", "fizzer.py")
         ASSUMPTION(os.path.isfile(self.runner_script), "The runner script not found. Build and install the project first.")
 
