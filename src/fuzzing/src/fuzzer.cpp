@@ -618,25 +618,29 @@ void fuzzer::input_flow_analysis_thread::worker_thread_procedure()
         }
 
         std::chrono::system_clock::time_point const  start_time = std::chrono::system_clock::now();
-        input_flow.run(data_ptr, [this, start_time](std::string& error_message) {
-            double const num_seconds = std::chrono::duration<double>(std::chrono::system_clock::now() - start_time).count();
-            if (num_seconds >= request.remaining_seconds)
-            {
-                error_message = "[TIME OUT] The time budget " + std::to_string(request.remaining_seconds) + "s for the execution was exhausted.";
-                return true;
-            }
-            bool do_stop;
-            {
-                std::lock_guard<std::mutex> const lock(mutex);
-                do_stop = worker_stop_flag;
-            }
-            if (do_stop)
-            {
-                error_message = "[FORCE STOP] The computation was stopped forcefully by the signalled flag.";
-                return true;
-            }
-            return false;
-        });
+        try
+        {
+            input_flow.run(data_ptr, [this, start_time](std::string& error_message) {
+                double const num_seconds = std::chrono::duration<double>(std::chrono::system_clock::now() - start_time).count();
+                if (num_seconds >= request.remaining_seconds)
+                {
+                    error_message = "[TIME OUT] The time budget " + std::to_string(request.remaining_seconds) + "s for the execution was exhausted.";
+                    return true;
+                }
+                bool do_stop;
+                {
+                    std::lock_guard<std::mutex> const lock(mutex);
+                    do_stop = worker_stop_flag;
+                }
+                if (do_stop)
+                {
+                    error_message = "[FORCE STOP] The computation was stopped forcefully by the signalled flag.";
+                    return true;
+                }
+                return false;
+            });
+        }
+        catch (...) {}
 
         {
             std::lock_guard<std::mutex> const lock(mutex);
