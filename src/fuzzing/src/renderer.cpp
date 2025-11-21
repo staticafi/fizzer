@@ -76,6 +76,7 @@ void fuzzer::render() const
     RENDER("    \"num_driver_executions\": " << num_driver_executions << ",");
     RENDER("    \"covered_branchings\": " << covered_branchings.size() << ",");
     RENDER("    \"uncovered_branchings\": " << uncovered_branchings.size() << ",");
+    RENDER("    \"num_branchings_to_cover\": " << num_branchings_to_cover << ",");
     RENDER("    \"state\": \"" << get_analysis_name_from_state(state) << "\",");
     RENDER("    \"location\": " << 
         [this]() {

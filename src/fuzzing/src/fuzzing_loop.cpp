@@ -102,6 +102,7 @@ fuzzing_outcomes  run(
 
     outcomes.num_executions = analyzer.get_performed_driver_executions();
     outcomes.num_elapsed_seconds = analyzer.get_elapsed_seconds();
+    outcomes.num_branchings_to_cover = analyzer.get_num_branchings_to_cover();
     outcomes.covered_branchings.assign(analyzer.get_covered_branchings().begin(), analyzer.get_covered_branchings().end());
     std::sort(outcomes.covered_branchings.begin(),outcomes.covered_branchings.end());
     outcomes.uncovered_branchings.assign(analyzer.get_uncovered_branchings().begin(), analyzer.get_uncovered_branchings().end());

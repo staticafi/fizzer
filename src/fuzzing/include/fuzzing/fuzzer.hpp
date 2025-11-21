@@ -82,6 +82,7 @@ struct  fuzzer final
     natural_32_bit  get_performed_driver_executions() const { return num_driver_executions; }
     float_64_bit  get_elapsed_seconds() const { return std::chrono::duration<float_64_bit>(time_point_current - time_point_start).count(); }
 
+    natural_32_bit  get_num_branchings_to_cover() const { return num_branchings_to_cover; }
     std::unordered_set<location_id> const&  get_covered_branchings() const { return covered_branchings; }
     std::unordered_set<location_and_direction> const&  get_uncovered_branchings() const { return uncovered_branchings; }
 

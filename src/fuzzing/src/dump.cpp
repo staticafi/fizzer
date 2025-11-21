@@ -232,6 +232,7 @@ void  print_fuzzing_outcomes(std::ostream&  ostr, fuzzing_outcomes const&  resul
          << shift << "},\n"
          ;
 
+    ostr << shift << "\"num_branchings_to_cover\": " << results.num_branchings_to_cover << ",\n";
     ostr << shift << "\"num_covered_branchings\": " << results.covered_branchings.size() << ",\n"
          << shift << "\"covered_branchings\": [";
     for (std::size_t  i = 0, n = results.covered_branchings.size(); i < n; ++i)

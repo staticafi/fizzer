@@ -34,6 +34,7 @@ struct fuzzing_outcomes
     std::string  error_message{}; // Valid only if 'termination_type != NORMAL'.
     natural_32_bit  num_executions{ 0U };
     float_64_bit  num_elapsed_seconds{ 0.0 };
+    natural_32_bit  num_branchings_to_cover{ 0U };
     std::vector<location_id> covered_branchings{};
     std::vector<location_and_direction>  uncovered_branchings{};
     input_flow_analysis::performance_statistics   input_flow_statistics{};
