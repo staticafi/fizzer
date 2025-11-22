@@ -1187,6 +1187,8 @@ fuzzer::fuzzer(
 
     , max_input_width{ 0U }
 
+    , strategy{}
+
     , generator_for_iid_location_selection{ 1U }
     , generator_for_iid_approach_selection{ 1U }
     , generator_for_generator_selection{ 1U }
@@ -1312,10 +1314,14 @@ bool  fuzzer::generate_next_input(
             branching_node*  winner{ primary_coverage_targets.get_best_others(max_input_width) };
             if (winner == nullptr && entry_branching != nullptr && !entry_branching->is_closed())
             {
-                do_cleanup_iid_pivots();
-                winner = select_iid_coverage_target();
-                if (winner != nullptr && winner->was_sensitivity_performed())
-                    winner = nullptr;
+                winner = strategy.choose_target(entry_branching, false);
+                if (winner == nullptr)
+                {
+                    do_cleanup_iid_pivots();
+                    winner = select_iid_coverage_target();
+                    if (winner != nullptr && winner->was_sensitivity_performed())
+                        winner = nullptr;
+                }
             }
             if (winner != nullptr)
                 try_start_input_flow_analysis(winner);
@@ -1499,6 +1505,8 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
                     construction_props.uncovered_locations.erase(info.id);
                     construction_props.covered_locations.insert(info.id);
 
+                    strategy.on_location_covered(info.id);
+
                     coverage_control.increment_num_covered_branchings();
                 }
             }
@@ -1590,8 +1598,14 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
             auto const  it_and_state = leaf_branchings.insert(construction_props.leaf);
             INVARIANT(it_and_state.second);
 
+            std::vector<branching_node*>  new_uncovered_nodes;
             for (branching_node*  node = construction_props.leaf; node != construction_props.diverging_node->get_predecessor(); node = node->get_predecessor())
+            {
                 primary_coverage_targets.process_potential_coverage_target({ node, false });
+                if (!covered_branchings.contains(node->get_location_id()))
+                    new_uncovered_nodes.push_back(node);
+            }
+            strategy.on_new_uncovered_nodes(new_uncovered_nodes);
 
             ++statistics.leaf_nodes_created;
             statistics.max_leaf_nodes = std::max(statistics.max_leaf_nodes, leaf_branchings.size());
@@ -1889,7 +1903,13 @@ void  fuzzer::select_next_state()
     winner = primary_coverage_targets.get_best_sensitive(max_input_width);
     if (winner == nullptr && entry_branching != nullptr && !entry_branching->is_closed())
     {
-        winner = select_iid_coverage_target();
+        winner = strategy.choose_target(entry_branching, true);
+        if (winner == nullptr)
+        {
+            winner = select_iid_coverage_target();
+            if (winner == nullptr)
+                winner = strategy.choose_target(entry_branching, false);
+        }
         if (winner != nullptr && !winner->was_sensitivity_performed())
         {
             try_start_input_flow_analysis(winner);
@@ -2110,6 +2130,8 @@ void  fuzzer::remove_leaf_branching_node(branching_node*  node)
                 }
             }
         }
+
+        strategy.on_erase(node);
 
         delete node;
 

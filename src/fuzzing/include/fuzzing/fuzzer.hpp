@@ -8,6 +8,7 @@
 #   include <fuzzing/local_search_analysis.hpp>
 #   include <fuzzing/test_suite_item.hpp>
 #   include <fuzzing/basic_types.hpp>
+#   include <fuzzing/strategy/search_strategy.hpp>
 #   include <sala/program.hpp>
 #   include <utility/math.hpp>
 #   include <utility/random.hpp>
@@ -454,6 +455,8 @@ private:
     bitflip_analysis  bitflip;
 
     natural_32_bit  max_input_width;
+
+    search_strategy  strategy;
 
     mutable random_generator_for_natural_32_bit  generator_for_iid_location_selection;
     mutable random_generator_for_natural_32_bit  generator_for_iid_approach_selection;
