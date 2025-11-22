@@ -53,7 +53,8 @@ def build(self_dir, input_file, output_dir, options, use_m32, main_no_args, gene
     if silent_mode is False: print("    \"Compiling[C->LLVM]\": ", end='', flush=True)
     t0 = time.time()
     benchmark_file = os.path.join(output_dir, benchmark_c_name(input_file))
-    shutil.copyfile(input_file, benchmark_file)
+    if input_file != benchmark_file:
+        shutil.copyfile(input_file, benchmark_file)
     if _execute(
             [ "clang" ] +
                 (["-m32"] if use_m32 is True else []) +
