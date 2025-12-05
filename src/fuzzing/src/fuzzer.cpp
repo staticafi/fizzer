@@ -1152,7 +1152,10 @@ fuzzer::fuzzer(
 
     , termination_props{ info }
 
-    , num_branchings_to_cover{ count_calls_to_function(*sala_program_ptr, "__fizzer_process_condition") }
+    , num_branchings_to_cover{
+            sala_program_ptr != nullptr ? count_calls_to_function(*sala_program_ptr, "__fizzer_process_condition") :
+                                          std::numeric_limits<natural_32_bit>::max()
+            }
 
     , num_driver_executions{ 0U }
     , time_point_start{ std::chrono::steady_clock::now() }
