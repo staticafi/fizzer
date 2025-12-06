@@ -12,6 +12,14 @@
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <utility/timeprof.hpp>
+#include <utility/config.hpp>
+#if COMPILER() == COMPILER_VC()
+    struct INT128 { std::int64_t _[2]; }; 
+    struct UINT128 { std::uint64_t _[2]; }; 
+#else
+#   define INT128 __int128 
+#   define UINT128 unsigned __int128 
+#endif
 #include <vector>
 #include <algorithm>
 #include <sstream>
@@ -34,6 +42,7 @@ private:
     void  cmdline_read_argc();
     void  cmdline_read_char();
     sala::MemPtr  simple_read(std::size_t count);
+    sala::MemPtr  simple_read_i128();
     iomodels::cmdline*  io_cmdline_;
     iomodels::simple*  io_simple_;
 };
@@ -63,6 +72,8 @@ extern_code::extern_code(
     register_code("__VERIFIER_nondet_uint", [this]() { this->simple_read(sizeof(std::uint32_t)); });
     register_code("__VERIFIER_nondet_ulong", [this]() { this->simple_read(program().num_cpu_bits() == 32U ? sizeof(std::uint32_t) : sizeof(std::uint64_t)); });
     register_code("__VERIFIER_nondet_ulonglong", [this]() { this->simple_read(sizeof(std::uint64_t)); });
+    register_code("__VERIFIER_nondet_int128", [this]() { this->simple_read_i128(); });
+    register_code("__VERIFIER_nondet_uint128", [this]() { this->simple_read_i128(); });
     register_code("__VERIFIER_nondet_float", [this]() { this->simple_read(sizeof(float)); });
     register_code("__VERIFIER_nondet_double", [this]() { this->simple_read(sizeof(double)); });
 }
@@ -122,6 +133,30 @@ sala::MemPtr  extern_code::simple_read(std::size_t const count)
                 ")' has failed."
             );
     }
+    return ptr;
+}
+
+
+sala::MemPtr  extern_code::simple_read_i128()
+{
+    auto const& report_error = [this]() {
+        state().set_stage(sala::ExecState::Stage::FINISHED);
+        state().set_termination(
+            sala::ExecState::Termination::ERROR,
+            "input_flow_analysis[extern_code]",
+            state().current_location_message() +
+                ": Call to 'io_simple().on_bytes_requested(i128)' has failed."
+            );
+    };
+
+    sala::MemPtr const ptr{ parameters().front().read<sala::MemPtr>() };
+    if (io_simple().on_bytes_requested(ptr, data_type::UNTYPED64) != target_termination::NORMAL)
+    {
+        report_error();
+        return ptr;
+    }
+    if (io_simple().on_bytes_requested(ptr + 8ULL, data_type::UNTYPED64) != target_termination::NORMAL)
+        report_error();
     return ptr;
 }
 
