@@ -6,9 +6,10 @@
 #   include <map>
 #   include <deque>
 
-namespace  fuzzing { struct  navigation_cursor; }
-
 namespace  fuzzing {
+
+
+struct  navigation_cursor;
 
 
 struct search_strategy
