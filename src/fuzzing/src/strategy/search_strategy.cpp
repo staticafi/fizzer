@@ -96,13 +96,24 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
 
         cursor = best_target.cursor;
 
-        recorder().on_strategy(
-            std::to_string(cursor.location->first) + '_' +
-            to_string(metrics_and_filters.at(cursor.index).metric_ptr->type()) + '_' +
-            to_string(metrics_and_filters.at(cursor.index).filter_ptr->type()) + '_' +
-            //(best_target.type == NAVIGATOR_TYPE::REGRESSION ? 'R' : 'E') + '_' +
-            std::to_string(sensitive)
-        );
+        switch (best_target.type)
+        {
+            case NAVIGATOR_TYPE::NONE:
+            case NAVIGATOR_TYPE::EXPANSION:
+            case NAVIGATOR_TYPE::REGRESSION:
+                // TODO!
+                break;
+            case NAVIGATOR_TYPE::AUTOMATON:
+                recorder().on_strategy_automaton(
+                    to_string(metrics_and_filters.at(cursor.index).metric_ptr->type()),
+                    to_string(metrics_and_filters.at(cursor.index).filter_ptr->type()),
+                    cursor.location->first,
+                    best_target.target,
+                    sensitive
+                );
+                break;
+            default: UNREACHABLE(); break;
+        }
     }
     next(cursor);
 
