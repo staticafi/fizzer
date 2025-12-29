@@ -1,4 +1,4 @@
-#include <fuzzing/strategy/search_metric.hpp>
+#include <fuzzing/strategy/metric.hpp>
 #include <fuzzing/branching_node.hpp>
 #include <utility/invariants.hpp>
 #include <algorithm>
