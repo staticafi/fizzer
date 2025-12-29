@@ -35,7 +35,8 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
 {
     TMPROF_BLOCK();
 
-    ASSUMPTION(root != nullptr && !root->is_closed());
+    if (root == nullptr || root->is_closed())
+        return nullptr;
 
     struct  selection_info
     {
