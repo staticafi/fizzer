@@ -58,6 +58,8 @@ progress_recorder::progress_recorder()
     , counter_results{ 0 }
 
     , strategy{}
+
+    , inter_analyses{}
 {}
 
 
@@ -92,6 +94,8 @@ void  progress_recorder::start(std::filesystem::path const&  path_to_target_, st
     counter_results = 0;
 
     strategy.clear();
+
+    inter_analyses.clear();
 }
 
 
@@ -131,6 +135,9 @@ void  progress_recorder::stop()
     counter_results = 0;
 
     strategy.clear();
+
+    inter_analyses.save();
+    inter_analyses.clear();
 }
 
 
@@ -356,18 +363,7 @@ void  progress_recorder::on_post_node_closed(branching_node const* const  node)
 {
     if (!is_started())
         return;
-    analysis_common_info*  info{ nullptr };
-    switch (analysis)
-    {
-        case ANALYSIS::BITSHARE: info = &bitshare; break;
-        case ANALYSIS::LOCAL_SEARCH: info = &local_search; break;
-        case ANALYSIS::BITFLIP: info = &bitflip; break;
-        case ANALYSIS::TAINT_REQUEST: info = &taint_request; break;
-        case ANALYSIS::TAINT_RESPONSE: info = &taint_response; break;
-        default: break;
-    }
-    if (info != nullptr)
-        info->closed_node_guids.insert(node->guid());
+    inter_analyses.closed_node_guids.insert(node->guid());
 }
 
 
@@ -430,17 +426,7 @@ void  progress_recorder::analysis_common_info::save() const
         std::ofstream  ostr{ record_pathname.c_str(), std::ios::binary };
         if (!ostr.is_open())
             throw std::runtime_error("Cannot open file for writing: " + record_pathname.string());
-        ostr << "{\n";
-
-        ostr << "\"strategy\": \"" << strategy << "\",\n\"closed_node_guids\": [\n";
-        for (auto  it = closed_node_guids.begin(); it != closed_node_guids.end(); ++it)
-        {
-            ostr << *it;
-            if (std::next(it) != closed_node_guids.end()) ostr << ",\n";
-        }
-        ostr << "]\n";
-
-        ostr << "}\n";
+        ostr << "{ \"strategy\": \"" << strategy << "\" }\n";
     }
 }
 
@@ -499,6 +485,9 @@ void  progress_recorder::on_analysis_start(ANALYSIS const  analysis_, analysis_c
     if (!is_started())
         return;
 
+    inter_analyses.save();
+    inter_analyses.clear();
+
     ASSUMPTION(analysis == ANALYSIS::STARTUP);
 
     analysis = analysis_;
@@ -512,7 +501,8 @@ void  progress_recorder::on_analysis_start(ANALYSIS const  analysis_, analysis_c
         throw std::runtime_error("Cannot create directory: " + info.analysis_dir);
     if (info.start_type != START::RESUMED)
         info.strategy = strategy;
-    info.closed_node_guids.clear();
+
+    inter_analyses.last_analysis_dir = info.analysis_dir;
 }
 
 
@@ -527,6 +517,22 @@ void  progress_recorder::on_analysis_stop()
     bitflip = {};
     taint_request = {};
     taint_response = {};
+}
+
+
+void  progress_recorder::inter_analyses_data::save()
+{
+    std::filesystem::path const  record_pathname = std::filesystem::path(last_analysis_dir) / "post.json";
+    std::ofstream  ostr{ record_pathname.c_str(), std::ios::binary };
+    if (!ostr.is_open())
+        throw std::runtime_error("Cannot open file for writing: " + record_pathname.string());
+    ostr << "{ \"closed_node_guids\": [ ";
+    for (auto  it = closed_node_guids.begin(); it != closed_node_guids.end(); ++it)
+    {
+        ostr << *it;
+        if (std::next(it) != closed_node_guids.end()) ostr << ',';
+    }
+    ostr << " ] }\n";
 }
 
 

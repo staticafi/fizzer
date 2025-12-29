@@ -384,31 +384,6 @@ bool  fuzzer::generate_next_input(
             return false;
         }
 
-        if (input_flow_thread.is_finished())
-        {
-            input_flow_thread.apply_results(entry_branching);
-
-            for (branching_node*  node = input_flow_thread.get_node(); node != nullptr; node = node->get_predecessor())
-                if (!node->is_closed())
-                {
-                    update_close_flags_from(node);
-                    break;
-                }
-
-            recording_send_taint_response(input_flow_thread.get_node());
-        }
-        if (input_flow_thread.is_ready())
-        {
-            branching_node*  target{ strategy.choose_target(entry_branching, false) };
-            if (target == nullptr)
-                target = find_backup_target(false);
-            if (target != nullptr)
-            {
-                input_flow_thread.start(target, num_driver_executions, num_remaining_seconds());
-                recording_send_taint_request(target);
-            }
-        }
-
         switch (state)
         {
             case STARTUP:
@@ -435,20 +410,43 @@ bool  fuzzer::generate_next_input(
 
         do_cleanup();
 
+        if (input_flow_thread.is_finished())
+        {
+            input_flow_thread.apply_results(entry_branching);
+
+            recording_send_taint_response(input_flow_thread.get_node());
+
+            for (branching_node*  node = input_flow_thread.get_node(); node != nullptr; node = node->get_predecessor())
+                if (!node->is_closed())
+                {
+                    update_close_flags_from(node);
+                    break;
+                }
+        }
+
         if (state == BITSHARE && strategy.is_valid_target(bitshare.get_node(), true))
         {
+            recorder().on_strategy();
             local_search.start(bitshare.get_node(), num_driver_executions);
             state = LOCAL_SEARCH;
         }
         else
         {
             branching_node*  target{ strategy.choose_target(entry_branching, true) };
-            if (target == nullptr)
-                target = find_backup_target(true);
             if (target != nullptr)
             {
                 bitshare.start(target, num_driver_executions);
                 state = BITSHARE;
+            }
+        }
+
+        if (input_flow_thread.is_ready())
+        {
+            branching_node*  target{ strategy.choose_target(entry_branching, false) };
+            if (target != nullptr)
+            {
+                input_flow_thread.start(target, num_driver_executions, num_remaining_seconds());
+                recording_send_taint_request(target);
             }
         }
 
