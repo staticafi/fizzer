@@ -125,15 +125,15 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
         search_state const  state{ work_queue.top() };
         work_queue.pop();
 
+        if (state.error() >= best_error)
+            continue;
+
         if (state.node() == nullptr)
         {
             INVARIANT(state.parent() != nullptr && !state.parent()->is_closed() && state.parent()->has_pending_analysis());
-            if (state.error() < best_error)
-            {
-                best_error = state.error();
-                best_node = state.parent();
-                best_counters = state.counters();
-            }
+            best_error = state.error();
+            best_node = state.parent();
+            best_counters = state.counters();
             continue;
         }
 
