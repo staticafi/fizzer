@@ -103,11 +103,7 @@ void fuzzer::render() const
     RENDER("    \"tree_nodes\": " << get_fuzzer_statistics().nodes_created - get_fuzzer_statistics().nodes_destroyed << ",");
     RENDER("    \"crashes\": " << get_fuzzer_statistics().crashes << ",");
     RENDER("    \"boundary_violations\": " << get_fuzzer_statistics().boundary_violations << ",");
-    RENDER("    \"medium_overflows\": " << get_fuzzer_statistics().medium_overflows << ",");
-    RENDER("    \"primary_coverage_targets\": {");
-    RENDER("        \"sensitive\": " << primary_coverage_targets.get_sensitive().size() << ",");
-    RENDER("        \"untouched\": " << primary_coverage_targets.get_untouched().size() << ",");
-    RENDER("    }");
+    RENDER("    \"medium_overflows\": " << get_fuzzer_statistics().medium_overflows);
     RENDER("},");
 }
 
