@@ -29,6 +29,7 @@ struct  navigator_automaton
 
     // These methods are here for progress recording.
     std::unordered_map<edge_type, extrapolation_line> const&  get_extrapolations() const { return extrapolations; }
+    std::unordered_map<edge_type, std::unordered_set<edge_type> > const&  get_reachability() const { return reachability; }
     std::unordered_map<edge_type, float_64_bit> const&  get_errors() const { return errors; }
     std::unordered_set<edge_counters_constraint> const&  get_constraints() const { return constraints; }
     edge_counters const&  get_target_counters() const { return target_counters; }
@@ -39,7 +40,12 @@ private:
     void  generate_constraints(std::vector<edge_counters>&  counters_vector);
     void  apply_constraints(edge_counters&  counters);
 
+    float_64_bit  error_common(edge_type  edge, edge_counters const&  current_counters);
+    float_64_bit  error_initial();
+    static float_64_bit  error_function(natural_32_bit  current_count, natural_32_bit  target_count);
+
     std::unordered_map<edge_type, extrapolation_line>  extrapolations;
+    std::unordered_map<edge_type, std::unordered_set<edge_type> >  reachability;
     std::unordered_map<edge_type, float_64_bit>  errors;
     std::unordered_set<edge_counters_constraint>  constraints;
     // Data below are here only for progress recording

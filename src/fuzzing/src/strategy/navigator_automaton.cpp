@@ -12,6 +12,7 @@ namespace  fuzzing {
 
 navigator_automaton::navigator_automaton(std::vector<value_and_node> const&  values_and_nodes)
     : extrapolations{}
+    , reachability{}
     , errors{}
     , constraints{}
     , target_counters{}
@@ -23,10 +24,16 @@ navigator_automaton::navigator_automaton(std::vector<value_and_node> const&  val
     std::unordered_map<edge_type, std::vector<vec2> >  extrapolated_data;
     for (value_and_node const&  value_and_node : values_and_nodes)
     {
+        std::unordered_set<edge_type>  reachable;
         counters_vector.push_back({});
         std::unordered_map<edge_type, natural_32_bit>&  counters{ counters_vector.back() };
         for (branching_node*  m = value_and_node.node, *n = m->get_predecessor(); n != nullptr; m = n, n = n->get_predecessor())
-            ++counters.insert({ { (n->successor_direction(m) ? 1 : -1) * (integer_32_bit)n->get_location_id() }, 0U }).first->second;
+        {
+            edge_type const  edge{ (n->successor_direction(m) ? 1 : -1) * (integer_32_bit)n->get_location_id() };
+            reachability[edge].insert(reachable.begin(), reachable.end());
+            reachable.insert(edge);
+            ++counters.insert({ edge, 0U }).first->second;
+        }
         for (auto const&  edge_and_count : counters)
             extrapolated_data[edge_and_count.first].push_back({ value_and_node.value, (float_64_bit)edge_and_count.second });
     }
@@ -50,41 +57,33 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
     {
         struct  actual_data
         {
-            float_64_bit  g;
-            float_64_bit  h;
             float_64_bit  error;
+            edge_type  edge;
             branching_node*  parent;
             branching_node*  node;
-            navigator_automaton::edge_counters  counters;
+            edge_counters  counters;
         };
 
+        search_state(float_64_bit const  error, branching_node* const  root)
+            : data_ptr{ std::make_shared<actual_data>(error, 0, root, root, edge_counters{}) }
+        {}
         search_state(
-                float_64_bit const  g,
-                float_64_bit const  h,
                 float_64_bit const  error,
+                edge_type const  edge,
                 branching_node* const  parent,
                 branching_node* const  node,
-                navigator_automaton::edge_counters const& counters
+                edge_counters&  counters
                 )
-            : data_ptr{ std::make_shared<actual_data>(g, h, error, parent, node, counters) }
-        {}
+            : data_ptr{ std::make_shared<actual_data>(error, edge, parent, node, edge_counters{}) }
+        { data_ptr->counters.swap(counters); }
 
-        float_64_bit  g() const { return data_ptr->g; }
-        float_64_bit  h() const { return data_ptr->h; }
         float_64_bit  error() const { return data_ptr->error; }
+        edge_type  edge() const { return data_ptr->edge; }
         branching_node*  parent() const { return data_ptr->parent; }
         branching_node*  node() const { return data_ptr->node; }
-        navigator_automaton::edge_counters const&  counters() const { return data_ptr->counters; }
-        navigator_automaton::edge_counters&  counters() { return data_ptr->counters; }
+        edge_counters const&  counters() const { return data_ptr->counters; }
 
-        float_64_bit  cost() const { return data_ptr->g + data_ptr->h; }
-
-        bool operator>(search_state const&  other) const
-        {
-            if (cost() == other.cost())
-                return error() > other.error();
-            return cost() > other.cost();
-        }
+        bool operator>(search_state const&  other) const { return error() > other.error(); }
 
     private:
         std::shared_ptr<actual_data>  data_ptr;
@@ -104,24 +103,11 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
     float_64_bit  best_error{ std::numeric_limits<float_64_bit>::infinity() };
     branching_node*  best_node{ nullptr };
     std::priority_queue<search_state, std::vector<search_state>, std::greater<search_state> >  work_queue;
-    {
-        float_64_bit  error_init{ 0.0 };
-        float_64_bit  h_init{ 0.0 };
-        for (auto const&  edge_and_counter : target_counters)
-        {
-            float_64_bit const  counter{ static_cast<float_64_bit>(edge_and_counter.second) };
-            error_init += counter * counter;
-            h_init += counter;
-        }
-        work_queue.push({ 0.0, h_init, error_init, root, root, {} });
-    }
-    while (!work_queue.empty())
+    work_queue.push({ error_initial(), root });
+    do
     {
         search_state const  state{ work_queue.top() };
         work_queue.pop();
-
-        // if (state.error() >= best_error)
-        //     continue;
 
         if (state.node() == nullptr)
         {
@@ -140,54 +126,17 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
         for (bool const  dir : { false, true })
         {
             branching_node* const  successor{ state.node()->successor(dir).pointer };
-            if (successor == nullptr)
+            if ((successor == nullptr && state.node()->has_pending_analysis()) || (successor != nullptr && !successor->is_closed()))
             {
-                if (!state.node()->has_pending_analysis())
-                    continue;
-            }
-            else
-            {
-                 if (successor->is_closed())
-                    continue;
-            }
-
-            edge_type const  edge{ (dir ? 1 : -1) * (integer_32_bit)state.node()->get_location_id() };
-
-            natural_32_bit  counter_current;
-            {
-                auto const  it{ state.counters().find(edge) };
-                counter_current = it == state.counters().end() ? 0U : it->second;
-            }
-
-            natural_32_bit  target_counter;
-            {
-                auto const  it{ target_counters.find(edge) };
-                target_counter = it == target_counters.end() ? 0U : it->second;
-            }
-
-            float_64_bit  error_delta;
-            {
-                float_64_bit const  diff_before{ static_cast<double>(counter_current) - static_cast<double>(target_counter) };
-                float_64_bit const  diff_after{ static_cast<double>(counter_current + 1U) - static_cast<double>(target_counter) };
-                error_delta = diff_after * diff_after - diff_before * diff_before;
-            }
-
-            if (state.error() + error_delta < best_error)
-            {
-                search_state  state_new{
-                    state.g() + 1.0,
-                    state.h() - (counter_current < target_counter ?  1.0 : 0.0),
-                    state.error() + error_delta,
-                    state.node(),
-                    successor,
-                    state.counters()
-                };
-                ++state_new.counters().insert({ edge, 0U }).first->second;
-
-                work_queue.push(state_new);
+                edge_type const  edge{ (dir ? 1 : -1) * (integer_32_bit)state.node()->get_location_id() };
+                edge_counters  counters{ state.counters() };
+                ++counters.insert({ edge, 0U }).first->second;
+                float_64_bit const  error{ error_common(edge, counters) };
+                work_queue.push({ error, edge, state.node(), successor, counters });
             }
         }
     }
+    while (!work_queue.empty());
 
     return best_node;
 }
@@ -250,6 +199,71 @@ void  navigator_automaton::apply_constraints(edge_counters&  counters)
         if (change == false)
             break;
     }
+}
+
+
+float_64_bit  navigator_automaton::error_common(edge_type const  edge, edge_counters const&  current_counters)
+{
+    navigator_automaton::edge_counters  expected_counters{};
+    {
+        auto const  it_reach{ reachability.find(edge) };
+        if (it_reach != reachability.end())
+        {
+            for (auto const&  edge_and_count : target_counters)
+                if (it_reach->second.contains(edge_and_count.first))
+                    expected_counters[edge_and_count.first] = edge_and_count.second;
+            for (auto const&  left_and_right : constraints)
+            {
+                auto const  it_left{ expected_counters.find(left_and_right.first) };
+                auto const  it_right{ expected_counters.find(left_and_right.second) };
+                if (it_left != expected_counters.end() && it_right == expected_counters.end())
+                {
+                    auto const  it_curr{ current_counters.find(left_and_right.second) };
+                    if (it_curr == current_counters.end())
+                        it_left->second = 0U;
+                    else if (it_left->second > it_curr->second)
+                        it_left->second = it_curr->second;
+                }
+            }
+        }
+    }
+
+    float_64_bit  error{ 0.0 };
+    for (auto const&  edge_and_count : current_counters)
+    {
+        auto const  it_and_state{ expected_counters.insert(edge_and_count) };
+        if (it_and_state.second == false && it_and_state.first->second < edge_and_count.second)
+            error += error_function(edge_and_count.second, it_and_state.first->second);
+    }
+    for (auto const&  edge_and_count : target_counters)
+        expected_counters.insert({ edge_and_count.first, 0U });
+    for (auto const&  edge_and_count : expected_counters)
+    {
+        auto const  it{ target_counters.find(edge_and_count.first) };
+        error += error_function(edge_and_count.second, it == target_counters.end() ? 0U : it->second);
+    }
+    return error;
+}
+
+
+float_64_bit  navigator_automaton::error_initial()
+{
+    float_64_bit  error{ 0.0 };
+    for (auto const&  edge_and_counter : target_counters)
+        error += error_function(0U, edge_and_counter.second);
+    return error;
+}
+
+
+float_64_bit  navigator_automaton::error_function(natural_32_bit const  current_count, natural_32_bit const  target_count)
+{
+    float_64_bit  dist;
+    if (target_count == 0U)
+        dist = (float_64_bit)current_count;
+    else
+        dist = std::fabs(1.0 - (float_64_bit)current_count / (float_64_bit)target_count);
+    dist += 0.5;
+    return dist * dist - 0.25;
 }
 
 
