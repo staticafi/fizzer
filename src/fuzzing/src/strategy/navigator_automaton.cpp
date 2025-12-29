@@ -48,13 +48,13 @@ navigator_automaton::navigator_automaton(std::vector<value_and_node> const&  val
                     extrapolated_data[edge_and_edges.first].push_back({ value, 0.0 });
         }
     }
-
     for (auto const&  edge_and_data : extrapolated_data)
     {
         auto&  extrapolation{ extrapolations[edge_and_data.first] };
         extrapolation.build(edge_and_data.second);
         errors.insert({ edge_and_data.first, compute_error(extrapolation, edge_and_data.second) });
     }
+    errors.insert({ 0, 0.0 });
 
     generate_constraints(counters_vector);
 }
