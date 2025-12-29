@@ -136,7 +136,10 @@ int  input_use_filter::max_read_index(branching_node*  node)
 
 
 search_strategy::search_strategy()
-    : uncovered{}
+    : locations{}
+    , location{ locations.end() }
+    , uncovered{}
+    , MAX_NODES{ 50U }
 {}
 
 
@@ -160,14 +163,22 @@ branching_node*  search_strategy::choose(branching_node* const  root)
 }
 
 
-void  search_strategy::on_new_uncovered_node(branching_node*  node)
+void  search_strategy::on_new_uncovered_node(branching_node* const  node)
 {
+    auto const  it_and_state = locations.insert({ node->get_location_id(), {} });
+    auto&  nodes{ it_and_state.first->second.nodes };
+    nodes.push_back(node);
+    while (nodes.size() > MAX_NODES)
+        nodes.pop_front();
     uncovered.insert(node);
 }
 
 
 void  search_strategy::on_location_covered(location_id const id)
 {
+    if (location != locations.end() && location->first == id)
+        ++location;
+    locations.erase(id);
     for (auto it = uncovered.begin(); it != uncovered.end(); ++it)
         if ((*it)->get_location_id() == id)
             it = uncovered.erase(it);
@@ -176,8 +187,14 @@ void  search_strategy::on_location_covered(location_id const id)
 }
 
 
-void  search_strategy::on_erase(branching_node*  node)
+void  search_strategy::on_erase(branching_node* const  node)
 {
+    auto const  loc_it = locations.find(node->get_location_id());
+    if (loc_it != locations.end())
+    {
+        auto&  nodes{ loc_it->second.nodes };
+        nodes.erase(std::remove(nodes.begin(), nodes.end(), node), nodes.end());
+    }
     uncovered.erase(node);
 }
 
