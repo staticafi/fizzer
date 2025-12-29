@@ -80,8 +80,6 @@ struct  fuzzer final
     std::unordered_set<location_id> const&  get_covered_branchings() const { return covered_branchings; }
     std::unordered_set<location_and_direction> const&  get_uncovered_branchings() const { return uncovered_branchings; }
 
-    bool  can_make_progress() const { return state != FINISHED; }
-
     bool  round_begin(TERMINATION_REASON&  termination_reason, input_bytes&  bytes, input_types_ptr&  types, input_metadata_ptr&  metadata);
     bool  round_end(test_suite_item&  test, execution_results_ptr  results);
 
@@ -92,7 +90,7 @@ struct  fuzzer final
     input_flow_analysis::performance_statistics const&  get_input_flow_statistics() const { return input_flow_thread.get_statistics(); }
     bitshare_analysis::performance_statistics const&  get_bitshare_statistics() const { return bitshare.get_statistics(); }
     local_search_analysis::performance_statistics const&  get_local_search_statistics() const { return local_search.get_statistics(); }
-    bitflip_analysis::performance_statistics const&  get_bitflip_statistics() const { return bitflip.get_statistics(); }
+    bitflip_analysis::performance_statistics  get_bitflip_statistics() const { return bitflip_analysis::performance_statistics{}; }
     performance_statistics const&  get_fuzzer_statistics() const { return statistics; }
 
 private:
@@ -102,28 +100,6 @@ private:
         STARTUP,
         BITSHARE,
         LOCAL_SEARCH,
-        BITFLIP,
-        FINISHED
-    };
-
-    struct  coverage_progress_control_props
-    {
-        explicit  coverage_progress_control_props(fuzzer* fuzzer_ptr_);
-        bool  is_analysis_interrupted() const { return interrupted_state != BITFLIP; }
-        bool  is_period_exceeded() const { return fuzzer_ptr->get_elapsed_seconds() - phase_start_time >= TIME_PERIOD; }
-        bool  nothing_covered() const { return num_covered_branchings == 0U; }
-        void  reset_period() { phase_start_time = fuzzer_ptr->get_elapsed_seconds(); num_covered_branchings = 0U; }
-        float_64_bit  get_phase_start_time() const { return phase_start_time; }
-        natural_32_bit  get_num_covered_branchings() const { return num_covered_branchings; }
-        void  increment_num_covered_branchings() { ++num_covered_branchings; }
-        bool  interruption_enter();
-        void  interruption_exit();
-    private:
-        static float_64_bit constexpr TIME_PERIOD{ 10.0 };
-        fuzzer*  fuzzer_ptr;
-        float_64_bit  phase_start_time;
-        natural_32_bit  num_covered_branchings;
-        STATE  interrupted_state;
     };
 
     struct  leaf_branching_construction_props
@@ -197,11 +173,6 @@ private:
     bool  process_execution_results(test_suite_item&  test, execution_results_ptr  results);
 
     void  do_cleanup();
-    void  select_next_state();
-    bool  try_start_input_flow_analysis();
-    branching_node*  next_sensitive_node();
-    branching_node*  next_untouched_node();
-    void  read_strategy();
 
     void  remove_leaf_branching_node(branching_node*  node);
 
@@ -228,18 +199,14 @@ private:
     std::unordered_set<location_id>  branchings_to_crashes;
 
     search_strategy  strategy;
-    std::deque<branching_node*> chosen_sensitive_nodes;
-    std::deque<branching_node*> chosen_untouched_nodes;
 
     std::unordered_set<branching_node*>  dead_nodes_buffer;
 
     input_flow_analysis_thread  input_flow_thread;
 
     STATE  state;
-    coverage_progress_control_props  coverage_control;
     bitshare_analysis  bitshare;
     local_search_analysis  local_search;
-    bitflip_analysis  bitflip;
 
     enum struct  RENDER_STATE
     {

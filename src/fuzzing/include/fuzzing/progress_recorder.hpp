@@ -55,16 +55,8 @@ struct  progress_recorder
 
     void  on_execution_results_available(test_suite_item const&  item, branching_node const*  leaf, std::string const&  progress_message = "");
 
-    void  on_strategy_turn_loop_head_sensitive();
-    void  on_strategy_turn_loop_head_others();
-    void  on_strategy_turn_sensitive();
-    void  on_strategy_turn_untouched();
-    void  on_strategy_turn_iid_twins_sensitive();
-    void  on_strategy_turn_iid_twins_others();
-    void  on_strategy_turn_monte_carlo();
-    void  on_strategy_turn_monte_carlo_backward();
+    void  on_strategy(std::string const&  strategy_ = {});
     void  on_post_node_closed(branching_node const*  node);
-    void  flush_strategy_data();
 
 private:
 
@@ -86,9 +78,11 @@ private:
         void  save() const;
 
         branching_node const*  node{ nullptr };
-        std::filesystem::path  analysis_dir{};
+        std::string  analysis_dir{};
         START  start_type{ START::NONE };
         STOP  stop_type{ STOP::REGULAR };
+        std::string  strategy{};
+        std::unordered_set<branching_node::guid_type>  closed_node_guids{};
     };
 
     struct  bitshare_progress_info : public analysis_common_info
@@ -116,36 +110,6 @@ private:
         void  save_info(std::ostream&  ostr) const override;
     };
 
-    struct  strategy_data
-    {
-        enum struct STRATEGY
-        {
-            NONE                    = 0,
-            LOOP_HEAD_SENSITIVE     = 1,
-            LOOP_HEAD_OTHERS        = 2,
-            SENSITIVE               = 3,
-            UNTOUCHED               = 4,
-            IID_TWINS_SENSITIVE     = 5,
-            IID_TWINS_OTHERS        = 6,
-            MONTE_CARLO             = 7,
-            MONTE_CARLO_BACKWARD    = 8
-        };
-
-        strategy_data();
-
-        void  on_strategy_changed(STRATEGY strategy_);
-        void  on_node_closed(branching_node const*  node);
-
-        void  set_output_dir(std::filesystem::path const&  dir);
-        void  clear();
-        bool  empty() const;
-        void  save() const;
-
-        std::filesystem::path  output_dir;
-        STRATEGY  strategy;
-        std::unordered_set<branching_node::guid_type>  closed_node_guids;
-    };
-
     progress_recorder();
 
     progress_recorder(progress_recorder const&) = delete;
@@ -160,7 +124,7 @@ private:
 
     bool  started;
 
-    std::filesystem::path  output_dir;
+    std::string  output_dir;
     std::string  program_name;
 
     ANALYSIS  analysis;
@@ -171,8 +135,7 @@ private:
     taint_response_progress_info  taint_response;
     natural_32_bit  counter_analysis;
     natural_32_bit  counter_results;
-
-    strategy_data  strategy;
+    std::string  strategy{};
 };
 
 

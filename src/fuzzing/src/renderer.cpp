@@ -85,20 +85,13 @@ void fuzzer::render() const
             {
                 case BITSHARE: node = bitshare.get_node(); break;
                 case LOCAL_SEARCH: node = local_search.get_node(); break;
-                case BITFLIP: node = bitflip.get_node(); break;
                 default: node = nullptr; break;
             }
             return node == nullptr ? "N/A" : std::to_string(node->get_location_id());
         }()
         << ",");
-    RENDER("    \"coverage_control\": {");
-    RENDER("        \"interrupted\": " << coverage_control.is_analysis_interrupted() << ",");
-    RENDER("        \"time\": " << get_elapsed_seconds() - coverage_control.get_phase_start_time() << ",");
-    RENDER("        \"covered\": " << coverage_control.get_num_covered_branchings());
-    RENDER("    },");
     RENDER("    \"bitshare_analysis\": " << get_bitshare_statistics().generated_inputs << ",");
     RENDER("    \"local_search_analysis\": " << get_local_search_statistics().generated_inputs << ",");
-    RENDER("    \"bitflip_analysis\": " << get_bitflip_statistics().generated_inputs << ",");
     RENDER("    \"leaf_branchings\": " << leaf_branchings.size() << ",");
     RENDER("    \"tree_nodes\": " << get_fuzzer_statistics().nodes_created - get_fuzzer_statistics().nodes_destroyed << ",");
     RENDER("    \"crashes\": " << get_fuzzer_statistics().crashes << ",");

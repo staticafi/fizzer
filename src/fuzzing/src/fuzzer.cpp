@@ -35,51 +35,6 @@ static natural_32_bit count_calls_to_function(sala::Program const& program, std:
 }
 
 
-fuzzer::coverage_progress_control_props::coverage_progress_control_props(fuzzer* const  fuzzer_ptr_)
-    : fuzzer_ptr{ fuzzer_ptr_ }
-    , phase_start_time{ fuzzer_ptr->get_elapsed_seconds() }
-    , num_covered_branchings{ 0U }
-    , interrupted_state{ BITFLIP }
-{}
-
-
-bool  fuzzer::coverage_progress_control_props::interruption_enter()
-{
-    ASSUMPTION(fuzzer_ptr->state != fuzzer::BITFLIP);
-
-    fuzzer_ptr->recording_interrupt();
-
-    if (fuzzer_ptr->bitflip.is_ready())
-    {
-        fuzzer_ptr->bitflip.start(fuzzer_ptr->entry_branching);
-        if (fuzzer_ptr->bitflip.is_ready())
-        {
-            fuzzer_ptr->recording_resume();
-            return false;
-        }
-    }
-    else
-        recorder().on_bitflip_start(fuzzer_ptr->bitflip.get_node(), progress_recorder::START::REGULAR);
-
-    interrupted_state = fuzzer_ptr->state;
-    fuzzer_ptr->state = BITFLIP;
-
-    return true;
-}
-
-
-void  fuzzer::coverage_progress_control_props::interruption_exit()
-{
-    ASSUMPTION(fuzzer_ptr->state == fuzzer::BITFLIP);
-
-    fuzzer_ptr->state = interrupted_state;
-    interrupted_state = BITFLIP;
-
-    recorder().on_bitflip_stop(progress_recorder::STOP::REGULAR);
-    fuzzer_ptr->recording_resume();
-}
-
-
 fuzzer::input_flow_analysis_thread::input_flow_analysis_thread(
         sala::Program const* sala_program_ptr,
         target_executor const* const  tgt_exec
@@ -238,29 +193,25 @@ void fuzzer::input_flow_analysis_thread::worker_thread_procedure()
         }
 
         std::chrono::system_clock::time_point const  start_time = std::chrono::system_clock::now();
-        try
-        {
-            input_flow.run(data_ptr, [this, start_time](std::string& error_message) {
-                double const num_seconds = std::chrono::duration<double>(std::chrono::system_clock::now() - start_time).count();
-                if (num_seconds >= request.remaining_seconds)
-                {
-                    error_message = "[TIME OUT] The time budget " + std::to_string(request.remaining_seconds) + "s for the execution was exhausted.";
-                    return true;
-                }
-                bool do_stop;
-                {
-                    std::lock_guard<std::mutex> const lock(mutex);
-                    do_stop = worker_stop_flag;
-                }
-                if (do_stop)
-                {
-                    error_message = "[FORCE STOP] The computation was stopped forcefully by the signalled flag.";
-                    return true;
-                }
-                return false;
-            });
-        }
-        catch (...) {}
+        input_flow.run(data_ptr, [this, start_time](std::string& error_message) {
+            double const num_seconds = std::chrono::duration<double>(std::chrono::system_clock::now() - start_time).count();
+            if (num_seconds >= request.remaining_seconds)
+            {
+                error_message = "[TIME OUT] The time budget " + std::to_string(request.remaining_seconds) + "s for the execution was exhausted.";
+                return true;
+            }
+            bool do_stop;
+            {
+                std::lock_guard<std::mutex> const lock(mutex);
+                do_stop = worker_stop_flag;
+            }
+            if (do_stop)
+            {
+                error_message = "[FORCE STOP] The computation was stopped forcefully by the signalled flag.";
+                return true;
+            }
+            return false;
+        });
 
         {
             std::lock_guard<std::mutex> const lock(mutex);
@@ -276,8 +227,6 @@ std::string const&  fuzzer::get_analysis_name_from_state(STATE state)
         { STARTUP, "STARTUP" },
         { BITSHARE, "bitshare" },
         { LOCAL_SEARCH, "local_search" },
-        { BITFLIP, "bitflip" },
-        { FINISHED, "FINISHED" },
     };
     return map.at(state);
 }
@@ -313,10 +262,7 @@ fuzzer::fuzzer(
 
     , termination_props{ info }
 
-    , num_branchings_to_cover{
-            sala_program_ptr != nullptr ? count_calls_to_function(*sala_program_ptr, "__fizzer_process_condition") :
-                                          std::numeric_limits<natural_32_bit>::max()
-            }
+    , num_branchings_to_cover{ count_calls_to_function(*sala_program_ptr, "__fizzer_process_condition") }
 
     , num_driver_executions{ 0U }
     , time_point_start{ std::chrono::steady_clock::now() }
@@ -330,17 +276,13 @@ fuzzer::fuzzer(
     , branchings_to_crashes{}
 
     , strategy{}
-    , chosen_sensitive_nodes{}
-    , chosen_untouched_nodes{}
 
     , dead_nodes_buffer{}
 
     , state{ STARTUP }
-    , coverage_control{ this }
     , input_flow_thread{ sala_program_ptr, tgt_exec }
     , bitshare{}
     , local_search{ local_search_config }
-    , bitflip{}
 
     , render_state{ RENDER_STATE::DISABLED }
     , statistics{}
@@ -357,8 +299,6 @@ void  fuzzer::terminate()
 {
     stop_all_analyzes();
 
-    recorder().flush_strategy_data();
-
     while (!leaf_branchings.empty())
         remove_leaf_branching_node(*leaf_branchings.begin());
 }
@@ -369,7 +309,6 @@ void  fuzzer::stop_all_analyzes()
     input_flow_thread.stop();
     bitshare.stop();
     local_search.stop();
-    bitflip.stop();
 }
 
 
@@ -408,6 +347,16 @@ bool  fuzzer::generate_next_input(
     TERMINATION_REASON&  termination_reason
     )
 {
+    auto const  find_backup_target = [this](bool const  sensitive) -> branching_node* {
+        recorder().on_strategy("Backup");
+        for (auto it = strategy.get_locations_map().begin(); it != strategy.get_locations_map().end(); ++it)
+            for (auto dit = it->second.begin(); dit != it->second.end(); ++dit)
+                if (strategy.is_valid_target(*dit, sensitive))
+                    return *dit;
+        recorder().on_strategy();
+        return nullptr;
+    };
+
     while (true)
     {
         if (get_performed_driver_executions() > 0U)
@@ -446,54 +395,17 @@ bool  fuzzer::generate_next_input(
                     break;
                 }
 
-            if (!input_flow_thread.get_node()->get_sensitive_stdin_bits().empty())
-                chosen_sensitive_nodes.push_back(input_flow_thread.get_node());
-
             recording_send_taint_response(input_flow_thread.get_node());
-
-            if (state == BITFLIP && !coverage_control.is_analysis_interrupted())
-            {
-                do_cleanup();
-                select_next_state();
-            }
         }
         if (input_flow_thread.is_ready())
-            try_start_input_flow_analysis();
-
-        if (coverage_control.is_analysis_interrupted())
         {
-            INVARIANT(state == BITFLIP);
-            if (coverage_control.is_period_exceeded())
+            branching_node*  target{ strategy.choose_target(entry_branching, false) };
+            if (target == nullptr)
+                target = find_backup_target(false);
+            if (target != nullptr)
             {
-                if (coverage_control.nothing_covered())
-                {
-                    coverage_control.interruption_exit();
-                    switch (state)
-                    {
-                        case BITSHARE:
-                            if (!bitshare.get_node()->has_unexplored_direction())
-                                bitshare.stop();
-                            break;
-                        case LOCAL_SEARCH:
-                            if (!local_search.get_node()->has_unexplored_direction())
-                                local_search.stop();
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                coverage_control.reset_period();
-            }
-        }
-        else if (state == BITFLIP)
-            coverage_control.reset_period();
-        else if (state != STARTUP)
-        {
-            if (coverage_control.is_period_exceeded())
-            {
-                if (coverage_control.nothing_covered())
-                    coverage_control.interruption_enter();
-                coverage_control.reset_period();
+                input_flow_thread.start(target, num_driver_executions, num_remaining_seconds());
+                recording_send_taint_request(target);
             }
         }
 
@@ -518,47 +430,34 @@ bool  fuzzer::generate_next_input(
                     return true;
                 break;
 
-            case BITFLIP:
-                if (bitflip.generate_next_input(stdin_bits, types, metadata))
-                    return true;
-                if (coverage_control.is_analysis_interrupted())
-                {
-                    if (bitflip.is_ready())
-                        bitflip.start(entry_branching);
-                    if (bitflip.is_ready())
-                    {
-                        coverage_control.interruption_exit();
-                        switch (state)
-                        {
-                            case BITSHARE:
-                                if (!bitshare.get_node()->has_unexplored_direction())
-                                    bitshare.stop();
-                                break;
-                            case LOCAL_SEARCH:
-                                if (!local_search.get_node()->has_unexplored_direction())
-                                    local_search.stop();
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                    continue;
-                }
-                break;
-
-            case FINISHED:
-                {
-                    terminate();
-                    termination_reason = TERMINATION_REASON::FUZZING_STRATEGY_DEPLETED;
-                    return false;
-                }
-                break;
-
             default: { UNREACHABLE(); break; }
         }
 
         do_cleanup();
-        select_next_state();
+
+        if (state == BITSHARE && strategy.is_valid_target(bitshare.get_node(), true))
+        {
+            local_search.start(bitshare.get_node(), num_driver_executions);
+            state = LOCAL_SEARCH;
+        }
+        else
+        {
+            branching_node*  target{ strategy.choose_target(entry_branching, true) };
+            if (target == nullptr)
+                target = find_backup_target(true);
+            if (target != nullptr)
+            {
+                bitshare.start(target, num_driver_executions);
+                state = BITSHARE;
+            }
+        }
+
+        if (input_flow_thread.is_ready() && bitshare.is_ready() && local_search.is_ready())
+        {
+            terminate();
+            termination_reason = TERMINATION_REASON::FUZZING_STRATEGY_DEPLETED;
+            return false;
+        }
 
         stdin_bits.clear();
     }
@@ -569,9 +468,6 @@ bool  fuzzer::generate_next_input(
 
 bool  fuzzer::process_execution_results(test_suite_item&  test, execution_results_ptr const  results)
 {
-    if (state == FINISHED)
-        return false;
-
     test.results = results;
     test.any_location_discovered = false;
     test.covered_locations.clear();
@@ -624,7 +520,7 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
                         uncovered_branchings.insert({ info.id, !info.direction });
                         construction_props.any_location_discovered = true;
 
-                        coverage_control.increment_num_covered_branchings();
+                        // coverage_control.increment_num_covered_branchings();
                     }
 
                     construction_props.uncovered_locations[info.id].insert(construction_props.leaf);
@@ -638,7 +534,7 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
                     construction_props.covered_locations.insert(info.id);
 
                     strategy.on_location_covered(info.id);
-                    coverage_control.increment_num_covered_branchings();
+                    // coverage_control.increment_num_covered_branchings();
                 }
             }
 
@@ -783,11 +679,6 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
             }
             break;
 
-        case BITFLIP:
-            INVARIANT(bitflip.is_busy());
-            recorder().on_execution_results_available(test, construction_props.leaf);
-            break;
-
         default:
             UNREACHABLE();
             break;
@@ -829,136 +720,6 @@ void  fuzzer::do_cleanup()
 }
 
 
-void  fuzzer::select_next_state()
-{
-    TMPROF_BLOCK();
-
-    INVARIANT(bitshare.is_ready() && local_search.is_ready());
-
-    branching_node*  winner{ next_sensitive_node() };
-
-    if (state == BITFLIP)
-        recorder().on_bitflip_stop(progress_recorder::STOP::REGULAR);
-
-    if (winner == nullptr)
-    {
-        if (sala_program_ptr == nullptr || (!leaf_branchings.empty() && (natural_32_bit)covered_branchings.size() < num_branchings_to_cover))
-        {
-            state = BITFLIP;
-            if (bitflip.is_ready())
-            {
-                bitflip.start(entry_branching);
-                if (bitflip.is_ready()) // The start has failed.
-                    state = FINISHED;
-            }
-            else
-                recorder().on_bitflip_start(bitflip.get_node(), progress_recorder::START::REGULAR);
-        }
-        else
-            state = FINISHED;
-        return;
-    }
-
-    INVARIANT(winner->is_pending() && winner->was_sensitivity_performed());
-
-    if (!winner->was_bitshare_performed())
-    {
-        INVARIANT(!winner->get_sensitive_stdin_bits().empty());
-        bitshare.start(winner, num_driver_executions);
-        state = BITSHARE;
-    }
-    else
-    {
-        INVARIANT(!winner->was_local_search_performed() && !winner->get_sensitive_stdin_bits().empty());
-        local_search.start(winner, num_driver_executions);
-        state = LOCAL_SEARCH;
-    }
-}
-
-
-bool  fuzzer::try_start_input_flow_analysis()
-{
-    if (!input_flow_thread.is_ready())
-        return false;
-
-    branching_node* const  winner{ next_untouched_node() };
-    if (winner == nullptr)
-        return false;
-
-    input_flow_thread.start(winner, num_driver_executions, num_remaining_seconds());
-
-    recording_send_taint_request(winner);
-
-    return true;
-}
-
-
-branching_node*  fuzzer::next_sensitive_node()
-{
-    auto const&  is_valid = [](branching_node const* const  node) {
-        return !node->get_sensitive_stdin_bits().empty() &&
-               !node->is_closed() &&
-               node->has_unexplored_direction() &&
-               node->has_pending_analysis();
-    };
-    while (!chosen_sensitive_nodes.empty())
-    {
-        branching_node* const  node = chosen_sensitive_nodes.front();
-        if (is_valid(node))
-            return node;
-        chosen_sensitive_nodes.pop_front();
-    }
-    read_strategy();
-    while (!chosen_sensitive_nodes.empty())
-    {
-        branching_node* const  node = chosen_sensitive_nodes.front();
-        if (is_valid(node))
-            return node;
-        chosen_sensitive_nodes.pop_front();
-    }
-    return nullptr;
-}
-
-
-branching_node*  fuzzer::next_untouched_node()
-{
-    auto const&  is_valid = [](branching_node const* const  node) {
-        return !node->was_sensitivity_performed() &&
-               !node->is_closed() &&
-               node->has_unexplored_direction();
-    };
-    while (!chosen_untouched_nodes.empty())
-    {
-        branching_node* const  node = chosen_untouched_nodes.front();
-        chosen_untouched_nodes.pop_front();
-        if (is_valid(node))
-            return node;
-    }
-    read_strategy();
-    while (!chosen_untouched_nodes.empty())
-    {
-        branching_node* const  node = chosen_untouched_nodes.front();
-        chosen_untouched_nodes.pop_front();
-        if (is_valid(node))
-            return node;
-    }
-    return nullptr;
-}
-
-
-void  fuzzer::read_strategy()
-{
-    branching_node* const  node = strategy.choose(entry_branching);
-    if (node != nullptr)
-    {
-        if (!node->was_sensitivity_performed())
-            chosen_untouched_nodes.push_back(node);
-        if (!node->get_sensitive_stdin_bits().empty())
-            chosen_sensitive_nodes.push_back(node);
-    }
-}
-
-
 void  fuzzer::remove_leaf_branching_node(branching_node*  node)
 {
     TMPROF_BLOCK();
@@ -979,14 +740,6 @@ void  fuzzer::remove_leaf_branching_node(branching_node*  node)
         branching_node* const  pred = node->get_predecessor();
 
         strategy.on_erase(node);
-        chosen_sensitive_nodes.erase(
-                std::remove(chosen_sensitive_nodes.begin(), chosen_sensitive_nodes.end(), node),
-                chosen_sensitive_nodes.end()
-                );
-        chosen_untouched_nodes.erase(
-                std::remove(chosen_untouched_nodes.begin(), chosen_untouched_nodes.end(), node),
-                chosen_untouched_nodes.end()
-                );
 
         delete node;
 
@@ -1018,10 +771,6 @@ void  fuzzer::recording_interrupt()
             if (local_search.is_busy())
                 recorder().on_local_search_stop(progress_recorder::STOP::INTERRUPTED);
             break;
-        case BITFLIP:
-            if (bitflip.is_busy())
-                recorder().on_bitflip_stop(progress_recorder::STOP::INTERRUPTED);
-            break;
         default:
             break;
     }
@@ -1039,10 +788,6 @@ void  fuzzer::recording_resume()
         case LOCAL_SEARCH:
             if (local_search.is_busy())
                 recorder().on_local_search_start(local_search.get_node(), progress_recorder::START::RESUMED);
-            break;
-        case BITFLIP:
-            if (bitflip.is_busy())
-                recorder().on_bitflip_start(bitflip.get_node(), progress_recorder::START::RESUMED);
             break;
         default:
             break;
@@ -1062,6 +807,7 @@ void  fuzzer::recording_send_taint_request(branching_node const* const  node_ptr
 void  fuzzer::recording_send_taint_response(branching_node const* const  node_ptr)
 {
     recording_interrupt();
+    recorder().on_strategy();
     recorder().on_taint_response_start(node_ptr, progress_recorder::START::REGULAR);
     recorder().on_taint_response_stop(progress_recorder::STOP::INSTANT);
     recording_resume();
