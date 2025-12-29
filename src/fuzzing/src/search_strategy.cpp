@@ -141,10 +141,13 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
         auto filter_ptr{ create_filter(cursor->filter) };
         std::vector<branching_node*>  output;
         filter_ptr->apply({ props.begin(), props.end() }, *metric_ptr, output);
-        navigator  nav{ output, *metric_ptr };
+        std::vector<float_64_bit>  values;
+        for (branching_node*  node : output)
+            values.push_back(metric_ptr->value(node));
+        navigator  nav{ output, values };
         if (nav.valid() && best_target.can_accept(nav.are_all_values_same()))
         {
-            float_64_bit const  value{ choose_target_value(output, nav.get_values(), cursor->metric) };
+            float_64_bit const  value{ choose_target_value(output, values, cursor->metric) };
             branching_node* const  target{ nav.run(root, value) };
             if (is_valid_target(target, sensitive))
             {
