@@ -2,6 +2,7 @@
 #   define FUZZING_STRATEGY_NAVIGATOR_REGRESSION_HPP_INCLUDED
 
 #   include <fuzzing/strategy/value_and_node.hpp>
+#   include <fuzzing/strategy/extrapolation.hpp>
 #   include <utility/basic_numeric_types.hpp>
 #   include <unordered_map>
 #   include <unordered_set>
@@ -21,23 +22,10 @@ struct  navigator_regression
         float_64_bit  ratios[2][3] = { { 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0 } };
     };
 
-    struct vec2 { float_64_bit  x, y; };
-
-    struct extrapolation
-    {
-        extrapolation() : c0{ 0.0 }, c1{ 0.0 } {}
-        void  build(std::vector<vec2> const&  input);
-        static float_64_bit  apply(float_64_bit const  c0, float_64_bit const  c1, float_64_bit const  value) { return c0 + value * c1; }
-        float_64_bit  apply(float_64_bit const  value) const { return apply(c0, c1, value); }
-    private:
-        float_64_bit  c0;
-        float_64_bit  c1;
-    };
-
     struct  id_extra
     {
-        extrapolation  counts[2] = { {}, {} };
-        extrapolation  ratios[2][3] = { { {}, {}, {} }, { {}, {}, {} } };
+        extrapolation_line  counts[2] = { {}, {} };
+        extrapolation_line  ratios[2][3] = { { {}, {}, {} }, { {}, {}, {} } };
     };
 
     navigator_regression(std::vector<value_and_node> const&  values_and_nodes);
