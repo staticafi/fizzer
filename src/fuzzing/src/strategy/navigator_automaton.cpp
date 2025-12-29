@@ -37,6 +37,17 @@ navigator_automaton::navigator_automaton(std::vector<value_and_node> const&  val
         for (auto const&  edge_and_count : counters)
             extrapolated_data[edge_and_count.first].push_back({ value_and_node.value, (float_64_bit)edge_and_count.second });
     }
+    for (natural_64_bit  i{ 0ULL}; i != counters_vector.size(); ++i)
+    {
+        edge_counters const&  counters{ counters_vector.at(i) };
+        if (counters.size() < reachability.size())
+        {
+            float_64_bit const  value{ values_and_nodes.at(i).value };
+            for (auto const&  edge_and_edges: reachability)
+                if (!counters.contains(edge_and_edges.first))
+                    extrapolated_data[edge_and_edges.first].push_back({ value, 0.0 });
+        }
+    }
 
     for (auto const&  edge_and_data : extrapolated_data)
     {
