@@ -27,6 +27,13 @@ struct  navigator_automaton
     bool  valid() const { return true; }
     branching_node*  run(branching_node*  root, float_64_bit  value);
 
+    // These methods are here for progress recording.
+    std::unordered_map<edge_type, extrapolation_line> const&  get_extrapolations() const { return extrapolations; }
+    std::unordered_map<edge_type, float_64_bit> const&  get_errors() const { return errors; }
+    std::unordered_set<edge_counters_constraint> const&  get_constraints() const { return constraints; }
+    edge_counters const&  get_target_counters() const { return target_counters; }
+    edge_counters const&  get_best_counters() const { return best_counters; }
+
 private:
 
     void  generate_constraints(std::vector<edge_counters>&  counters_vector);
@@ -35,6 +42,9 @@ private:
     std::unordered_map<edge_type, extrapolation_line>  extrapolations;
     std::unordered_map<edge_type, float_64_bit>  errors;
     std::unordered_set<edge_counters_constraint>  constraints;
+    // Data below are here only for progress recording
+    edge_counters  target_counters;
+    edge_counters  best_counters;
 };
 
 
