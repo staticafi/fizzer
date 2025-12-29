@@ -496,13 +496,21 @@ struct  progress_recorder::strategy_automaton::automaton_info
 
 bool  progress_recorder::strategy_automaton::save_info(std::ostream&  ostr) const
 {
+    std::vector<navigator_automaton::edge_type>  edges;
+    edges.reserve(info->extrapolations.size() + 1ULL);
+    edges.push_back(0);
+    for (auto const&  edge_and_line : info->extrapolations)
+        edges.push_back(edge_and_line.first);
+    std::sort(edges.begin(), edges.end());
+
     ostr << "\"extrapolations\": [";
     {
         bool  first = true;
-        for (auto const&  [edge, line] : info->extrapolations)
+        for (auto const  edge : edges)
         {
+            auto const  it{ info->extrapolations.find(edge) }; if (it == info->extrapolations.end()) continue;
             if (first) first = false; else ostr << ',';
-            ostr << "\n    " << edge << ",    " << line.get_c0() << ',' << line.get_c1();
+            ostr << "\n    " << edge << ",    " << it->second.get_c0() << ',' << it->second.get_c1();
         }
     }
     ostr << "\n],\n";
@@ -510,12 +518,15 @@ bool  progress_recorder::strategy_automaton::save_info(std::ostream&  ostr) cons
     ostr << "\"reachability\": {";
     {
         bool  first = true;
-        for (auto const&  [edge, edges] : info->reachability)
+        for (auto const  edge : edges)
         {
+            auto const  it{ info->reachability.find(edge) }; if (it == info->reachability.end()) continue;
+            std::vector<navigator_automaton::edge_type>  reachable{ it->second.begin(), it->second.end() };
+            std::sort(reachable.begin(), reachable.end());
             if (first) first = false; else ostr << ',';
             ostr << "\n    \"" << edge << "\": [";
             bool  reach_first = true;
-            for (auto const  reachable_edge : edges)
+            for (auto const  reachable_edge : reachable)
             {
                 if (reach_first) reach_first = false; else ostr << ',';
                 ostr << ' ' << reachable_edge;
@@ -529,10 +540,11 @@ bool  progress_recorder::strategy_automaton::save_info(std::ostream&  ostr) cons
     ostr << "\"errors\": [";
     {
         bool  first = true;
-        for (auto const&  [edge, error] : info->errors)
+        for (auto const  edge : edges)
         {
+            auto const  it{ info->errors.find(edge) }; if (it == info->errors.end()) continue;
             if (first) first = false; else ostr << ',';
-            ostr << "\n    " << edge << ",    " << error;
+            ostr << "\n    " << edge << ",    " << it->second;
         }
     }
     ostr << "\n],\n";
@@ -540,24 +552,31 @@ bool  progress_recorder::strategy_automaton::save_info(std::ostream&  ostr) cons
     ostr << "\"target_counters\": [";
     {
         bool  first = true;
-        for (auto const&  [edge, counter] : info->target_counters)
-            if (counter > 0U)
+        for (auto const  edge : edges)
+        {
+            auto const  it{ info->target_counters.find(edge) }; if (it == info->target_counters.end()) continue;
+            if (it->second > 0U)
             {
                 if (first) first = false; else ostr << ',';
-                ostr << "\n    " << edge << ",    " << counter;
+                ostr << "\n    " << edge << ",    " << it->second;
             }
+        }
     }
     ostr << "\n],\n";
 
     ostr << "\"best_counters\": [";
     {
         bool  first = true;
-        for (auto const&  [edge, counter] : info->best_counters)
-            if (counter > 0U)
+        // for (auto const&  [edge, counter] : info->best_counters)
+        for (auto const  edge : edges)
+        {
+            auto const  it{ info->best_counters.find(edge) }; if (it == info->best_counters.end()) continue;
+            if (it->second > 0U)
             {
                 if (first) first = false; else ostr << ',';
-                ostr << "\n    " << edge << ",    " << counter;
+                ostr << "\n    " << edge << ",    " << it->second;
             }
+        }
     }
     ostr << "\n],\n";
 
