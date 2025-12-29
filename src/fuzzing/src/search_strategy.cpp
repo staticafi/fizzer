@@ -227,6 +227,7 @@ struct  navigator
     branching_node*  run(branching_node*  root, float_32_bit  value);
 
 private:
+    static branching_node*  step_in_tree(branching_node*  node, bool  desired_direction);
 
     std::unordered_set<integer_32_bit>  sids;
     std::vector<float_32_bit>  values;
@@ -259,7 +260,7 @@ navigator::navigator(std::vector<branching_node*> const&  nodes, metric&  metric
         auto&  map{ consumptions.back() };
         for (branching_node*  n = node->get_predecessor(), *m = node; n != nullptr; m = n, n = n->get_predecessor())
         {
-            integer_32_bit const  sid{ (n->successor_direction(m) ? -1 : 1) * (integer_32_bit)n->get_location_id() };
+            integer_32_bit const  sid{ (n->successor_direction(m) ? 1 : -1) * (integer_32_bit)n->get_location_id() };
             float_32_bit const x{ n->get_trace_index() / (float_32_bit)std::max(1U, node->get_trace_index()) };
             map.insert({ sid, {} }).first->second.push_back(x);
         }
@@ -321,6 +322,10 @@ navigator::navigator(std::vector<branching_node*> const&  nodes, metric&  metric
                         info.ratios[k][l] /= f.size();
                         avgRatios[k][l] += info.ratios[k][l];
                     }
+                    INVARIANT(
+                            info.ratios[k][0] >= 0.0f && info.ratios[k][1] >= 0.0f && info.ratios[k][2] >= 0.0f &&
+                            std::abs(info.ratios[k][0] + info.ratios[k][1] + info.ratios[k][2] - 1.0f) < 1e-6f
+                            );
                 }
                 ++avgCount;
             }
@@ -401,7 +406,7 @@ branching_node*  navigator::run(branching_node* const  root, float_32_bit const 
         natural_32_bit  current[2];
     };
 
-    std::unordered_map<natural_32_bit, std::vector<visit_counts>>  counts;
+    std::unordered_map<natural_32_bit, std::vector<visit_counts> >  counts;
     for (integer_32_bit sid : sids)
         if (!counts.contains(std::abs(sid)))
         {
@@ -421,45 +426,46 @@ branching_node*  navigator::run(branching_node* const  root, float_32_bit const 
             std::reverse(cnt.begin(), cnt.end());
         }
 
-    bool dirOpen[2]{ false, false };
     branching_node*  node{ root };
     while (true)
     {
         std::vector<visit_counts>&  cnt{ counts.insert({ node->get_location_id(), { { 0U, 0U } } }).first->second };
 
-        bool  dir;
-        for (integer_32_bit i = 0; i != 2; ++i)
-            switch (node->successor(i == 0 ? false : true).label)
-            {
-                case branching_node::successor_pointer::END_EXCEPTIONAL:
-                case branching_node::successor_pointer::END_NORMAL:
-                    dirOpen[i] = false;
-                    break;
-                case branching_node::successor_pointer::VISITED:
-                    dirOpen[i] = !node->successor(i == 0 ? false : true).pointer->is_closed();
-                    break;
-                default:
-                    dirOpen[i] = true;
-                    break;
-            }
-        if (dirOpen[0] && dirOpen[1])
-            dir = cnt.back().choose_dir();
-        else if (dirOpen[0])
-            dir = false;
-        else if (dirOpen[1])
-            dir = true;
-        else { UNREACHABLE(); }
+        branching_node* const  successor{ step_in_tree(node, cnt.back().choose_dir()) };
+        if (successor == nullptr)
+        {
+            INVARIANT(node->is_pending());
+            return node;
+        }
 
-        cnt.back().increment(dir);
+        cnt.back().increment(node->successor_direction(successor));
         if (cnt.back().depleted() && cnt.size() > 1ULL)
             cnt.pop_back();
 
-        branching_node*  n = node->successor(dir).pointer;
-        if (n == nullptr)
-            return node;
-
-        node = n;
+        node = successor;
     }
+}
+
+
+branching_node*  navigator::step_in_tree(branching_node* const  node, bool const  desired_direction)
+{
+    INVARIANT(node != nullptr && !node->is_closed());
+
+    branching_node*  successor = nullptr;
+
+    branching_node* const  left = node->successor(false).pointer;
+    branching_node* const  right = node->successor(true).pointer;
+
+    bool const  can_go_left = left != nullptr && !left->is_closed();
+    bool const  can_go_right = right != nullptr && !right->is_closed();
+    bool const  can_go_desired_direction = (desired_direction == false && can_go_left) || (desired_direction == true && can_go_right);
+
+    if (can_go_desired_direction)
+        successor = desired_direction == false ? left : right;
+    else if (!node->is_pending())
+        successor = can_go_left ? left : right;
+
+    return successor;
 }
 
 
