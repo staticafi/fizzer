@@ -49,13 +49,6 @@ private:
         AUTOMATON = 3,
     };
 
-    struct  best_target_info
-    {
-        navigation_cursor  cursor;
-        branching_node*  target;
-        NAVIGATOR_TYPE  type;
-    };
-
     void  next(navigation_cursor&  cursor);
 
     std::vector<metric_and_filter>  metrics_and_filters;

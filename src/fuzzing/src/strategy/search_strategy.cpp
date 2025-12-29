@@ -34,7 +34,15 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
 {
     ASSUMPTION(root != nullptr && !root->is_closed() && cursors[sensitive ? 1 : 0].location != locations.end());
 
-    best_target_info  best_target{ { locations.end(), 0U }, nullptr, NAVIGATOR_TYPE::NONE };
+    struct  best_target_info
+    {
+        navigation_cursor  cursor;
+        branching_node*  target;
+        NAVIGATOR_TYPE  type;
+        float_64_bit  value;
+    };
+
+    best_target_info  best_target{ { locations.end(), 0U }, nullptr, NAVIGATOR_TYPE::NONE, 0.0 };
     navigation_cursor&  cursor{ cursors[sensitive ? 1 : 0] };
     navigation_cursor const  start_cursor{ cursor };
     do
@@ -52,6 +60,7 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
                 best_target.target = target;
                 best_target.cursor = cursor;
                 best_target.type = NAVIGATOR_TYPE::AUTOMATON;
+                best_target.value = value;
                 break;
             }
         }
@@ -68,6 +77,7 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
                 best_target.target = target;
                 best_target.cursor = cursor;
                 best_target.type = NAVIGATOR_TYPE::REGRESSION;
+                best_target.value = value;
                 break;
             }
         }
@@ -83,6 +93,7 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
                 best_target.target = target;
                 best_target.cursor = cursor;
                 best_target.type = NAVIGATOR_TYPE::EXPANSION;
+                best_target.value = 0.0;
             }
         }
 
@@ -109,7 +120,8 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
                     to_string(metrics_and_filters.at(cursor.index).filter_ptr->type()),
                     cursor.location->first,
                     best_target.target,
-                    sensitive
+                    sensitive,
+                    best_target.value
                 );
                 break;
             default: UNREACHABLE(); break;
