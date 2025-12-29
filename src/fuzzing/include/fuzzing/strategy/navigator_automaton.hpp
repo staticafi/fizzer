@@ -25,7 +25,7 @@ struct  navigator_automaton
 
     navigator_automaton(std::vector<value_and_node> const&  values_and_nodes);
     bool  valid() const { return true; }
-    branching_node*  run(branching_node*  root, float_64_bit  value);
+    branching_node*  run(branching_node*  root, float_64_bit  value, bool  sensitive);
 
     // These methods are here for progress recording.
     std::unordered_map<edge_type, extrapolation_line> const&  get_extrapolations() const { return extrapolations; }

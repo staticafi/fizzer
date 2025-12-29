@@ -64,7 +64,7 @@ navigator_automaton::navigator_automaton(std::vector<value_and_node> const&  val
 }
 
 
-branching_node*  navigator_automaton::run(branching_node* const  root, float_64_bit const  value)
+branching_node*  navigator_automaton::run(branching_node* const  root, float_64_bit const  value, bool const  sensitive)
 {
     TMPROF_BLOCK();
 
@@ -131,11 +131,17 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
         if (state.node() == nullptr)
         {
             INVARIANT(state.parent() != nullptr && !state.parent()->is_closed() && state.parent()->has_pending_analysis());
-            best_error = state.error();
-            best_node = state.parent();
-            best_counters = state.counters();
+            if (sensitive == state.parent()->was_sensitivity_performed())
+            {
+                best_error = state.error();
+                best_node = state.parent();
+                best_counters = state.counters();
+            }
             continue;
         }
+
+        if (sensitive && !state.node()->was_sensitivity_performed())
+            continue;
 
         INVARIANT(!state.node()->is_closed());
 

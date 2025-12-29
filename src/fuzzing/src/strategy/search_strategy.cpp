@@ -62,7 +62,7 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
         if (automaton.valid())
         {
             float_64_bit const  value{ choose_target_value(values_and_nodes, metric_type) };
-            branching_node* const  target{ automaton.run(root, value) };
+            branching_node* const  target{ automaton.run(root, value, sensitive) };
             if (is_valid_target(target, sensitive))
             {
                 recorder().on_strategy_automaton(
