@@ -190,9 +190,7 @@ static float_32_bit  choose_target_value(
             default: UNREACHABLE();
             }
     }
-
-    // TODO!
-    return 0.0f;
+    return 2.0f * *std::max_element(values.begin(), values.end());
 }
 
 
