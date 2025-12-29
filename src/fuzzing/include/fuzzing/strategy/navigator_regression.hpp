@@ -1,10 +1,11 @@
 #ifndef FUZZING_STRATEGY_NAVIGATOR_REGRESSION_HPP_INCLUDED
 #   define FUZZING_STRATEGY_NAVIGATOR_REGRESSION_HPP_INCLUDED
 
-#include <utility/basic_numeric_types.hpp>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
+#   include <fuzzing/strategy/value_and_node.hpp>
+#   include <utility/basic_numeric_types.hpp>
+#   include <unordered_map>
+#   include <unordered_set>
+#   include <vector>
 
 namespace  fuzzing {
 
@@ -39,7 +40,7 @@ struct  navigator_regression
         extrapolation  ratios[2][3] = { { {}, {}, {} }, { {}, {}, {} } };
     };
 
-    navigator_regression(std::vector<branching_node*> const&  nodes, std::vector<float_64_bit> const&  values);
+    navigator_regression(std::vector<value_and_node> const&  values_and_nodes);
     bool  valid() const { return !extrapolations.empty(); }
     branching_node*  run(branching_node*  root, float_64_bit  value);
 

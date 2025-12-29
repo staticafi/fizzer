@@ -9,14 +9,14 @@ namespace  fuzzing {
 extern bool  is_valid_target(branching_node*  node, bool  sensitive);
 
 
-navigator_expansion::navigator_expansion(std::vector<branching_node*> const&  nodes, bool const  sensitive)
+navigator_expansion::navigator_expansion(std::vector<value_and_node> const&  values_and_nodes, bool const  sensitive)
     : best_node{ nullptr }
 {
     trace_index_type  best_cost{ std::numeric_limits<trace_index_type>::max() };
-    for (branching_node*  node : nodes)
+    for (auto const&  value_and_node : values_and_nodes)
     {
-        trace_index_type  cost{ node->get_trace_index() };
-        for (branching_node*  n = node; n != nullptr; n = n->get_predecessor(), ++cost)
+        trace_index_type  cost{ value_and_node.node->get_trace_index() };
+        for (branching_node*  n = value_and_node.node; n != nullptr; n = n->get_predecessor(), ++cost)
             if (is_valid_target(n, sensitive) && cost < best_cost)
             {
                 best_node = n;

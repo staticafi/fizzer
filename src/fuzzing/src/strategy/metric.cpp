@@ -49,27 +49,26 @@ std::unique_ptr<metric>  create_metric(METRIC_TYPE const  type)
 {
     switch (type)
     {
-        case METRIC_TYPE::BEST_VALUE: return std::unique_ptr<metric>{ new best_value_metric };
-        case METRIC_TYPE::INPUT_SIZE: return std::unique_ptr<metric>{ new input_size_metric };
-        case METRIC_TYPE::HIT_COUNT: return std::unique_ptr<metric>{ new hit_count_metric };
+        case METRIC_TYPE::BEST_VALUE: return std::unique_ptr<metric>{ new best_value_metric(METRIC_TYPE::BEST_VALUE) };
+        case METRIC_TYPE::INPUT_SIZE: return std::unique_ptr<metric>{ new input_size_metric(METRIC_TYPE::INPUT_SIZE) };
+        case METRIC_TYPE::HIT_COUNT: return std::unique_ptr<metric>{ new hit_count_metric(METRIC_TYPE::HIT_COUNT) };
         default: UNREACHABLE(); return nullptr;
     }
 }
 
 
 float_64_bit  choose_target_value(
-        std::vector<branching_node*> const&  nodes,
-        std::vector<float_64_bit> const&  values,
+        std::vector<value_and_node> const&  values_and_nodes,
         METRIC_TYPE const  type
         )
 {
-    if (nodes.empty())
+    if (values_and_nodes.empty())
         return 0.0;
 
     if (type == METRIC_TYPE::BEST_VALUE)
     {
         float_64_bit constexpr  non_zero{ 1000.0 };
-        branching_node* const  node{ nodes.front() };
+        branching_node* const  node{ values_and_nodes.front().node };
         bool const  dir{ node->is_direction_unexplored(true) };
         switch (node->get_atomic_predicate())
         {
@@ -82,7 +81,7 @@ float_64_bit  choose_target_value(
             default: UNREACHABLE();
         }
     }
-    return 2.0 * *std::max_element(values.begin(), values.end());
+    return 2.0 * std::max_element(values_and_nodes.begin(), values_and_nodes.end())->value;
 }
 
 
