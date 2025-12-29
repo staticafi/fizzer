@@ -17,6 +17,7 @@ struct extrapolation_line
     float_64_bit  apply(float_64_bit const  value) const;
     float_64_bit  get_c0() const { return c0; }
     float_64_bit  get_c1() const { return c1; }
+    bool  is_constant() const { return c1 == 0.0; }
 private:
     float_64_bit  c0;
     float_64_bit  c1;
