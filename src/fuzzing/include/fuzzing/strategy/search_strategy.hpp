@@ -5,6 +5,7 @@
 #   include <fuzzing/strategy/filter.hpp>
 #   include <fuzzing/strategy/value_and_node.hpp>
 #   include <fuzzing/branching_node.hpp>
+#   include <utility/random.hpp>
 #   include <map>
 #   include <vector>
 #   include <memory>
@@ -35,17 +36,9 @@ private:
     using  location_props = std::vector<std::vector<value_and_node> >;
     using  locations_map = std::map<location_id, location_props>;
 
-    struct  navigation_cursor
-    {
-        locations_map::iterator  location;
-        natural_32_bit  index;
-    };
-
-    void  next(navigation_cursor&  cursor);
-
     std::vector<metric_and_filter>  metrics_and_filters;
     locations_map  locations;
-    navigation_cursor  cursors[2];
+    random_generator_for_natural_64_bit  random_generator;
     natural_16_bit  MAX_SIZE;
 };
 

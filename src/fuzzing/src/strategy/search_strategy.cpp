@@ -6,6 +6,7 @@
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <utility/timeprof.hpp>
+#include <unordered_set>
 #include <algorithm>
 
 namespace  fuzzing {
@@ -14,16 +15,16 @@ namespace  fuzzing {
 search_strategy::search_strategy()
     : metrics_and_filters{}
     , locations{}
-    , cursors{ { locations.end(), 0U }, { locations.end(), 0U } }
+    , random_generator{ 0U }
     , MAX_SIZE{ 50U }
 {
-    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::ALL });
-    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::WARM });
-    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::COLD });
+    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::ALL });
+    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::WARM });
+    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::COLD });
     // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::INPUT_USE });
     // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::INPUT_WARM });
     // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::INPUT_COLD });
-    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::INPUT_SIZE, FILTER_TYPE::ALL });
+    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::INPUT_SIZE, FILTER_TYPE::ALL });
     // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::INPUT_SIZE, FILTER_TYPE::INPUT_USE });
     metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::HIT_COUNT, FILTER_TYPE::ALL });
     // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::HIT_COUNT, FILTER_TYPE::INPUT_USE });
@@ -32,31 +33,62 @@ search_strategy::search_strategy()
 
 branching_node*  search_strategy::choose_target(branching_node* const  root, bool const  sensitive)
 {
-    ASSUMPTION(root != nullptr && !root->is_closed() && cursors[sensitive ? 1 : 0].location != locations.end());
+    TMPROF_BLOCK();
 
-    // enum struct  NAVIGATOR_TYPE : natural_8_bit
-    // {
-    //     NONE = 0,
-    //     EXPANSION = 1,
-    //     REGRESSION = 2,
-    //     AUTOMATON = 3,
-    // };
+    ASSUMPTION(root != nullptr && !root->is_closed());
 
-    // struct  best_target_info
-    // {
-    //     navigation_cursor  cursor;
-    //     branching_node*  target;
-    //     NAVIGATOR_TYPE  type;
-    //     float_64_bit  value;
-    // };
-
-    // best_target_info  best_target{ { locations.end(), 0U }, nullptr, NAVIGATOR_TYPE::NONE, 0.0 };
-    navigation_cursor&  cursor{ cursors[sensitive ? 1 : 0] };
-    navigation_cursor const  start_cursor{ cursor };
-    do
+    struct  selection_info
     {
-        auto const&  values_and_nodes{ cursor.location->second.at(cursor.index) };
-        auto const  metric_type{ metrics_and_filters.at(cursor.index).metric_ptr->type() };
+        bool  operator<(selection_info const&  other) const { return priority < other.priority; }
+        float_64_bit  priority;
+        location_id  location;
+        natural_32_bit  index;
+    };
+    std::vector<selection_info>  selection_infos;
+    {
+        for (auto const&  loc_and_data : locations)
+            for (natural_32_bit  i{ 0U }; i < (natural_32_bit)loc_and_data.second.size(); ++i)
+            {
+                std::unordered_set<float_64_bit>  values;
+                for (auto const&  value_and_node : loc_and_data.second.at(i))
+                    values.insert(value_and_node.value);
+                selection_infos.push_back({
+                    values.empty() ? 0.0 : (float_64_bit)values.size() / (float_64_bit)loc_and_data.second.at(i).size(),
+                    loc_and_data.first,
+                    i
+                });
+                selection_infos.back().priority *= selection_infos.back().priority;
+            }
+        std::sort(selection_infos.begin(), selection_infos.end());
+        std::reverse(selection_infos.begin(), selection_infos.end());
+        while (!selection_infos.empty() && selection_infos.back().priority < 1.0 / (2.0 * (float_64_bit)MAX_SIZE * (float_64_bit)MAX_SIZE))
+            selection_infos.pop_back();
+        if (selection_infos.empty())
+            return nullptr;
+        for (auto&  info : selection_infos)
+            info.priority = std::round(info.priority / selection_infos.back().priority);
+        float_64_bit  sum{ 0.0 };
+        for (std::size_t  i{ 0ULL }; i < selection_infos.size(); ++i)
+        {
+            float_64_bit const  temp{ selection_infos.at(i).priority };
+            selection_infos.at(i).priority = sum;
+            sum += temp;
+        }
+    }
+
+    for (std::size_t  i{ 0ULL }; i != selection_infos.size(); ++i)
+    {
+        selection_info const*  winner_ptr;
+        {
+            natural_64_bit const  choice{ get_random_natural_64_bit_in_range(0ULL, (natural_64_bit)selection_infos.back().priority, random_generator) };
+            auto  it{ std::lower_bound(selection_infos.begin(), selection_infos.end(), selection_info{ (float_64_bit)choice, 0U, 0U }) };
+            if (it != selection_infos.begin() && it != selection_infos.end() && (float_64_bit)choice < it->priority)
+                --it;
+            winner_ptr = it == selection_infos.end() ? &selection_infos.back() : &*it;
+        }
+
+        auto const&  values_and_nodes{ locations.at(winner_ptr->location).at(winner_ptr->index) };
+        auto const  metric_type{ metrics_and_filters.at(winner_ptr->index).metric_ptr->type() };
 
         navigator_automaton  automaton{ values_and_nodes };
         if (automaton.valid())
@@ -67,101 +99,20 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
             {
                 recorder().on_strategy_automaton(
                     to_string(metric_type),
-                    to_string(metrics_and_filters.at(cursor.index).filter_ptr->type()),
+                    to_string(metrics_and_filters.at(winner_ptr->index).filter_ptr->type()),
                     values_and_nodes,
-                    cursor.location->first,
+                    winner_ptr->location,
                     target,
                     sensitive,
                     value,
                     automaton
                 );
-                next(cursor);
                 return target;
             }
         }
-
-        // INVARIANT(best_target.type != NAVIGATOR_TYPE::AUTOMATON);
-
-        // navigator_regression  regression{ values_and_nodes };
-        // if (regression.valid())
-        // {
-        //     float_64_bit const  value{ choose_target_value(values_and_nodes, metric_type) };
-        //     branching_node* const  target{ regression.run(root, value) };
-        //     if (is_valid_target(target, sensitive))
-        //     {
-        //         best_target.target = target;
-        //         best_target.cursor = cursor;
-        //         best_target.type = NAVIGATOR_TYPE::REGRESSION;
-        //         best_target.value = value;
-        //         break;
-        //     }
-        // }
-
-        // INVARIANT(best_target.type != NAVIGATOR_TYPE::REGRESSION);
-
-        // navigator_expansion  expansion{ values_and_nodes, sensitive };
-        // if (expansion.valid())
-        // {
-        //     branching_node* const  target{ expansion.run() };
-        //     if (is_valid_target(target, sensitive))
-        //     {
-        //         best_target.target = target;
-        //         best_target.cursor = cursor;
-        //         best_target.type = NAVIGATOR_TYPE::EXPANSION;
-        //         best_target.value = 0.0;
-        //     }
-        // }
-
-        next(cursor);
     }
-    while (cursor.location != start_cursor.location || cursor.index != start_cursor.index);
-
-    // if (best_target.target != nullptr)
-    // {
-    //     INVARIANT(is_valid_target(best_target.target, sensitive));
-
-    //     cursor = best_target.cursor;
-
-    //     switch (best_target.type)
-    //     {
-    //         case NAVIGATOR_TYPE::NONE:
-    //         case NAVIGATOR_TYPE::EXPANSION:
-    //         case NAVIGATOR_TYPE::REGRESSION:
-    //             // TODO!
-    //             break;
-    //         case NAVIGATOR_TYPE::AUTOMATON:
-    //             recorder().on_strategy_automaton(
-    //                 to_string(metrics_and_filters.at(cursor.index).metric_ptr->type()),
-    //                 to_string(metrics_and_filters.at(cursor.index).filter_ptr->type()),
-    //                 cursor.location->first,
-    //                 best_target.target,
-    //                 sensitive,
-    //                 best_target.value
-    //             );
-    //             break;
-    //         default: UNREACHABLE(); break;
-    //     }
-    // }
-    // next(cursor);
-
-    // return best_target.target;
 
     return nullptr;
-}
-
-
-void  search_strategy::next(navigation_cursor&  cursor)
-{
-    ASSUMPTION(cursor.location != locations.end());
-
-    ++cursor.index;
-    if (cursor.index == metrics_and_filters.size())
-    {
-        cursor.index = 0U;
-        ++cursor.location;
-        if (cursor.location == locations.end())
-            cursor.location = locations.begin();
-    }
 }
 
 
@@ -191,36 +142,21 @@ void  search_strategy::on_new_uncovered_nodes(std::vector<branching_node*> const
                 values_and_nodes.pop_back();
         }
     }
-    for (natural_32_bit  i = 0U; i != 2U; ++i)
-        if (cursors[i].location == locations.end())
-        {
-            cursors[i].location = locations.begin();
-            cursors[i].index = 0U;
-        }
 }
 
 
 void  search_strategy::on_location_covered(location_id const  id)
 {
-    for (natural_32_bit  i = 0U; i != 2U; ++i)
-        if (cursors[i].location != locations.end() && cursors[i].location->first == id)
-        {
-            if (locations.size() == 1ULL)
-                cursors[i].location = locations.end();
-            else
-            {
-                ++cursors[i].location;
-                if (cursors[i].location == locations.end())
-                    cursors[i].location = locations.begin();
-            }
-            cursors[i].index = 0U;
-        }
+    TMPROF_BLOCK();
+
     locations.erase(id);
 }
 
 
 void  search_strategy::on_erase(branching_node* const  node)
 {
+    TMPROF_BLOCK();
+
     auto const  loc_it = locations.find(node->get_location_id());
     if (loc_it != locations.end())
     {
