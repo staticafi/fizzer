@@ -111,11 +111,14 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
 
     for (auto const&  edge_and_line : extrapolations)
     {
-        float_64_bit  raw_target_counter{ edge_and_line.second.apply(value) };
-        target_counters.insert({
-            edge_and_line.first,
-            errors.at(edge_and_line.first) > 1e-6 ? 0.0 : (natural_32_bit)std::max(0.0, std::round(raw_target_counter))
-        });
+        float_64_bit const  raw_target_counter{ edge_and_line.second.apply(value) };
+        float_64_bit const  clipped_target_counter{ std::max(0.0, std::round(raw_target_counter)) };
+        natural_32_bit const  target_counter{
+            errors.at(edge_and_line.first) > 1e-6 ?
+                (clipped_target_counter >= 1.0 ? (natural_32_bit)std::round(1.0 + std::log(clipped_target_counter)) : 0U) :
+                (natural_32_bit)clipped_target_counter
+        };
+        target_counters.insert({ edge_and_line.first, target_counter });
     }
     apply_constraints(target_counters);
 
