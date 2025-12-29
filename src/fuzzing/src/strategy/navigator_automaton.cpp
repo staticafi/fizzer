@@ -56,6 +56,10 @@ navigator_automaton::navigator_automaton(std::vector<value_and_node> const&  val
     }
     errors.insert({ 0, 0.0 });
 
+    for (auto const&  edge_and_line : extrapolations)
+        if (!edge_and_line.second.is_constant())
+            reachability[edge_and_line.first].insert(edge_and_line.first);
+
     generate_constraints(counters_vector);
 }
 
