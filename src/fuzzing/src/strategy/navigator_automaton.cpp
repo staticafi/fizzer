@@ -103,6 +103,8 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
 
     if (root->is_closed())
         return nullptr;
+    if (extrapolations.empty())
+        return nullptr;
 
     for (auto const&  edge_and_line : extrapolations)
     {
