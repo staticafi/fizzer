@@ -26,9 +26,9 @@ navigator_automaton::navigator_automaton(std::vector<value_and_node> const&  val
         counters_vector.push_back({});
         std::unordered_map<edge_type, natural_32_bit>&  counters{ counters_vector.back() };
         for (branching_node*  m = value_and_node.node, *n = m->get_predecessor(); n != nullptr; m = n, n = n->get_predecessor())
-            ++counters.insert({ { m->get_location_id(), n->get_location_id() }, 0U }).first->second;
+            ++counters.insert({ { n->get_location_id(), m->get_location_id() }, 0U }).first->second;
         for (auto const&  edge_and_count : counters)
-            extrapolated_data[edge_and_count.first].push_back({ (float_64_bit)edge_and_count.second, value_and_node.value });
+            extrapolated_data[edge_and_count.first].push_back({ value_and_node.value, (float_64_bit)edge_and_count.second });
     }
 
     for (auto const&  edge_and_data : extrapolated_data)
