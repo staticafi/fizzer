@@ -11,6 +11,15 @@ namespace  fuzzing {
 
 struct search_strategy
 {
+    search_strategy();
+    ~search_strategy();
+
+    branching_node*  choose(branching_node* const  root);
+    void  on_new_uncovered_node(branching_node*  node);
+    void  on_location_covered(location_id  id);
+    void  on_erase(branching_node*  node);
+
+private:
     enum METRIC_TYPE
     {
         MT_BEST_VALUE  = 0U,
@@ -37,15 +46,6 @@ struct search_strategy
         FILTER_TYPE  filter_type{ FT_ALL };
     };
 
-    search_strategy();
-    ~search_strategy();
-
-    branching_node*  choose(branching_node* const  root);
-    void  on_new_uncovered_node(branching_node*  node);
-    void  on_location_covered(location_id  id);
-    void  on_erase(branching_node*  node);
-
-private:
     std::map<location_id, location_props>  locations;
     decltype(locations)::iterator  location;
     std::unordered_set<branching_node*>  uncovered;
