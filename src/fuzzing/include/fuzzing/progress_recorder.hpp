@@ -14,6 +14,7 @@ namespace  fuzzing {
 
 
 struct  navigator_automaton;
+struct  value_and_node;
 
 
 struct  progress_recorder
@@ -45,6 +46,7 @@ struct  progress_recorder
     void  on_strategy_automaton(
         std::string const&  metric_,
         std::string const&  filter_,
+        std::vector<value_and_node> const&  values_and_nodes_,
         location_id  target_id_,
         branching_node const*  best_node_,
         bool  sensitive_,
@@ -84,6 +86,7 @@ private:
         strategy_common_info(
             std::string const&  metric_,
             std::string const&  filter_,
+            std::vector<value_and_node> const&  values_and_nodes_,
             location_id  target_id_,
             branching_node const*  best_node_,
             bool  sensitive_,
@@ -95,6 +98,7 @@ private:
         void  save(std::string const&  output_dir) const;
         std::string  metric;
         std::string  filter;
+        std::vector<value_and_node>  values_and_nodes;
         location_id  target_id;
         location_id  best_node_id;
         branching_node::guid_type  best_node_guid;
@@ -107,6 +111,7 @@ private:
         strategy_automaton(
             std::string const&  metric_,
             std::string const&  filter_,
+            std::vector<value_and_node> const&  values_and_nodes_,
             location_id const  target_id_,
             branching_node const* const  best_node_,
             bool  sensitive_,
