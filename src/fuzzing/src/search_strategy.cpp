@@ -215,7 +215,7 @@ static float_32_bit  choose_target_value(
             case atomic_predicate::GREATER: return dir ? non_zero : -non_zero;
             case atomic_predicate::GREATER_EQUAL: return dir ? non_zero : -non_zero;
             default: UNREACHABLE();
-            }
+        }
     }
     return 2.0f * *std::max_element(values.begin(), values.end());
 }
