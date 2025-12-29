@@ -67,7 +67,7 @@ float_64_bit  choose_target_value(
 
     if (type == METRIC_TYPE::BEST_VALUE)
     {
-        float_64_bit constexpr  non_zero{ 1000.0 };
+        float_64_bit constexpr  non_zero{ 1.0 };
         branching_node* const  node{ values_and_nodes.front().node };
         bool const  dir{ node->is_direction_unexplored(true) };
         switch (node->get_atomic_predicate())
@@ -81,7 +81,7 @@ float_64_bit  choose_target_value(
             default: UNREACHABLE();
         }
     }
-    return 2.0 * std::max_element(values_and_nodes.begin(), values_and_nodes.end())->value;
+    return std::max_element(values_and_nodes.begin(), values_and_nodes.end())->value + 5.0;
 }
 
 
