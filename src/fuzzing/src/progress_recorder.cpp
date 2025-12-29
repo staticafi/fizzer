@@ -473,18 +473,24 @@ progress_recorder::strategy_automaton::strategy_automaton(
 
 struct  progress_recorder::strategy_automaton::automaton_info
 {
+    using  edge_type = navigator_automaton::edge_type;
+    using  edge_counters_constraint = navigator_automaton::edge_counters_constraint;
+    using  edge_counters = navigator_automaton::edge_counters;
+
     automaton_info(navigator_automaton const&  automaton)
         : extrapolations{ automaton.get_extrapolations() }
+        , reachability{ automaton.get_reachability() }
         , errors{ automaton.get_errors() }
         , constraints{ automaton.get_constraints() }
         , target_counters{ automaton.get_target_counters() }
         , best_counters{ automaton.get_best_counters() }
     {}
-    std::unordered_map<navigator_automaton::edge_type, extrapolation_line>  extrapolations;
-    std::unordered_map<navigator_automaton::edge_type, float_64_bit>  errors;
-    std::unordered_set<navigator_automaton::edge_counters_constraint>  constraints;
-    navigator_automaton::edge_counters  target_counters;
-    navigator_automaton::edge_counters  best_counters;
+    std::unordered_map<edge_type, extrapolation_line>  extrapolations;
+    std::unordered_map<edge_type, std::unordered_set<edge_type> >  reachability;
+    std::unordered_map<edge_type, float_64_bit>  errors;
+    std::unordered_set<edge_counters_constraint>  constraints;
+    edge_counters  target_counters;
+    edge_counters  best_counters;
 };
 
 
@@ -500,6 +506,25 @@ bool  progress_recorder::strategy_automaton::save_info(std::ostream&  ostr) cons
         }
     }
     ostr << "\n],\n";
+
+    ostr << "\"reachability\": {";
+    {
+        bool  first = true;
+        for (auto const&  [edge, edges] : info->reachability)
+        {
+            if (first) first = false; else ostr << ',';
+            ostr << "\n    \"" << edge << "\": [";
+            bool  reach_first = true;
+            for (auto const  reachable_edge : edges)
+            {
+                if (reach_first) reach_first = false; else ostr << ',';
+                ostr << ' ' << reachable_edge;
+
+            }
+            ostr << " ]";
+        }
+    }
+    ostr << "\n},\n";
 
     ostr << "\"errors\": [";
     {
