@@ -73,30 +73,27 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
         struct  actual_data
         {
             float_64_bit  error;
-            edge_type  edge;
             branching_node*  parent;
             branching_node*  node;
             edge_counters  counters;
+            std::unordered_set<edge_type> const*  reachable;
         };
 
-        search_state(float_64_bit const  error, branching_node* const  root)
-            : data_ptr{ std::make_shared<actual_data>(error, 0, root, root, edge_counters{}) }
-        {}
         search_state(
                 float_64_bit const  error,
-                edge_type const  edge,
                 branching_node* const  parent,
                 branching_node* const  node,
-                edge_counters&  counters
+                edge_counters&&  counters,
+                std::unordered_set<edge_type> const* const  reachable
                 )
-            : data_ptr{ std::make_shared<actual_data>(error, edge, parent, node, edge_counters{}) }
+            : data_ptr{ std::make_shared<actual_data>(error, parent, node, edge_counters{}, reachable) }
         { data_ptr->counters.swap(counters); }
 
         float_64_bit  error() const { return data_ptr->error; }
-        edge_type  edge() const { return data_ptr->edge; }
         branching_node*  parent() const { return data_ptr->parent; }
         branching_node*  node() const { return data_ptr->node; }
         edge_counters const&  counters() const { return data_ptr->counters; }
+        std::unordered_set<edge_type> const*  reachable() const { return data_ptr->reachable; }
 
         bool operator>(search_state const&  other) const { return error() > other.error(); }
 
@@ -115,10 +112,14 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
     }
     apply_constraints(target_counters);
 
+    std::unordered_set<edge_type>  reachable_all{}, reachable_none{};
+    for (auto const&  edge_and_edges : reachability)
+        reachable_all.insert(edge_and_edges.first);
+
     float_64_bit  best_error{ std::numeric_limits<float_64_bit>::infinity() };
     branching_node*  best_node{ nullptr };
     std::priority_queue<search_state, std::vector<search_state>, std::greater<search_state> >  work_queue;
-    work_queue.push({ error_initial(), root });
+    work_queue.push({ error_initial(), root, root, {}, &reachable_all });
     do
     {
         search_state const  state{ work_queue.top() };
@@ -145,9 +146,19 @@ branching_node*  navigator_automaton::run(branching_node* const  root, float_64_
             {
                 edge_type const  edge{ (dir ? 1 : -1) * (integer_32_bit)state.node()->get_location_id() };
                 edge_counters  counters{ state.counters() };
-                ++counters.insert({ edge, 0U }).first->second;
-                float_64_bit const  error{ error_common(edge, counters) };
-                work_queue.push({ error, edge, state.node(), successor, counters });
+                std::unordered_set<edge_type> const* reachable;
+                if (state.reachable()->contains(edge))
+                {
+                    ++counters.insert({ edge, 0U }).first->second;
+                    reachable = &reachability.at(edge);
+                }
+                else
+                {
+                    ++counters.insert({ 0, 0U }).first->second;
+                    reachable = &reachable_none;
+                }
+                float_64_bit const  error{ error_common(counters, reachable) };
+                work_queue.push({ error, state.node(), successor, std::move(counters), reachable });
             }
         }
     }
@@ -217,29 +228,23 @@ void  navigator_automaton::apply_constraints(edge_counters&  counters)
 }
 
 
-float_64_bit  navigator_automaton::error_common(edge_type const  edge, edge_counters const&  current_counters)
+float_64_bit  navigator_automaton::error_common(edge_counters const&  current_counters, std::unordered_set<edge_type> const* const  reachable)
 {
-    navigator_automaton::edge_counters  expected_counters{};
+    edge_counters  expected_counters{};
+    for (auto const&  edge_and_count : target_counters)
+        if (reachable->contains(edge_and_count.first))
+            expected_counters[edge_and_count.first] = edge_and_count.second;
+    for (auto const&  left_and_right : constraints)
     {
-        auto const  it_reach{ reachability.find(edge) };
-        if (it_reach != reachability.end())
+        auto const  it_left{ expected_counters.find(left_and_right.first) };
+        auto const  it_right{ expected_counters.find(left_and_right.second) };
+        if (it_left != expected_counters.end() && it_right == expected_counters.end())
         {
-            for (auto const&  edge_and_count : target_counters)
-                if (it_reach->second.contains(edge_and_count.first))
-                    expected_counters[edge_and_count.first] = edge_and_count.second;
-            for (auto const&  left_and_right : constraints)
-            {
-                auto const  it_left{ expected_counters.find(left_and_right.first) };
-                auto const  it_right{ expected_counters.find(left_and_right.second) };
-                if (it_left != expected_counters.end() && it_right == expected_counters.end())
-                {
-                    auto const  it_curr{ current_counters.find(left_and_right.second) };
-                    if (it_curr == current_counters.end())
-                        it_left->second = 0U;
-                    else if (it_left->second > it_curr->second)
-                        it_left->second = it_curr->second;
-                }
-            }
+            auto const  it_curr{ current_counters.find(left_and_right.second) };
+            if (it_curr == current_counters.end())
+                it_left->second = 0U;
+            else if (it_left->second > it_curr->second)
+                it_left->second = it_curr->second;
         }
     }
 

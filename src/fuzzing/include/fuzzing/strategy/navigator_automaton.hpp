@@ -40,7 +40,7 @@ private:
     void  generate_constraints(std::vector<edge_counters>&  counters_vector);
     void  apply_constraints(edge_counters&  counters);
 
-    float_64_bit  error_common(edge_type  edge, edge_counters const&  current_counters);
+    float_64_bit  error_common(edge_counters const&  current_counters, std::unordered_set<edge_type> const*  reachable);
     float_64_bit  error_initial();
     static float_64_bit  error_function(natural_32_bit  current_count, natural_32_bit  target_count);
 
