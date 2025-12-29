@@ -134,7 +134,7 @@ void  search_strategy::on_new_uncovered_nodes(std::vector<branching_node*> const
             std::vector<value_and_node>  temp;
             values_and_nodes.swap(temp);
             metric_and_filter.filter_ptr->apply({ temp.begin(), temp.end() }, values_and_nodes);
-            float_64_bit const  value{ choose_target_value(temp, metric_and_filter.metric_ptr->type()) };
+            float_64_bit const  value{ choose_target_value(values_and_nodes, metric_and_filter.metric_ptr->type()) };
             std::sort(values_and_nodes.begin(), values_and_nodes.end(),
                 [value](value_and_node const&  left, value_and_node const&  right) {
                     return std::fabs(left.value - value) < std::fabs(right.value - value);
