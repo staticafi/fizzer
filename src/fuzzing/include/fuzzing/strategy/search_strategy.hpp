@@ -46,6 +46,7 @@ private:
         NONE = 0,
         EXPANSION = 1,
         REGRESSION = 2,
+        AUTOMATON = 3,
     };
 
     struct  best_target_info
