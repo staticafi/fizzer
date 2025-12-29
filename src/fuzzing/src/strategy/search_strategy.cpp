@@ -18,15 +18,15 @@ search_strategy::search_strategy()
     , MAX_SIZE{ 50U }
 {
     metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::ALL });
-    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::WARM });
-    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::COLD });
-    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::INPUT_USE });
-    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::INPUT_WARM });
-    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::INPUT_COLD });
-    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::INPUT_SIZE, FILTER_TYPE::ALL });
-    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::INPUT_SIZE, FILTER_TYPE::INPUT_USE });
-    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::HIT_COUNT, FILTER_TYPE::ALL });
-    metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::HIT_COUNT, FILTER_TYPE::INPUT_USE });
+    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::WARM });
+    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::COLD });
+    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::INPUT_USE });
+    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::INPUT_WARM });
+    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::BEST_VALUE, FILTER_TYPE::INPUT_COLD });
+    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::INPUT_SIZE, FILTER_TYPE::ALL });
+    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::INPUT_SIZE, FILTER_TYPE::INPUT_USE });
+    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::HIT_COUNT, FILTER_TYPE::ALL });
+    // metrics_and_filters.emplace_back(metric_and_filter{ METRIC_TYPE::HIT_COUNT, FILTER_TYPE::INPUT_USE });
 }
 
 
@@ -65,37 +65,37 @@ branching_node*  search_strategy::choose_target(branching_node* const  root, boo
             }
         }
 
-        INVARIANT(best_target.type != NAVIGATOR_TYPE::AUTOMATON);
+        // INVARIANT(best_target.type != NAVIGATOR_TYPE::AUTOMATON);
 
-        navigator_regression  regression{ values_and_nodes };
-        if (regression.valid())
-        {
-            float_64_bit const  value{ choose_target_value(values_and_nodes, metric_type) };
-            branching_node* const  target{ regression.run(root, value) };
-            if (is_valid_target(target, sensitive))
-            {
-                best_target.target = target;
-                best_target.cursor = cursor;
-                best_target.type = NAVIGATOR_TYPE::REGRESSION;
-                best_target.value = value;
-                break;
-            }
-        }
+        // navigator_regression  regression{ values_and_nodes };
+        // if (regression.valid())
+        // {
+        //     float_64_bit const  value{ choose_target_value(values_and_nodes, metric_type) };
+        //     branching_node* const  target{ regression.run(root, value) };
+        //     if (is_valid_target(target, sensitive))
+        //     {
+        //         best_target.target = target;
+        //         best_target.cursor = cursor;
+        //         best_target.type = NAVIGATOR_TYPE::REGRESSION;
+        //         best_target.value = value;
+        //         break;
+        //     }
+        // }
 
-        INVARIANT(best_target.type != NAVIGATOR_TYPE::REGRESSION);
+        // INVARIANT(best_target.type != NAVIGATOR_TYPE::REGRESSION);
 
-        navigator_expansion  expansion{ values_and_nodes, sensitive };
-        if (expansion.valid())
-        {
-            branching_node* const  target{ expansion.run() };
-            if (is_valid_target(target, sensitive))
-            {
-                best_target.target = target;
-                best_target.cursor = cursor;
-                best_target.type = NAVIGATOR_TYPE::EXPANSION;
-                best_target.value = 0.0;
-            }
-        }
+        // navigator_expansion  expansion{ values_and_nodes, sensitive };
+        // if (expansion.valid())
+        // {
+        //     branching_node* const  target{ expansion.run() };
+        //     if (is_valid_target(target, sensitive))
+        //     {
+        //         best_target.target = target;
+        //         best_target.cursor = cursor;
+        //         best_target.type = NAVIGATOR_TYPE::EXPANSION;
+        //         best_target.value = 0.0;
+        //     }
+        // }
 
         next(cursor);
     }
