@@ -45,6 +45,7 @@ private:
     static float_64_bit  error_function(natural_32_bit  current_count, natural_32_bit  target_count);
 
     std::unordered_map<edge_type, extrapolation_line>  extrapolations;
+    std::unordered_map<edge_type, bool>  is_constant;
     std::unordered_map<edge_type, std::unordered_set<edge_type> >  reachability;
     std::unordered_map<edge_type, float_64_bit>  errors;
     std::unordered_set<edge_counters_constraint>  constraints;

@@ -12,6 +12,7 @@ namespace  fuzzing {
 
 navigator_automaton::navigator_automaton(std::vector<value_and_node> const&  values_and_nodes)
     : extrapolations{}
+    , is_constant{}
     , reachability{}
     , errors{}
     , constraints{}
@@ -22,6 +23,7 @@ navigator_automaton::navigator_automaton(std::vector<value_and_node> const&  val
 
     std::vector<edge_counters>  counters_vector;
     std::unordered_map<edge_type, std::vector<vec2> >  extrapolated_data;
+    std::unordered_map<edge_type, std::unordered_set<float_64_bit> >  is_constant_data;
     for (value_and_node const&  value_and_node : values_and_nodes)
     {
         std::unordered_set<edge_type>  reachable;
@@ -33,6 +35,7 @@ navigator_automaton::navigator_automaton(std::vector<value_and_node> const&  val
             reachability[edge].insert(reachable.begin(), reachable.end());
             reachable.insert(edge);
             ++counters.insert({ edge, 0U }).first->second;
+            is_constant_data[edge].insert(value_and_node.value);
         }
         for (auto const&  edge_and_count : counters)
             extrapolated_data[edge_and_count.first].push_back({ value_and_node.value, (float_64_bit)edge_and_count.second });
@@ -54,6 +57,8 @@ navigator_automaton::navigator_automaton(std::vector<value_and_node> const&  val
         extrapolation.build(edge_and_data.second);
         errors.insert({ edge_and_data.first, compute_error(extrapolation, edge_and_data.second) });
     }
+    for (auto const&  edge_and_data : is_constant_data)
+        is_constant.insert({ edge_and_data.first, edge_and_data.second.size() < 2ULL });
     errors.insert({ 0, 0.0 });
 
     for (auto const&  edge_and_line : extrapolations)
@@ -184,7 +189,7 @@ void  navigator_automaton::generate_constraints(std::vector<edge_counters>&  cou
     // WARNING: This code has high complexity!
     for (auto const&  item_a : extrapolations)
         for (auto const&  item_b : extrapolations)
-            if (item_a.first != item_b.first && !item_a.second.is_constant() && !item_b.second.is_constant())
+            if (item_a.first != item_b.first && !is_constant.at(item_a.first) && !is_constant.at(item_b.first))
             {
                 bool  all_satisfy{ true };
                 for (auto&  counters : counters_vector)
