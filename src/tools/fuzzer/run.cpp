@@ -1,6 +1,7 @@
 #include <fuzzer/program_info.hpp>
 #include <fuzzer/program_options.hpp>
-#include <fuzzing/target_executor.hpp>
+#include <fuzzing/native_executor.hpp>
+#include <fuzzing/sala_executor.hpp>
 #include <fuzzing/fuzzing_outcomes.hpp>
 #include <fuzzing/fuzzing_loop.hpp>
 #include <fuzzing/test_suite_item_writer.hpp>
@@ -112,7 +113,7 @@ void run(int argc, char* argv[])
         }
     }
 
-    fuzzing::target_executor  target_executor{
+    fuzzing::native_executor  target_executor{
             get_program_options()->value("path_to_target"),
             (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_exec_milliseconds"))),
             (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_exec_megabytes"))),

@@ -1,4 +1,4 @@
-#include <fuzzing/target_executor.hpp>
+#include <fuzzing/native_executor.hpp>
 #include <com/record_type.hpp>
 #include <com/target_termination.hpp>
 #include <com/atomic_predicate.hpp>
@@ -41,7 +41,7 @@ static bool  parse_trace_record(com::execution_results&  results, connection::me
 }
 
 
-target_executor::target_executor(
+native_executor::native_executor(
         std::string const&  path_to_target,
         natural_16_bit const  max_exec_milliseconds,
         natural_16_bit const  max_exec_megabytes,
@@ -49,45 +49,42 @@ target_executor::target_executor(
         iomodels::cmdline_ptr  io_cmdline,
         iomodels::simple_ptr  io_simple
         )
-    : m_max_exec_megabytes{ max_exec_megabytes }
-    , m_max_trace_length{ max_trace_length }
-    , m_io_cmdline{ io_cmdline.release() }
-    , m_io_simple{ io_simple.release() }
+    : target_executor(max_exec_megabytes, max_trace_length, std::move(io_cmdline), std::move(io_simple))
     , m_executor{ path_to_target, max_exec_milliseconds }
     , m_shared_memory{ compute_max_medium_size() }
 {}
 
 
-target_executor::~target_executor()
+native_executor::~native_executor()
 {
     connection::shared_memory::shut_down();
 }
 
 
-natural_64_bit  target_executor::compute_max_medium_size() const
+natural_64_bit  native_executor::compute_max_medium_size() const
 {
     natural_64_bit  num_to_target{ 0ULL };
     {
-        num_to_target += sizeof(m_max_trace_length) + sizeof(m_max_exec_megabytes) + 1UL;
-        num_to_target += m_io_cmdline->max_construction_data_in_medium();
-        num_to_target += m_io_simple->max_construction_data_in_medium();
+        num_to_target += sizeof(max_trace_length()) + sizeof(max_exec_megabytes()) + 1UL;
+        num_to_target += io_cmdline().max_construction_data_in_medium();
+        num_to_target += io_simple().max_construction_data_in_medium();
     }
     natural_64_bit  num_to_fuzzer{ 0ULL };
     {
         num_to_fuzzer += 2ULL; // Termination.
-        num_to_fuzzer += m_max_trace_length * (1ULL + sizeof(location_id) + 1ULL + sizeof(branching_value) + 2ULL);
+        num_to_fuzzer += max_trace_length() * (1ULL + sizeof(location_id) + 1ULL + sizeof(branching_value) + 2ULL);
    }
     natural_64_bit  num_to_both{ 0ULL };
     {
-        num_to_both += m_io_cmdline->max_data_in_medium();
-        num_to_both += m_io_simple->max_data_in_medium();
+        num_to_both += io_cmdline().max_data_in_medium();
+        num_to_both += io_simple().max_data_in_medium();
     }
     natural_64_bit const  safety_zone{ 64ULL * 1024ULL };
     return std::max(num_to_target, num_to_fuzzer) + num_to_both + safety_zone;
 }
 
 
-execution_results_ptr  target_executor::run(input_bytes const&  bytes, com::input_types const&  types, input_metadata const&  metadata)
+execution_results_ptr  native_executor::run(input_bytes const&  bytes, com::input_types const&  types, input_metadata const&  metadata)
 {
     auto const error_result = [](){
         return std::make_shared<execution_results>(target_termination::ERROR_IN_DATA, make_shared_wrapper<com::input_metadata>());
@@ -101,11 +98,11 @@ execution_results_ptr  target_executor::run(input_bytes const&  bytes, com::inpu
 
     // Writing data to medium for the target.
 
-    if (!get_medium().can_accept_bytes(sizeof(m_max_trace_length) + sizeof(m_max_exec_megabytes) + 1UL)) return error_result();
-    get_medium() << m_max_trace_length << m_max_exec_megabytes;
+    if (!get_medium().can_accept_bytes(sizeof(max_trace_length()) + sizeof(max_exec_megabytes()) + 1UL)) return error_result();
+    get_medium() << max_trace_length() << max_exec_megabytes();
 
-    if (!m_io_cmdline->save_construction_data(get_medium())) return error_result();
-    if (!m_io_simple->save_construction_data(get_medium())) return error_result();
+    if (!io_cmdline().save_construction_data(get_medium())) return error_result();
+    if (!io_simple().save_construction_data(get_medium())) return error_result();
 
     if (!get_medium().can_accept_bytes(3ULL * sizeof(natural_64_bit) + bytes.size() + types.size() + metadata.size())) return error_result();
     get_medium() << bytes.size();
@@ -149,8 +146,8 @@ execution_results_ptr  target_executor::run(input_bytes const&  bytes, com::inpu
         switch (com::from_record_id(rec_id))
         {
             case com::record_type::TRACE: if (!parse_trace_record(*results, get_medium())) return partial_result(results); break;
-            case com::record_type::CMDLINE: if (!m_io_cmdline->parse_record(*results, get_medium())) return partial_result(results); break;
-            case com::record_type::SIMPLE: if (!m_io_simple->parse_record(*results, get_medium())) return partial_result(results); break;
+            case com::record_type::CMDLINE: if (!io_cmdline().parse_record(*results, get_medium())) return partial_result(results); break;
+            case com::record_type::SIMPLE: if (!io_simple().parse_record(*results, get_medium())) return partial_result(results); break;
             default: return partial_result(results);
         }
     }

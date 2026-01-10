@@ -2,16 +2,13 @@
 #   define FUZZER_TARGET_EXECUTOR_HPP_INCLUDED
 
 #   include <fuzzing/basic_types.hpp>
-#   include <connection/target_executor.hpp>
-#   include <connection/shared_memory.hpp>
 #   include <iomodels/cmdline.hpp>
 #   include <iomodels/simple.hpp>
-#   include <string>
 
 namespace fuzzing {
 
 
-struct  target_executor final
+struct  target_executor
 {
     static constexpr natural_16_bit  default_max_exec_megabytes { 1024 };
     static constexpr natural_32_bit  default_max_trace_length { 10000 };
@@ -20,23 +17,21 @@ struct  target_executor final
     static constexpr natural_32_bit  default_opt_max_trace_length { 10000000 };
 
     target_executor(
-        std::string const&  path_to_target,
-        natural_16_bit  max_exec_milliseconds,
         natural_16_bit  max_exec_megabytes,
         natural_32_bit  max_trace_length,
         iomodels::cmdline_ptr  io_cmdline,
         iomodels::simple_ptr  io_simple
-        );
-    ~target_executor();
+        )
+        : m_max_exec_megabytes{ max_exec_megabytes }
+        , m_max_trace_length{ max_trace_length }
+        , m_io_cmdline{ io_cmdline.release() }
+        , m_io_simple{ io_simple.release() }
+    {}
+    virtual ~target_executor() {}
 
-    execution_results_ptr  run(input_bytes const&  bytes, com::input_types const&  types, input_metadata const&  metadata);
+    virtual execution_results_ptr  run(input_bytes const&  bytes, com::input_types const&  types, input_metadata const&  metadata) = 0;
 
-    connection::target_executor const&  executor() const { return m_executor; }
-    connection::target_executor&  executor() { return m_executor; }
-
-    connection::medium const&  get_medium() const { return m_shared_memory; }
-    connection::medium&  get_medium() { return m_shared_memory; }
-
+    virtual natural_16_bit  max_exec_milliseconds() const = 0;
     natural_16_bit  max_exec_megabytes() const { return m_max_exec_megabytes; }
     natural_32_bit  max_trace_length() const { return m_max_trace_length; }
 
@@ -49,16 +44,12 @@ struct  target_executor final
     iomodels::simple const&  io_simple() const { return *m_io_simple; }
     iomodels::simple&  io_simple() { return *m_io_simple; }
 
-    natural_64_bit  compute_max_medium_size() const;
-
 private:
 
     natural_16_bit  m_max_exec_megabytes;
     natural_32_bit  m_max_trace_length;
     iomodels::cmdline_ptr  m_io_cmdline;
     iomodels::simple_ptr  m_io_simple;
-    connection::target_executor  m_executor;
-    connection::shared_memory  m_shared_memory;
 };
 
 
