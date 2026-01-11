@@ -2,6 +2,7 @@
 #include <com/record_type.hpp>
 #include <com/target_termination.hpp>
 #include <com/atomic_predicate.hpp>
+#include <connection/medium.hpp>
 #include <sala/interpreter.hpp>
 #include <sala/sanitizer.hpp>
 #include <sala/input_flow.hpp>
@@ -22,8 +23,48 @@
 #include <algorithm>
 #include <sstream>
 #include <chrono>
+#include <cstring>
 
 namespace fuzzing {
+
+
+struct  medium final : public connection::medium
+{
+    explicit  medium(natural_8_bit*  address, std::size_t  size);
+    void  clear() override { UNREACHABLE(); }
+    bool  can_accept_bytes(std::size_t  n) const override { return false; }
+    bool  can_deliver_bytes(std::size_t  n) const override { return get_size() >= get_cursor() + n; }
+    void  accept_bytes(const void*  src, std::size_t  n) override { UNREACHABLE(); }
+    void  deliver_bytes(void*  dest, std::size_t  n) override;
+    bool  exhausted() const override { return get_cursor() >= get_size(); }
+    natural_8_bit*  get_address() const override { return m_address; }
+    std::size_t get_size() const override { return m_size; }
+    void set_size(std::size_t  bytes) override { UNREACHABLE(); }
+    natural_64_bit  get_num_stored() const override { return get_size(); }
+    natural_64_bit  get_cursor() const override { return m_cursor; }
+    void  set_cursor(natural_64_bit const  c) override { m_cursor = c; }
+
+private:
+
+    natural_8_bit*  m_address;
+    std::size_t  m_size;
+    natural_64_bit  m_cursor;
+};
+
+
+medium::medium(natural_8_bit* const  address, std::size_t const  size)
+    : connection::medium()
+    , m_address{ address }
+    , m_size{ size }
+    , m_cursor{ 0ULL }
+{}
+
+
+void  medium::deliver_bytes(void* const  dest, std::size_t const  n)
+{
+    std::memcpy(dest, m_address + m_cursor, n);
+    m_cursor += (natural_64_bit)n;
+}
 
 
 struct extern_code : public sala::ExternCodeCStd
@@ -32,17 +73,20 @@ struct extern_code : public sala::ExternCodeCStd
         sala::ExecState*  state,
         sala::Sanitizer*  sanitizer,
         iomodels::cmdline*  io_cmdline,
-        iomodels::simple*  io_simple
+        iomodels::simple*  io_simple,
+        execution_results_ptr  results_ptr
         );
     iomodels::cmdline&  io_cmdline() { return *io_cmdline_; }
     iomodels::simple&  io_simple() { return *io_simple_; }
+    execution_results&  results() { return *results_ptr_; }
 private:
     void  cmdline_read_argc();
     void  cmdline_read_char();
-    sala::MemPtr  simple_read(std::size_t count);
+    sala::MemPtr  simple_read(data_type  type);
     sala::MemPtr  simple_read_i128();
     iomodels::cmdline*  io_cmdline_;
     iomodels::simple*  io_simple_;
+    execution_results_ptr  results_ptr_;
 };
 
 
@@ -50,30 +94,32 @@ extern_code::extern_code(
         sala::ExecState* const  state,
         sala::Sanitizer* const  sanitizer,
         iomodels::cmdline*  io_cmdline,
-        iomodels::simple* const  io_simple
+        iomodels::simple* const  io_simple,
+        execution_results_ptr const  results_ptr
         )
     : sala::ExternCodeCStd{ state, sanitizer }
     , io_cmdline_{ io_cmdline }
     , io_simple_{ io_simple }
+    , results_ptr_{ results_ptr }
 {
     register_code("__fizzer_private_io_model_cmdline_read_argc", [this]() { this->cmdline_read_argc(); });
     register_code("__fizzer_private_io_model_cmdline_read_char", [this]() { this->cmdline_read_char(); });
 
-    register_code("__VERIFIER_nondet_bool", [this]() { auto const ptr = this->simple_read(sizeof(bool)); *(bool*)ptr = *ptr != 0; });
-    register_code("__VERIFIER_nondet_char", [this]() { this->simple_read(sizeof(std::int8_t)); });
-    register_code("__VERIFIER_nondet_short", [this]() { this->simple_read(sizeof(std::int16_t)); });
-    register_code("__VERIFIER_nondet_int", [this]() { this->simple_read(sizeof(std::int32_t)); });
-    register_code("__VERIFIER_nondet_long", [this]() { this->simple_read(program().num_cpu_bits() == 32U ? sizeof(std::int32_t) : sizeof(std::int64_t)); });
-    register_code("__VERIFIER_nondet_longlong", [this]() { this->simple_read(sizeof(std::int64_t)); });
-    register_code("__VERIFIER_nondet_uchar", [this]() { this->simple_read(sizeof(std::uint8_t)); });
-    register_code("__VERIFIER_nondet_ushort", [this]() { this->simple_read(sizeof(std::uint16_t)); });
-    register_code("__VERIFIER_nondet_uint", [this]() { this->simple_read(sizeof(std::uint32_t)); });
-    register_code("__VERIFIER_nondet_ulong", [this]() { this->simple_read(program().num_cpu_bits() == 32U ? sizeof(std::uint32_t) : sizeof(std::uint64_t)); });
-    register_code("__VERIFIER_nondet_ulonglong", [this]() { this->simple_read(sizeof(std::uint64_t)); });
+    register_code("__VERIFIER_nondet_bool", [this]() { auto const ptr = this->simple_read(data_type::BOOLEAN); *(bool*)ptr = *ptr != 0; });
+    register_code("__VERIFIER_nondet_char", [this]() { this->simple_read(data_type::SINT8); });
+    register_code("__VERIFIER_nondet_short", [this]() { this->simple_read(data_type::SINT16); });
+    register_code("__VERIFIER_nondet_int", [this]() { this->simple_read(data_type::SINT32); });
+    register_code("__VERIFIER_nondet_long", [this]() { this->simple_read(program().num_cpu_bits() == 32U ? data_type::SINT32 : data_type::SINT64); });
+    register_code("__VERIFIER_nondet_longlong", [this]() { this->simple_read(data_type::SINT64); });
+    register_code("__VERIFIER_nondet_uchar", [this]() { this->simple_read(data_type::UINT8); });
+    register_code("__VERIFIER_nondet_ushort", [this]() { this->simple_read(data_type::UINT16); });
+    register_code("__VERIFIER_nondet_uint", [this]() { this->simple_read(data_type::UINT32); });
+    register_code("__VERIFIER_nondet_ulong", [this]() { this->simple_read(program().num_cpu_bits() == 32U ? data_type::UINT32 : data_type::UINT64); });
+    register_code("__VERIFIER_nondet_ulonglong", [this]() { this->simple_read(data_type::UINT64); });
     register_code("__VERIFIER_nondet_int128", [this]() { this->simple_read_i128(); });
     register_code("__VERIFIER_nondet_uint128", [this]() { this->simple_read_i128(); });
-    register_code("__VERIFIER_nondet_float", [this]() { this->simple_read(sizeof(float)); });
-    register_code("__VERIFIER_nondet_double", [this]() { this->simple_read(sizeof(double)); });
+    register_code("__VERIFIER_nondet_float", [this]() { this->simple_read(data_type::FLOAT32); });
+    register_code("__VERIFIER_nondet_double", [this]() { this->simple_read(data_type::FLOAT64); });
 }
 
 
@@ -89,6 +135,8 @@ void  extern_code::cmdline_read_argc()
             state().current_location_message() + ": Call to 'io_cmdline().on_argc()' has failed."
             );
     }
+    else
+        iomodels::cmdline::parse_value(results(), data_type::UINT8, medium{ ptr, num_bytes(data_type::UINT8) });
 }
 
 
@@ -104,20 +152,13 @@ void  extern_code::cmdline_read_char()
             state().current_location_message() + ": Call to 'io_cmdline().on_char()' has failed."
             );
     }
+    else
+        iomodels::cmdline::parse_value(results(), data_type::SINT8, medium{ ptr, num_bytes(data_type::UINT8) });
 }
 
 
-sala::MemPtr  extern_code::simple_read(std::size_t const count)
+sala::MemPtr  extern_code::simple_read(data_type const  type)
 {
-    data_type  type;
-    switch (count)
-    {
-        case 1ULL: type = data_type::UNTYPED8; break;
-        case 2ULL: type = data_type::UNTYPED16; break;
-        case 4ULL: type = data_type::UNTYPED32; break;
-        case 8ULL: type = data_type::UNTYPED64; break;
-        default: UNREACHABLE(); break;
-    }
     sala::MemPtr const ptr{ parameters().front().read<sala::MemPtr>() };
     if (io_simple().on_bytes_requested(ptr, type) != target_termination::NORMAL)
     {
@@ -131,6 +172,8 @@ sala::MemPtr  extern_code::simple_read(std::size_t const count)
                 ")' has failed."
             );
     }
+    else
+        iomodels::simple::parse_value(results(), type, medium{ ptr, num_bytes(type) });
     return ptr;
 }
 
@@ -153,8 +196,14 @@ sala::MemPtr  extern_code::simple_read_i128()
         report_error();
         return ptr;
     }
-    if (io_simple().on_bytes_requested(ptr + 8ULL, data_type::UNTYPED64) != target_termination::NORMAL)
+    auto const  count{ num_bytes(data_type::UNTYPED64) };
+    if (io_simple().on_bytes_requested(ptr + count, data_type::UNTYPED64) != target_termination::NORMAL)
+    {
         report_error();
+        return ptr;
+    }
+    iomodels::simple::parse_value(results(), data_type::UNTYPED64, medium{ ptr, count });
+    iomodels::simple::parse_value(results(), data_type::UNTYPED64, medium{ ptr + count, count });
     return ptr;
 }
 
@@ -266,7 +315,7 @@ execution_results_ptr  sala_executor::run(input_bytes const&  bytes, com::input_
     sala::ExecState  state{ program_ptr_, max_exec_megabytes() * 1024ULL * 1024ULL };
     sala::Sanitizer  sanitizer{ &state };
     input_flow  flow{ results_ptr, &state };
-    extern_code  externals{ &state, &sanitizer, &io_cmdline(), &io_simple() };
+    extern_code  externals{ &state, &sanitizer, &io_cmdline(), &io_simple(), results_ptr };
     sala::Interpreter  interpreter{ &state, &externals, { &sanitizer, &flow } };
 
     float_64_bit const remaining_seconds{ remaining_seconds_() };
@@ -283,7 +332,10 @@ execution_results_ptr  sala_executor::run(input_bytes const&  bytes, com::input_
             return false;
         });
     }
-    catch (...) {}
+    catch (...)
+    {
+        results_ptr->get_termination() = target_termination::CRASH; // Should be INTERNAL_ERROR.
+    }
 
     return results_ptr;
 }

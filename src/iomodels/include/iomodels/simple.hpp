@@ -38,7 +38,8 @@ struct  simple final : public iomodel
             com::input_types::const_iterator&  it_types,
             com::input_metadata::const_iterator&  it_metadata
             ) override;
-    bool  parse_record(com::execution_results&  dst, connection::medium&  src) const override;
+    static bool  parse_record(com::execution_results&  dst, connection::medium&  src);
+    static bool  parse_value(com::execution_results&  dst, com::data_type  type, connection::medium&&  src);
 
     com::target_termination  on_bytes_requested(natural_8_bit*  ptr, com::data_type  type, connection::medium*  dst = nullptr);
 

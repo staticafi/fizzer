@@ -35,7 +35,8 @@ struct  cmdline final : public iomodel
             com::input_types::const_iterator&  it_types,
             com::input_metadata::const_iterator&  it_metadata
             ) override;
-    bool  parse_record(com::execution_results&  dst, connection::medium&  src) const override;
+    static bool  parse_record(com::execution_results&  dst, connection::medium&  src);
+    static bool  parse_value(com::execution_results&  dst, com::data_type  type, connection::medium&&  src);
 
     void  on_load_complete() override;
     com::target_termination  on_argc(natural_8_bit*  argc, connection::medium*  dst = nullptr);

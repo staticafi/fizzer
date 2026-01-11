@@ -72,9 +72,15 @@ bool  simple::parse_record(
 }
 
 
-bool  simple::parse_record(com::execution_results&  dst, connection::medium&  src) const
+bool  simple::parse_record(com::execution_results&  dst, connection::medium&  src)
 {
-    return append_metadata(dst, get_record_type()) && append_typed_bytes(dst, src);
+    return append_metadata(dst, com::record_type::SIMPLE) && append_typed_bytes(dst, src);
+}
+
+
+bool  simple::parse_value(com::execution_results&  dst, com::data_type const  type, connection::medium&&  src)
+{
+    return append_metadata(dst, com::record_type::SIMPLE) && append_typed_bytes(dst, type, 1ULL, src);
 }
 
 

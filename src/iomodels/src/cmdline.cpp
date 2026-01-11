@@ -114,11 +114,19 @@ bool  cmdline::parse_record(
 }
 
 
-bool  cmdline::parse_record(com::execution_results&  dst, connection::medium&  src) const
+bool  cmdline::parse_record(com::execution_results&  dst, connection::medium&  src)
 {
-    return  append_metadata(dst, get_record_type())  &&
+    return  append_metadata(dst, com::record_type::CMDLINE)  &&
             append_typed_bytes(dst, src) &&
             (dst.get_types()->back() != com::data_type::SINT8 || append_metadata(dst, sizeof(char),src));
+}
+
+
+bool  cmdline::parse_value(com::execution_results&  dst, com::data_type const  type, connection::medium&&  src)
+{
+    return  append_metadata(dst, com::record_type::CMDLINE)  &&
+            append_typed_bytes(dst, type, 1ULL, src) &&
+            (type != com::data_type::SINT8 || append_metadata(dst, sizeof(char),src));
 }
 
 
