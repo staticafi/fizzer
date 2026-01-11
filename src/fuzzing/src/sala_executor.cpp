@@ -25,7 +25,7 @@
 #include <chrono>
 #include <cstring>
 
-namespace fuzzing {
+namespace fuzzing::detail {
 
 
 struct  medium final : public connection::medium
@@ -289,18 +289,23 @@ void input_flow::do_ret()
 }
 
 
+}
+
+namespace fuzzing {
+
+
 sala_executor::sala_executor(
-        sala::Program const*  program_ptr,
+        std::shared_ptr<sala::Program> const  program_ptr,
         natural_16_bit const  max_exec_milliseconds,
         natural_16_bit const  max_exec_megabytes,
         natural_32_bit const  max_trace_length,
         iomodels::cmdline_ptr  io_cmdline,
-        iomodels::simple_ptr  io_simple,
-        std::function<float_64_bit()> const&  remaining_seconds
+        iomodels::simple_ptr  io_simple
         )
     : target_executor(max_exec_megabytes, max_trace_length, std::move(io_cmdline), std::move(io_simple))
     , program_ptr_{ program_ptr }
-    , remaining_seconds_{ remaining_seconds }
+    , max_exec_milliseconds_{ max_exec_milliseconds }
+    , remaining_seconds_{ [this]() { return 0U; } }
 {
     ASSUMPTION(program_ptr != nullptr);
 }
@@ -312,10 +317,10 @@ execution_results_ptr  sala_executor::run(input_bytes const&  bytes, com::input_
 
     iomodels::load_models(bytes, types, metadata, { &io_cmdline(), &io_simple() });
 
-    sala::ExecState  state{ program_ptr_, max_exec_megabytes() * 1024ULL * 1024ULL };
+    sala::ExecState  state{ program_ptr_.get(), max_exec_megabytes() * 1024ULL * 1024ULL };
     sala::Sanitizer  sanitizer{ &state };
-    input_flow  flow{ results_ptr, &state };
-    extern_code  externals{ &state, &sanitizer, &io_cmdline(), &io_simple(), results_ptr };
+    detail::input_flow  flow{ results_ptr, &state };
+    detail::extern_code  externals{ &state, &sanitizer, &io_cmdline(), &io_simple(), results_ptr };
     sala::Interpreter  interpreter{ &state, &externals, { &sanitizer, &flow } };
 
     float_64_bit const remaining_seconds{ remaining_seconds_() };

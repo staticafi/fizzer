@@ -35,6 +35,7 @@ struct  target_executor
     natural_16_bit  max_exec_megabytes() const { return m_max_exec_megabytes; }
     natural_32_bit  max_trace_length() const { return m_max_trace_length; }
 
+    virtual void  set_remaining_seconds_callback(std::function<float_64_bit()> const&  remaining_seconds) {}
     void  set_max_exec_megabytes(natural_16_bit const  count) { m_max_exec_megabytes = count; }
     void  set_max_trace_length(natural_32_bit const  count) { m_max_trace_length = count; }
 

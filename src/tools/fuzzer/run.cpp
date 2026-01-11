@@ -113,8 +113,18 @@ void run(int argc, char* argv[])
         }
     }
 
-    fuzzing::native_executor  target_executor{
+    fuzzing::native_executor  native_executor{
             get_program_options()->value("path_to_target"),
+            (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_exec_milliseconds"))),
+            (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_exec_megabytes"))),
+            (natural_32_bit)std::max(0UL, std::stoul(get_program_options()->value("max_trace_length"))),
+            iomodels::cmdline::create(),
+            iomodels::simple::create(
+                (natural_64_bit)std::max(0ULL, std::stoull(get_program_options()->value("max_bytes")))
+                )
+            };
+    fuzzing::sala_executor  sala_executor{
+            sala_program_ptr,
             (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_exec_milliseconds"))),
             (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("max_exec_megabytes"))),
             (natural_32_bit)std::max(0UL, std::stoul(get_program_options()->value("max_trace_length"))),
@@ -159,15 +169,15 @@ void run(int argc, char* argv[])
     if (!get_program_options()->has("silent_mode"))
     {
         std::cout << "\"fuzzing_configuration\": ";
-        fuzzing::print_fuzzing_configuration(std::cout, target_name, target_executor, terminator, lsa_config);
+        fuzzing::print_fuzzing_configuration(std::cout, target_name, sala_executor, terminator, lsa_config);
         std::cout << ',' << std::endl;
     }
-    fuzzing::log_fuzzing_configuration(target_name, target_executor, terminator, lsa_config);
-    fuzzing::save_fuzzing_configuration(output_dir, target_name, target_executor, terminator, lsa_config);
+    fuzzing::log_fuzzing_configuration(target_name, sala_executor, terminator, lsa_config);
+    fuzzing::save_fuzzing_configuration(output_dir, target_name, sala_executor, terminator, lsa_config);
 
     std::vector<fuzzing::test_suite_item_ptr>  inputs_leading_to_boundary_violation;
     fuzzing::fuzzing_outcomes const results = fuzzing::run(
-        target_executor,
+        sala_executor,
         sala_program_ptr.get(),
         save_test,
         [&inputs_leading_to_boundary_violation, opt_max_seconds](fuzzing::test_suite_item_ptr const  item) {
@@ -192,28 +202,28 @@ void run(int argc, char* argv[])
 
     if (!inputs_leading_to_boundary_violation.empty() && opt_max_seconds > 0)
     {
-        target_executor.io_simple().set_max_bytes(
+        native_executor.io_simple().set_max_bytes(
             (natural_64_bit)std::max(0ULL, std::stoull(get_program_options()->value("opt_max_bytes")))
             );
-        target_executor.executor().set_max_exec_milliseconds(
+        native_executor.executor().set_max_exec_milliseconds(
             (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("opt_max_exec_milliseconds")))
             );
-        target_executor.set_max_exec_megabytes(
+        native_executor.set_max_exec_megabytes(
             (natural_16_bit)std::max(0UL, std::stoul(get_program_options()->value("opt_max_exec_megabytes")))
             );
-        target_executor.set_max_trace_length(
+        native_executor.set_max_trace_length(
             (natural_32_bit)std::max(0UL, std::stoul(get_program_options()->value("opt_max_trace_length")))
             );
-        target_executor.get_medium().set_size(target_executor.compute_max_medium_size());
+        native_executor.get_medium().set_size(native_executor.compute_max_medium_size());
 
         if (!get_program_options()->has("silent_mode"))
         {
             std::cout << "\"optimization_configuration\": ";
-            fuzzing::print_optimization_configuration(std::cout, target_name, target_executor, opt_max_seconds);
+            fuzzing::print_optimization_configuration(std::cout, target_name, native_executor, opt_max_seconds);
             std::cout << ',' << std::endl;
         }
-        fuzzing::log_optimization_configuration(target_name, target_executor, opt_max_seconds);
-        fuzzing::save_optimization_configuration(output_dir, target_name, target_executor, opt_max_seconds);
+        fuzzing::log_optimization_configuration(target_name, native_executor, opt_max_seconds);
+        fuzzing::save_optimization_configuration(output_dir, target_name, native_executor, opt_max_seconds);
 
         fuzzing::optimizer  opt{};
         fuzzing::optimization_outcomes const  opt_results = opt.run(
@@ -221,7 +231,7 @@ void run(int argc, char* argv[])
                 results.covered_branchings,
                 results.uncovered_branchings,
                 opt_max_seconds,
-                target_executor,
+                native_executor,
                 save_test
                 );
 

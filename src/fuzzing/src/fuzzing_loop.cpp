@@ -30,6 +30,8 @@ fuzzing_outcomes  run(
     analyzer.enable_renderer(render);
     analyzer.render();
 
+    executor.set_remaining_seconds_callback([&analyzer]() { return analyzer.num_remaining_seconds(); });
+
     try
     {
         while (true)
