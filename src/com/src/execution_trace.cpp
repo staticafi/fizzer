@@ -18,7 +18,8 @@ trace_item::trace_item(
     , value{ value_ }
     , xor_like_branching_function{ xor_like_branching_function_ }
     , predicate{ predicate_ }
-    , num_input_bytes{ num_input_bytes_ } 
+    , num_input_bytes{ num_input_bytes_ }
+    , sensitive_bits_ptr{ nullptr }
 {}
 
 

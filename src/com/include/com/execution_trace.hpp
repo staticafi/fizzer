@@ -4,6 +4,7 @@
 #   include <com/atomic_predicate.hpp>
 #   include <utility/basic_numeric_types.hpp>
 #   include <utility/smart_ptr_wrapper.hpp>
+#   include <unordered_set>
 #   include <vector>
 #   include <memory>
 
@@ -31,6 +32,7 @@ struct  trace_item
     bool xor_like_branching_function;
     atomic_predicate predicate;
     natural_64_bit  num_input_bytes;
+    std::unique_ptr<std::unordered_set<natural_32_bit> >  sensitive_bits_ptr;
 };
 
 
