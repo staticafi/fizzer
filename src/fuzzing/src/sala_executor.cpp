@@ -277,7 +277,7 @@ void input_flow::do_ret()
                 com::from_predicate_id(parameters().at(4).read<natural_8_bit>()),
                 results().get_bytes()->size()
                 });
-        results().get_trace()->back().sensitive_bits_ptr = std::make_unique<std::unordered_set<natural_32_bit>>();
+        results().get_trace()->back().sensitive_bits_ptr = make_unique_wrapper<std::unordered_set<natural_32_bit>>();
         std::unordered_set<natural_32_bit>&  sensitive_bits{ *results().get_trace()->back().sensitive_bits_ptr.get() };
         sala::MemPtr ptr{ parameters().at(2).start() };
         for (std::size_t i = 0ULL; i != sizeof(branching_value); ++i)

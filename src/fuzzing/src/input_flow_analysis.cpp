@@ -293,6 +293,7 @@ input_flow_analysis::input_flow_analysis(sala::Program const* const sala_program
 
 void  input_flow_analysis::run(computation_io_data* const  data_ptr_, std::function<bool(std::string&)> const&  terminator)
 {
+UNREACHABLE();
     ASSUMPTION(
         data_ptr_->input_ptr != nullptr &&
         data_ptr_->trace_ptr != nullptr &&

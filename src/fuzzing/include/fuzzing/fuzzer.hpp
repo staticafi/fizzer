@@ -95,7 +95,8 @@ struct  fuzzer final
     bool  is_renderer_enabled() const;
     void  render() const;
 
-    input_flow_analysis::performance_statistics const&  get_input_flow_statistics() const { return input_flow_thread.get_statistics(); }
+    input_flow_analysis::performance_statistics  get_input_flow_statistics() const
+    { return input_flow_thread_ptr != nullptr ? input_flow_thread_ptr->get_statistics() : input_flow_analysis::performance_statistics{}; }
     bitshare_analysis::performance_statistics const&  get_bitshare_statistics() const { return bitshare.get_statistics(); }
     local_search_analysis::performance_statistics const&  get_local_search_statistics() const { return local_search.get_statistics(); }
     bitflip_analysis::performance_statistics const&  get_bitflip_statistics() const { return bitflip.get_statistics(); }
@@ -445,7 +446,7 @@ private:
     std::unordered_set<branching_node*>  dead_nodes_buffer;
     std::unordered_set<branching_node*>  coverage_failures_with_hope;
 
-    input_flow_analysis_thread  input_flow_thread;
+    std::unique_ptr<input_flow_analysis_thread>  input_flow_thread_ptr;
 
     STATE  state;
     coverage_progress_control_props  coverage_control;

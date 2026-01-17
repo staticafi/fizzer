@@ -32,7 +32,7 @@ struct  trace_item
     bool xor_like_branching_function;
     atomic_predicate predicate;
     natural_64_bit  num_input_bytes;
-    std::unique_ptr<std::unordered_set<natural_32_bit> >  sensitive_bits_ptr;
+    unique_ptr_wrapper<std::unordered_set<natural_32_bit> >  sensitive_bits_ptr;
 };
 
 

@@ -13,7 +13,8 @@ branching_node::branching_node(
         branching_node* const  predecessor_,
         typed_input_ptr const  best_stdin_,
         execution_trace_ptr const  best_trace_,
-        natural_32_bit const  execution_number
+        natural_32_bit const  execution_number,
+        std::unordered_set<natural_32_bit> const* const  sensitive_bits_ptr_
         )
     : id{ id_ }
     , trace_index{ trace_index_ }
@@ -43,7 +44,13 @@ branching_node::branching_node(
     , num_coverage_failure_resets{ 0U }
 
     , guid__{ get_fresh_guid__() }
-{}
+{
+    if (sensitive_bits_ptr_ != nullptr)
+    {
+        sensitive_stdin_bits = *sensitive_bits_ptr_;
+        sensitivity_performed = true;
+    }
+}
 
 
 void  branching_node::update_best_data(

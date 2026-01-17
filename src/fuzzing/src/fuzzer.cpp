@@ -1,4 +1,5 @@
 #include <fuzzing/fuzzer.hpp>
+#include <fuzzing/target_executor.hpp>
 #include <fuzzing/progress_recorder.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
@@ -1183,7 +1184,7 @@ fuzzer::fuzzer(
 
     , state{ STARTUP }
     , coverage_control{ this }
-    , input_flow_thread{ sala_program_ptr, tgt_exec }
+    , input_flow_thread_ptr{ tgt_exec->tracks_input_flow() ? nullptr : std::make_unique<input_flow_analysis_thread>(sala_program_ptr, tgt_exec) }
     , bitshare{}
     , local_search{ local_search_config }
     , bitflip{}
@@ -1218,7 +1219,7 @@ void  fuzzer::terminate()
 
 void  fuzzer::stop_all_analyzes()
 {
-    input_flow_thread.stop();
+    if (input_flow_thread_ptr != nullptr) input_flow_thread_ptr->stop();
     bitshare.stop();
     local_search.stop();
     bitflip.stop();
@@ -1287,20 +1288,20 @@ bool  fuzzer::generate_next_input(
             return false;
         }
 
-        if (input_flow_thread.is_finished())
+        if (input_flow_thread_ptr != nullptr && input_flow_thread_ptr->is_finished())
         {
-            input_flow_thread.apply_results(entry_branching);
+            input_flow_thread_ptr->apply_results(entry_branching);
 
-            for (branching_node*  node = input_flow_thread.get_node(); node != nullptr; node = node->get_predecessor())
+            for (branching_node*  node = input_flow_thread_ptr->get_node(); node != nullptr; node = node->get_predecessor())
                 if (!node->is_closed())
                 {
                     update_close_flags_from(node);
                     break;
                 }
-            if (input_flow_thread.get_node() != nullptr)
+            if (input_flow_thread_ptr->get_node() != nullptr)
                 collect_iid_pivots_from_sensitivity_results();
 
-            recording_send_taint_response(input_flow_thread.get_node());
+            recording_send_taint_response(input_flow_thread_ptr->get_node());
 
             if (state == BITFLIP && !coverage_control.is_analysis_interrupted())
             {
@@ -1310,7 +1311,7 @@ bool  fuzzer::generate_next_input(
             else
                 primary_coverage_targets.do_cleanup();
         }
-        if (input_flow_thread.is_ready() && primary_coverage_targets.num_sensitive_targets() < 5000ULL)
+        if (input_flow_thread_ptr != nullptr && input_flow_thread_ptr->is_ready() && primary_coverage_targets.num_sensitive_targets() < 5000ULL)
         {
             branching_node*  winner{ primary_coverage_targets.get_best_others(max_input_width) };
             if (winner == nullptr && entry_branching != nullptr && !entry_branching->is_closed())
@@ -1462,7 +1463,8 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
                     nullptr,
                     current_input,
                     trace,
-                    num_driver_executions
+                    num_driver_executions,
+                    trace->front().sensitive_bits_ptr.get()
                     );
             construction_props.diverging_node = entry_branching;
 
@@ -1565,7 +1567,8 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
                         construction_props.leaf,
                         current_input,
                         trace,
-                        num_driver_executions
+                        num_driver_executions,
+                        succ_info.sensitive_bits_ptr.get()
                         )
                 });
 
@@ -1735,10 +1738,10 @@ void  fuzzer::collect_iid_pivots_from_sensitivity_results()
 {
     TMPROF_BLOCK();
 
-    ASSUMPTION(input_flow_thread.get_node() != nullptr);
+    ASSUMPTION(input_flow_thread_ptr->get_node() != nullptr);
 
     std::vector<std::pair<branching_node*, iid_pivot_props*> >  pivots;
-    for (branching_node* node : input_flow_thread.get_changed_nodes())
+    for (branching_node* node : input_flow_thread_ptr->get_changed_nodes())
         if (node->is_iid_branching() && !covered_branchings.contains(node->get_location_id()))
         {
             iid_location_props&  loc_props = iid_pivots[node->get_location_id()];
@@ -1757,7 +1760,7 @@ void  fuzzer::collect_iid_pivots_from_sensitivity_results()
 
     std::unordered_map<location_id, std::unordered_set<location_id> >  loop_heads_to_bodies;
     std::vector<loop_boundary_props>  loops;
-    detect_loops_along_path_to_node(input_flow_thread.get_node(), loop_heads_to_bodies, &loops);
+    detect_loops_along_path_to_node(input_flow_thread_ptr->get_node(), loop_heads_to_bodies, &loops);
 
     std::vector<branching_node*>  loop_boundaries;
     compute_loop_boundaries(loops, loop_boundaries);
@@ -2024,7 +2027,7 @@ bool  fuzzer::try_start_input_flow_analysis(branching_node*  winner)
 {
     ASSUMPTION(!winner->was_sensitivity_performed());
 
-    if (!input_flow_thread.is_ready())
+    if (!input_flow_thread_ptr->is_ready())
         return false;
 
     trace_index_type const  max_trace_index{ 2U * winner->get_trace_index() };
@@ -2063,7 +2066,7 @@ bool  fuzzer::try_start_input_flow_analysis(branching_node*  winner)
         else
             break;
     }
-    input_flow_thread.start(winner, num_driver_executions, num_remaining_seconds());
+    input_flow_thread_ptr->start(winner, num_driver_executions, num_remaining_seconds());
 
     recording_send_taint_request(winner);
 

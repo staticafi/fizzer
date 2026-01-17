@@ -39,6 +39,8 @@ struct  target_executor
     void  set_max_exec_megabytes(natural_16_bit const  count) { m_max_exec_megabytes = count; }
     void  set_max_trace_length(natural_32_bit const  count) { m_max_trace_length = count; }
 
+    virtual bool  tracks_input_flow() const { return false; }
+
     iomodels::cmdline const&  io_cmdline() const { return *m_io_cmdline; }
     iomodels::cmdline&  io_cmdline() { return *m_io_cmdline; }
 

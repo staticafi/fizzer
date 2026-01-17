@@ -37,7 +37,8 @@ struct  branching_node final
             branching_node*  predecessor_,
             typed_input_ptr  best_stdin_,
             execution_trace_ptr  best_trace_,
-            natural_32_bit  execution_number
+            natural_32_bit  execution_number,
+            std::unordered_set<natural_32_bit> const*  sensitive_bits_ptr_ = nullptr
             );
 
     location_id const&  get_location_id() const { return id; }
