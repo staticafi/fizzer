@@ -299,6 +299,7 @@ void  progress_recorder::on_analysis_stop()
 void  progress_recorder::on_execution_results_available(
         test_suite_item const&  item,
         branching_node const* const  leaf,
+        bool const  save_sensitive_bits,
         std::string const&  progress_message
         )
 {
@@ -379,6 +380,29 @@ void  progress_recorder::on_execution_results_available(
                  << trace_item.num_input_bytes << ','
                  << std::setprecision(std::numeric_limits<branching_value>::digits10 + 1) << value << ','
                  << node_guids.at(i);
+        }
+    }
+    if (save_sensitive_bits)
+    {
+        ostr << " ],\n" << std::setfill(' ') << std::dec << shift2 << "\"sensitive_bits\": [ ";
+        static std::unordered_set<natural_32_bit> const  empty_sbits;
+        execution_trace const&  trace = *results.get_trace();
+        first = true;
+        for (trace_index_type  i = 0U, n = (trace_index_type)trace.size(); i < n; ++i)
+        {
+            if (first) first = false; else ostr << ", ";
+            std::unordered_set<natural_32_bit> const&  sbits{
+                trace.at(i).sensitive_bits_ptr == nullptr ? empty_sbits : *trace.at(i).sensitive_bits_ptr
+            };
+            ostr << "[";
+            if (!sbits.empty())
+            {
+                auto  it = sbits.begin();
+                ostr << *it;
+                for (++it; it != sbits.end(); ++it)
+                    ostr << ',' << *it;
+            }
+            ostr << "]";
         }
     }
     ostr << " ]\n" << shift << "}\n}";

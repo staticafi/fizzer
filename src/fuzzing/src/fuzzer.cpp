@@ -1640,12 +1640,12 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
     {
         case STARTUP:
             INVARIANT(bitshare.is_ready() && local_search.is_ready());
-            recorder().on_execution_results_available(test, construction_props.leaf);
+            recorder().on_execution_results_available(test, construction_props.leaf, input_flow_thread_ptr == nullptr);
             break;
 
         case BITSHARE:
             INVARIANT(bitshare.is_busy() && local_search.is_ready());
-            recorder().on_execution_results_available(test, construction_props.leaf);
+            recorder().on_execution_results_available(test, construction_props.leaf, input_flow_thread_ptr == nullptr);
             bitshare.process_execution_results(trace);
             if (!bitshare.get_node()->has_unexplored_direction())
                 bitshare.stop();
@@ -1653,7 +1653,7 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
 
         case LOCAL_SEARCH:
             INVARIANT(bitshare.is_ready() && local_search.is_busy());
-            recorder().on_execution_results_available(test, construction_props.leaf, local_search.get_progress_message());
+            recorder().on_execution_results_available(test, construction_props.leaf, input_flow_thread_ptr == nullptr, local_search.get_progress_message());
             local_search.process_execution_results(trace, current_input);
             if (!local_search.get_node()->has_unexplored_direction())
             {
@@ -1664,7 +1664,7 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
 
         case BITFLIP:
             INVARIANT(bitflip.is_busy());
-            recorder().on_execution_results_available(test, construction_props.leaf);
+            recorder().on_execution_results_available(test, construction_props.leaf, input_flow_thread_ptr == nullptr);
             break;
 
         default:
