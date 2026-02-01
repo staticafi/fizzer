@@ -409,7 +409,7 @@ private:
 
     void  do_cleanup();
     void  do_cleanup_iid_pivots();
-    void  collect_iid_pivots_from_sensitivity_results();
+    void  collect_iid_pivots_from_sensitivity_results(std::unordered_set<branching_node*> const&  changed_nodes, branching_node*  target_node);
     void  select_next_state();
     branching_node*  select_iid_coverage_target() const;
 

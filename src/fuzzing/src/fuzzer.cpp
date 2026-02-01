@@ -1299,7 +1299,7 @@ bool  fuzzer::generate_next_input(
                     break;
                 }
             if (input_flow_thread_ptr->get_node() != nullptr)
-                collect_iid_pivots_from_sensitivity_results();
+                collect_iid_pivots_from_sensitivity_results(input_flow_thread_ptr->get_changed_nodes(), input_flow_thread_ptr->get_node());
 
             recording_send_taint_response(input_flow_thread_ptr->get_node());
 
@@ -1596,8 +1596,17 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
             auto const  it_and_state = leaf_branchings.insert(construction_props.leaf);
             INVARIANT(it_and_state.second);
 
+            std::unordered_set<branching_node*>  changed_nodes;
             for (branching_node*  node = construction_props.leaf; node != construction_props.diverging_node->get_predecessor(); node = node->get_predecessor())
+            {
                 primary_coverage_targets.process_potential_coverage_target({ node, false });
+                changed_nodes.insert(node);
+            }
+            if (input_flow_thread_ptr == nullptr)
+            {
+                update_close_flags_from(construction_props.leaf);
+                collect_iid_pivots_from_sensitivity_results(changed_nodes, construction_props.leaf);
+            }
 
             ++statistics.leaf_nodes_created;
             statistics.max_leaf_nodes = std::max(statistics.max_leaf_nodes, leaf_branchings.size());
@@ -1734,14 +1743,15 @@ void  fuzzer::do_cleanup_iid_pivots()
 }
 
 
-void  fuzzer::collect_iid_pivots_from_sensitivity_results()
+void  fuzzer::collect_iid_pivots_from_sensitivity_results(
+        std::unordered_set<branching_node*> const&  changed_nodes,
+        branching_node* const  target_node
+        )
 {
     TMPROF_BLOCK();
 
-    ASSUMPTION(input_flow_thread_ptr->get_node() != nullptr);
-
     std::vector<std::pair<branching_node*, iid_pivot_props*> >  pivots;
-    for (branching_node* node : input_flow_thread_ptr->get_changed_nodes())
+    for (branching_node* node : changed_nodes)
         if (node->is_iid_branching() && !covered_branchings.contains(node->get_location_id()))
         {
             iid_location_props&  loc_props = iid_pivots[node->get_location_id()];
@@ -1760,7 +1770,7 @@ void  fuzzer::collect_iid_pivots_from_sensitivity_results()
 
     std::unordered_map<location_id, std::unordered_set<location_id> >  loop_heads_to_bodies;
     std::vector<loop_boundary_props>  loops;
-    detect_loops_along_path_to_node(input_flow_thread_ptr->get_node(), loop_heads_to_bodies, &loops);
+    detect_loops_along_path_to_node(target_node, loop_heads_to_bodies, &loops);
 
     std::vector<branching_node*>  loop_boundaries;
     compute_loop_boundaries(loops, loop_boundaries);
