@@ -16,6 +16,7 @@
                 // "--skip_building",
                 // "--skip_fuzzing",
                 // "--silent_build",
+                // "--sala_executor",
                 // "--m32",
 
                 "--save_mapping",
@@ -34,8 +35,14 @@
                 "--clear_output_dir",
                 "--progress_recording",
                 // "--silent_mode",
-                "--render",
+                // "--render",
                 // "--test_type", "testcomp",
+                // "--lsa_max_rounds", "100",
+                // "--lsa_build_local_space", "1",
+                // "--lsa_build_constraints", "1",
+                // "--lsa_use_gradient_descent", "1",
+                // "--lsa_use_bit_flips", "1",
+                // "--lsa_use_random_fuzzing", "1",
 
                 "--input_file",
                     "fast/_.c"
@@ -49,6 +56,7 @@
             "args": [
                 "--path_to_target", "__target",
                 "--path_to_sala", "__sala.json",
+                // "--sala_executor",
                 "--max_executions", "10000000",
                 "--max_seconds", "1000000",
                 "--max_trace_length", "10000",
@@ -64,6 +72,12 @@
                 // "--silent_mode",
                 "--render",
                 // "--test_type", "testcomp",
+                // "--lsa_max_rounds", "100",
+                // "--lsa_build_local_space", "1",
+                // "--lsa_build_constraints", "1",
+                // "--lsa_use_gradient_descent", "1",
+                // "--lsa_use_bit_flips", "1",
+                // "--lsa_use_random_fuzzing", "1",
                 "--output_dir", "${workspaceFolder}/dist/output"
             ],
             "stopAtEntry": false,

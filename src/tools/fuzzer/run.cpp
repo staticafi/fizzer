@@ -134,6 +134,10 @@ void run(int argc, char* argv[])
                 )
             };
 
+    fuzzing::target_executor&   target_executor{
+            get_program_options()->has("sala_executor") ? (fuzzing::target_executor&)sala_executor : (fuzzing::target_executor&)native_executor
+            };
+
     fuzzing::local_search_analysis::configuration const  lsa_config{{
         .max_rounds = (std::uint32_t)std::stoi(get_program_options()->value("lsa_max_rounds")),
         .build_local_space = std::stoi(get_program_options()->value("lsa_build_local_space")) != 0,
@@ -169,15 +173,15 @@ void run(int argc, char* argv[])
     if (!get_program_options()->has("silent_mode"))
     {
         std::cout << "\"fuzzing_configuration\": ";
-        fuzzing::print_fuzzing_configuration(std::cout, target_name, sala_executor, terminator, lsa_config);
+        fuzzing::print_fuzzing_configuration(std::cout, target_name, target_executor, terminator, lsa_config);
         std::cout << ',' << std::endl;
     }
-    fuzzing::log_fuzzing_configuration(target_name, sala_executor, terminator, lsa_config);
-    fuzzing::save_fuzzing_configuration(output_dir, target_name, sala_executor, terminator, lsa_config);
+    fuzzing::log_fuzzing_configuration(target_name, target_executor, terminator, lsa_config);
+    fuzzing::save_fuzzing_configuration(output_dir, target_name, target_executor, terminator, lsa_config);
 
     std::vector<fuzzing::test_suite_item_ptr>  inputs_leading_to_boundary_violation;
     fuzzing::fuzzing_outcomes const results = fuzzing::run(
-        sala_executor,
+        target_executor,
         sala_program_ptr.get(),
         save_test,
         [&inputs_leading_to_boundary_violation, opt_max_seconds](fuzzing::test_suite_item_ptr const  item) {

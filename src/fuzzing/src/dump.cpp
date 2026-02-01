@@ -28,6 +28,7 @@ void  print_fuzzing_configuration(
          << shift << "\"max_exec_megabytes\": " << executor.max_exec_megabytes() << ",\n"
          << shift << "\"max_trace_length\": " << executor.max_trace_length() << ",\n"
          << shift << "\"max_bytes\": " << executor.io_simple().max_bytes() << ",\n"
+         << shift << "\"tracks_input_flow\": " << executor.tracks_input_flow() << ",\n"
          << shift << "\"lsa_max_rounds\": " << lsa_config.max_rounds << ",\n"
          << shift << "\"lsa_build_local_space\": " << lsa_config.build_local_space << ",\n"
          << shift << "\"lsa_build_constraints\": " << lsa_config.build_constraints << ",\n"
