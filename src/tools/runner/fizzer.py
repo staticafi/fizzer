@@ -56,7 +56,7 @@ def build(self_dir, input_file, output_dir, options, use_m32, main_no_args, gene
     if input_file != benchmark_file:
         shutil.copyfile(input_file, benchmark_file)
     if _execute(
-            [ "clang" ] +
+            [ "clang-18" ] +
                 (["-m32"] if use_m32 is True else []) +
                 [ "-O0", "-g", "-S", "-emit-llvm", "-Wno-everything", "-fbracket-depth=1024", benchmark_file, "-o", ll_file]
             ).returncode:
@@ -68,7 +68,7 @@ def build(self_dir, input_file, output_dir, options, use_m32, main_no_args, gene
     if silent_mode is False: print("    \"Composing\": ", end='', flush=True)
     t0 = time.time()
     if _execute(
-            [ os.path.join(self_dir, "tools", "@COMPOSER_FILE@") ] +
+            [ os.path.join(self_dir, "tools", "composer_Linux_Release") ] +
                 ["--data", os.path.join(self_dir, "data"), "--input", ll_file, "--output", composed_ll_file] +
                 (["--noargs"] if main_no_args else [])
             ).returncode:
@@ -81,7 +81,7 @@ def build(self_dir, input_file, output_dir, options, use_m32, main_no_args, gene
     if silent_mode is False: print("    \"Instrumenting\": ", end='', flush=True)
     t0 = time.time()
     if _execute(
-            [ os.path.join(self_dir, "tools", "@INSTRUMENTER_FILE@") ] +
+            [ os.path.join(self_dir, "tools", "instrumenter_Linux_Release") ] +
                 options +
                 ["--input", composed_ll_file, "--output", instrumented_ll_file]
             ).returncode:
@@ -91,17 +91,17 @@ def build(self_dir, input_file, output_dir, options, use_m32, main_no_args, gene
 
     fuzz_target_libraries = list(map( # type: ignore
         lambda lib_name: os.path.join(self_dir, "lib32" if use_m32 is True else "lib", lib_name).replace("\\", "/"), 
-        @FUZZ_TARGET_LIBRARIES_FILES_LIST@ # type: ignore
+        ["libtarget_Linux_Release.a","libcom_Linux_Release.a","libconnection_Linux_Release.a","libiomodels_Linux_Release.a","libutility_Linux_Release.a"] # type: ignore
         ))
     target_file = os.path.join(output_dir, benchmark_target_name(input_file))
 
     if silent_mode is False: print("    \"Linking\": ", end='', flush=True)
     t0 = time.time()
     if _execute(
-            [ "clang++" ] +
+            [ "clang++-18" ] +
                 (["-m32"] if use_m32 is True else []) +
                 [ "-O3", instrumented_ll_file ] +
-                "@FUZZ_TARGET_NEEDED_COMPILATION_FLAGS@".split() +
+                "-pthread -flto -lrt".split() +
                 fuzz_target_libraries +
                 [ "-o", target_file ]
             ).returncode:
@@ -180,13 +180,24 @@ def fuzz(self_dir, input_file, output_dir, options, start_time, silent_mode):
             sala_program = None
 
     if _execute(
-            [ os.path.join(self_dir, "tools", "@FUZZER_FILE@"),
+            [ os.path.join(self_dir, "tools", "fuzzer_Linux_Release"),
                 "--path_to_target", target ] +
                 ([ "--path_to_sala", sala_program ] if sala_program is not None else []) +
                 [ "--output_dir", output_dir] +
                 options
             ).returncode:
         raise Exception("Fuzzing has failed.")
+
+    pattern = re.compile(r"^sala2sala--.*_TMPROF\.html$")
+    for name in os.listdir(output_dir):
+        if pattern.match(name):
+            print("META: copying prof [ " + name + " ]")
+            shutil.copy2(name, os.path.join(output_dir, "test-suite", name))
+
+    if sala_program is not None:
+        print("META: copying SALA [ " + sala_program + " ]")
+        shutil.copyfile(sala_program, os.path.join(output_dir, "test-suite", os.path.basename(sala_program)))
+        print(os.path.join(output_dir, "test-suite", os.path.basename(sala_program)))
 
 
 def help(self_dir):
@@ -207,11 +218,11 @@ def help(self_dir):
     print("passed to the script they will automatically be propagated to the corresponding tool.")
 
     print("\nThe options of the 'composer' tool:")
-    _execute([ os.path.join(self_dir, "tools", "@COMPOSER_FILE@"), "--help"])
+    _execute([ os.path.join(self_dir, "tools", "composer_Linux_Release"), "--help"])
     print("\nThe options of the LLVM 'instrumenter' tool:")
-    _execute([ os.path.join(self_dir, "tools", "@INSTRUMENTER_FILE@"), "--help"])
+    _execute([ os.path.join(self_dir, "tools", "instrumenter_Linux_Release"), "--help"])
     print("\nThe options of the 'fuzzer' tool:")
-    _execute([ os.path.join(self_dir, "tools", "@FUZZER_FILE@"), "--help"])
+    _execute([ os.path.join(self_dir, "tools", "fuzzer_Linux_Release"), "--help"])
 
     print("\n!!! WARNING !!!!")
     print("An analyzed program is currently *NOT* executed in an isolated environment. It is thus")
@@ -291,6 +302,7 @@ def main():
         if silent_mode is False:
             print("\"total_time\": %.2f" % (time.time() - start_time), flush=True)
             print("}", flush=True)
+
 
 
 if __name__ == "__main__":
