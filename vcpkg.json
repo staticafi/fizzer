@@ -1,5 +1,6 @@
 {
   "dependencies": [
-    "eigen3"
+    "eigen3",
+    "catch2"
   ]
 }
