@@ -19,3 +19,6 @@
 [submodule "src/cps"]
 	path = src/cps
 	url = https://github.com/staticafi/libcps.git
+[submodule "src/chickaree"]
+	path = src/chickaree
+	url = https://github.com/staticafi/libchickaree.git
