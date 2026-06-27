@@ -286,6 +286,46 @@
 
                     "compile/_.c"
                 ]
+        },
+        {
+            "name": "run squirrel.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/dist/squirrel.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/dist/benchmarks",
+            "justMyCode": true,
+            "args": [
+                "--input_file",
+                    "fast/_.c",
+                "--jsonc",
+                // "--m32",
+                "--timeout", "5",
+                "--output_dir", "${workspaceFolder}/dist/output"
+               ]
+        },
+        {
+            "name": "run squirrel",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "args": [
+                "--sala",
+                    "__sala.json",
+                "--timeout", "1000000",
+                "--out", "${workspaceFolder}/dist/output"
+            ],
+            "stopAtEntry": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "cwd": "${workspaceFolder}/dist/output",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
         }
     ]
 }

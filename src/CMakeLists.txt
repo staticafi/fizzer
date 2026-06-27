@@ -24,6 +24,7 @@ if(FIZZ_BUILD_LIBS_32_BIT STREQUAL "No")
         "${PROJECT_SOURCE_DIR}/src/sala/include"
         "${PROJECT_SOURCE_DIR}/src/llvmutl/include"
         "${PROJECT_SOURCE_DIR}/src/cps/include"
+        "${PROJECT_SOURCE_DIR}/src/chickaree/include"
         )
     add_subdirectory(./sala)
         message("  sala")
@@ -31,6 +32,8 @@ if(FIZZ_BUILD_LIBS_32_BIT STREQUAL "No")
         message("  llvmutl")
     add_subdirectory(./cps)
         message("  cps")
+    add_subdirectory(./chickaree)
+        message("  chickaree")
     set(LIBUTILITY_INSTALL_DIR "lib")
 else()
     set(LIBUTILITY_INSTALL_DIR "lib32")
@@ -45,6 +48,7 @@ if(FIZZ_BUILD_ALSO_TOOLS STREQUAL "Yes")
             "${PROJECT_SOURCE_DIR}/src/tools"
             "${PROJECT_SOURCE_DIR}/src/tools/salac"
             "${PROJECT_SOURCE_DIR}/src/tools/salat"
+            "${PROJECT_SOURCE_DIR}/src/tools/squirrel"
             )
         add_subdirectory(./fuzzing)
             message("  fuzzing")
