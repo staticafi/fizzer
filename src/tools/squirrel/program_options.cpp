@@ -8,7 +8,7 @@ program_options::program_options(int argc, char* argv[])
     add_option("sala", "Path to input sala program to be analyzed.", "1");
     add_value("sala", "./in/a_sala.json");
     add_option("fn", "Name of the target function.", "1");
-    add_value("fn", "__fizzer_private_entry_function");
+    add_value("fn", "__target__");
     add_option("bb", "Index of the basic block in the target function to be reached.", "1");
     add_value("bb", "0");
     add_option("out", "A directory where to store results.", "1");
