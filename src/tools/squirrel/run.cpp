@@ -2,6 +2,8 @@
 #include <squirrel/program_options.hpp>
 #include <sala/program.hpp>
 #include <sala/streaming.hpp>
+#include <sala/call_graph.hpp>
+#include <sala/navigation_graph.hpp>
 #include <utility/basic_numeric_types.hpp>
 #include <iostream>
 #include <fstream>
@@ -81,6 +83,9 @@ void run(int argc, char* argv[])
         return;
     }
 
+    sala::CallGraph const  call_graph = sala::make_call_graph(*sala_program_ptr);
+    sala::NavigationGraph const  nav_graph{ *sala_program_ptr, call_graph };
+
     auto const startup_time = std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - start_time_point).count();
 
     std::chrono::system_clock::time_point const  analysis_start_time_point = std::chrono::system_clock::now();
@@ -91,5 +96,6 @@ void run(int argc, char* argv[])
             break;
 
         // TODO!
+        break;
     }
 }
