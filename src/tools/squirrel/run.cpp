@@ -4,7 +4,11 @@
 #include <sala/streaming.hpp>
 #include <sala/call_graph.hpp>
 #include <sala/navigation_graph.hpp>
+#include <chickaree/path.hpp>
+#include <chickaree/path_tree.hpp>
+#include <chickaree/strategy.hpp>
 #include <utility/basic_numeric_types.hpp>
+#include <utility/assumptions.hpp>
 #include <iostream>
 #include <fstream>
 #include <chrono>
@@ -85,6 +89,13 @@ void run(int argc, char* argv[])
 
     sala::CallGraph const  call_graph = sala::make_call_graph(*sala_program_ptr);
     sala::NavigationGraph const  nav_graph{ *sala_program_ptr, call_graph };
+    chickaree::PathTree  tree{ nav_graph.entry(sala_program_ptr->entry_function()) };
+    chickaree::Path const  path = chickaree::find_path(
+        (std::uint32_t)fn_index,
+        (std::uint32_t)bb_index,
+        nav_graph,
+        tree
+    );
 
     auto const startup_time = std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - start_time_point).count();
 
