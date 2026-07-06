@@ -80,12 +80,13 @@ void run(int argc, char* argv[])
                   << "' is not in the function '" << get_program_options()->value("fn") << "'.\n";
         return;
     }
-    float_64_bit const  timeout_seconds{ (float_64_bit)std::stoi(get_program_options()->value("timeout")) };
+    double const  timeout_seconds{ (double)std::stoi(get_program_options()->value("timeout")) };
     if (timeout_seconds < 0.0)
     {
         std::cerr << "ERROR: Negative timeout is not allowed.\n";
         return;
     }
+    std::size_t const  memout_bytes{ (std::size_t)std::stoull(get_program_options()->value("memout")) };
 
     sala::CallGraph const  call_graph = sala::make_call_graph(*sala_program_ptr);
     sala::NavigationGraph const  nav_graph{ *sala_program_ptr, call_graph };
@@ -94,7 +95,9 @@ void run(int argc, char* argv[])
         (std::uint32_t)fn_index,
         (std::uint32_t)bb_index,
         nav_graph,
-        tree
+        tree,
+        timeout_seconds,
+        memout_bytes
     );
 
     auto const startup_time = std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - start_time_point).count();

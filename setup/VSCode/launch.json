@@ -300,7 +300,8 @@
                     "fast/_.c",
                 "--jsonc",
                 // "--m32",
-                "--timeout", "5",
+                "--timeout", "60",
+                "--memout", "3221225472", // 3 GB
                 "--output_dir", "${workspaceFolder}/dist/output"
                ]
         },

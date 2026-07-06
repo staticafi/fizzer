@@ -16,7 +16,9 @@ program_options::program_options(int argc, char* argv[])
     add_option("tmp", "A directory where to store results.", "1");
     add_value("tmp", "./tmp/");
     add_option("timeout", "Total number of seconds (integer) available for the analysis.", "1");
-    add_value("timeout", "60");
+    add_value("timeout", std::to_string(5ULL * 60ULL)); // 5 minutes
+    add_option("memout", "Total number of bytes (integer) available for the analysis.", "1");
+    add_value("memout", std::to_string(5ULL * 1024ULL * 1024ULL * 1024ULL)); // 5 GB
 }
 
 static program_options_ptr  global_program_options;
