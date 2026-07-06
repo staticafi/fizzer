@@ -6,6 +6,7 @@
 #include <sala/navigation_graph.hpp>
 #include <chickaree/path.hpp>
 #include <chickaree/path_tree.hpp>
+#include <chickaree/path_executor.hpp>
 #include <chickaree/strategy.hpp>
 #include <utility/basic_numeric_types.hpp>
 #include <utility/assumptions.hpp>
@@ -99,6 +100,8 @@ void run(int argc, char* argv[])
         timeout_seconds,
         memout_bytes
     );
+    chickaree::PathExecutor  path_executor{ *sala_program_ptr, nav_graph, path };
+    path_executor.run(timeout_seconds, memout_bytes);
 
     auto const startup_time = std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - start_time_point).count();
 
