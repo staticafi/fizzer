@@ -4,10 +4,13 @@
 #include <sala/streaming.hpp>
 #include <sala/call_graph.hpp>
 #include <sala/navigation_graph.hpp>
+#include <chickaree/solver.hpp>
 #include <chickaree/path.hpp>
 #include <chickaree/path_tree.hpp>
 #include <chickaree/path_executor.hpp>
 #include <chickaree/strategy.hpp>
+#include <cps/solver.hpp>
+#include <cps/evaluation_cache.hpp>
 #include <utility/basic_numeric_types.hpp>
 #include <utility/assumptions.hpp>
 #include <iostream>
@@ -92,27 +95,30 @@ void run(int argc, char* argv[])
     sala::CallGraph const  call_graph = sala::make_call_graph(*sala_program_ptr);
     sala::NavigationGraph const  nav_graph{ *sala_program_ptr, call_graph };
     chickaree::PathTree  tree{ nav_graph.entry(sala_program_ptr->entry_function()) };
-    chickaree::Path const  path = chickaree::find_path(
-        (std::uint32_t)fn_index,
-        (std::uint32_t)bb_index,
-        nav_graph,
-        tree,
-        timeout_seconds,
-        memout_bytes
-    );
-    chickaree::PathExecutor  path_executor{ *sala_program_ptr, nav_graph, path };
-    path_executor.run(timeout_seconds, memout_bytes);
-
-    auto const startup_time = std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - start_time_point).count();
-
-    std::chrono::system_clock::time_point const  analysis_start_time_point = std::chrono::system_clock::now();
-    while (true)
+    chickaree::Solver  solver{ *sala_program_ptr, nav_graph, tree };
+    solver.run(
+            (std::uint32_t)fn_index,
+            (std::uint32_t)bb_index,
+            timeout_seconds - std::chrono::duration<double>(std::chrono::system_clock::now() - start_time_point).count(),
+            (std::int64_t)memout_bytes
+            );
+    if (solver.success())
     {
-        auto const analysis_time = std::chrono::duration<float_64_bit>(std::chrono::system_clock::now() - analysis_start_time_point).count();
-        if (startup_time + analysis_time >= timeout_seconds)
-            break;
-
-        // TODO!
-        break;
+        std::cout << "SUCCESS: A feasible path was found:\n";
+        for (std::uint32_t const  graph_node_index : solver.path())
+        {
+            sala::NavigationGraph::Node const&  n{ nav_graph.node(graph_node_index) };
+            std::cout << n.function << ", "  << n.basic_block << '\n';
+        }
+    }
+    else
+    {
+        std::cout << "FAILURE: No feasible path to the specified basic block was found.";
+        if (solver.report().timeout)
+            std::cout << "CAUSE: Timeout.";
+        if (solver.report().memout)
+            std::cout << "CAUSE: Out of memory.";
+        if (solver.report().cps_failure)
+            std::cout << "CAUSE: Failed to solve a coverage problem.";
     }
 }
