@@ -38,7 +38,6 @@ private:
     Visualizer& operator=(Visualizer&&) = delete;
 
     GLFWwindow* m_window_ptr;
-    ImGuiIO* m_gui_io_ptr;
     Renderer*  m_renderer;
 };
 
@@ -56,7 +55,6 @@ void Visualizer::glfw_error_callback(int const error, char const* const descript
 
 Visualizer::Visualizer(DataSources const&  data)
     : m_window_ptr{ nullptr }
-    , m_gui_io_ptr{ nullptr }
     , m_renderer{ nullptr }
 {
     glfwSetErrorCallback(glfw_error_callback);
@@ -82,9 +80,9 @@ Visualizer::Visualizer(DataSources const&  data)
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    m_gui_io_ptr = &ImGui::GetIO();
-    m_gui_io_ptr->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    m_gui_io_ptr->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    ImGuiIO& gui_io = ImGui::GetIO();
+    gui_io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    gui_io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
@@ -148,7 +146,7 @@ void Visualizer::next_frame()
     }
 
     m_renderer->set_waiting_for_content(!do_render);
-    m_renderer->next_frame(*m_gui_io_ptr);
+    m_renderer->next_frame();
 
     render_end();
 
@@ -174,13 +172,7 @@ void Visualizer::render_end()
     int display_w, display_h;
     glfwGetFramebufferSize(m_window_ptr, &display_w, &display_h);
     glViewport(0, 0, display_w, display_h);
-    ImVec4 const& clear_color = m_renderer->clear_color();
-    glClearColor(
-        clear_color.x * clear_color.w,
-        clear_color.y * clear_color.w,
-        clear_color.z * clear_color.w,
-        clear_color.w
-        );
+    glClearColor(0.1f, 0.1f, 0.1f, 1.00f);
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 

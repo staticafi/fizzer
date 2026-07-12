@@ -100,6 +100,7 @@ void run(int argc, char* argv[])
 
     if (get_program_options()->has("gfx"))
         gfx::create_visualizer(gfx::DataSources{
+            .program = &*sala_program_ptr,
             .call_graph = &call_graph,
             .nav_graph = &nav_graph,
             .tree = &tree,
