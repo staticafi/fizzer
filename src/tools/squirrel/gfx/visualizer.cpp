@@ -20,7 +20,7 @@ struct Visualizer
     static bool s_stop_flag;
     static bool s_render;
 
-    Visualizer();
+    Visualizer(DataSources const&  data);
     ~Visualizer();
 
     void next_frame();
@@ -54,7 +54,7 @@ void Visualizer::glfw_error_callback(int const error, char const* const descript
 }
 
 
-Visualizer::Visualizer()
+Visualizer::Visualizer(DataSources const&  data)
     : m_window_ptr{ nullptr }
     , m_gui_io_ptr{ nullptr }
     , m_renderer{ nullptr }
@@ -99,7 +99,7 @@ Visualizer::Visualizer()
     char const* glsl_version = nullptr;
     ImGui_ImplOpenGL3_Init(glsl_version);
 
-    m_renderer = new Renderer();
+    m_renderer = new Renderer(data);
 }
 
 
@@ -193,13 +193,12 @@ void Visualizer::render_end()
 ///////////////////////////////////////////////////////////////////////////
 
 
-static void visualizer_thread_procedure();
 static std::thread  s_visualizer_thread{};
 
 
-static void visualizer_thread_procedure()
+static void visualizer_thread_procedure(DataSources const  data)
 {
-    std::unique_ptr<Visualizer>  visualizer_ptr{ std::make_unique<Visualizer>() };
+    std::unique_ptr<Visualizer>  visualizer_ptr{ std::make_unique<Visualizer>(data) };
     while (true)
     {
         {
@@ -222,13 +221,13 @@ static void visualizer_thread_procedure()
 }
 
 
-void  create_visualizer()
+void  create_visualizer(DataSources const& data)
 {
     if (s_visualizer_thread.joinable())
         return;
     Visualizer::s_stop_flag = false;
     Visualizer::s_render = false;
-    s_visualizer_thread = std::thread(visualizer_thread_procedure);
+    s_visualizer_thread = std::thread(visualizer_thread_procedure, data);
 }
 
 

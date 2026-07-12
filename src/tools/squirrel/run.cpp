@@ -93,13 +93,19 @@ void run(int argc, char* argv[])
     }
     std::size_t const  memout_bytes{ (std::size_t)std::stoull(get_program_options()->value("memout")) };
 
-    if (get_program_options()->has("gfx"))
-        gfx::create_visualizer();
-
     sala::CallGraph const  call_graph = sala::make_call_graph(*sala_program_ptr);
     sala::NavigationGraph const  nav_graph{ *sala_program_ptr, call_graph };
     chickaree::PathTree  tree{ nav_graph.entry(sala_program_ptr->entry_function()) };
     chickaree::Solver  solver{ *sala_program_ptr, nav_graph, tree };
+
+    if (get_program_options()->has("gfx"))
+        gfx::create_visualizer(gfx::DataSources{
+            .call_graph = &call_graph,
+            .nav_graph = &nav_graph,
+            .tree = &tree,
+            .solver = &solver
+        });
+
     solver.run(
             (std::uint32_t)fn_index,
             (std::uint32_t)bb_index,

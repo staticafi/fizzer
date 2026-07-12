@@ -3,10 +3,12 @@
 namespace gfx {
 
 
-Renderer::Renderer()
+Renderer::Renderer(DataSources const&  data_sources)
     : m_waiting_for_content{ true }
 
-    , m_clear_color{ 0.45f, 0.55f, 0.60f, 1.00f }
+    , m_data{ data_sources }
+
+    , m_clear_color{ 0.1f, 0.1f, 0.1f, 1.00f }
 {}
 
 void Renderer::next_frame(ImGuiIO& gui_io)
