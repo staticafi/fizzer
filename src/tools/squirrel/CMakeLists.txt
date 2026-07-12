@@ -1,7 +1,7 @@
 set(THIS_TARGET_NAME squirrel)
 
-file(GLOB "${THIS_TARGET_NAME}_HPP" "./*.hpp")
-file(GLOB "${THIS_TARGET_NAME}_CPP" "./*.cpp")
+file(GLOB_RECURSE "${THIS_TARGET_NAME}_HPP" "*.hpp")
+file(GLOB_RECURSE "${THIS_TARGET_NAME}_CPP" "*.cpp")
 
 add_executable(${THIS_TARGET_NAME}
     "${${THIS_TARGET_NAME}_HPP}"
@@ -17,6 +17,7 @@ target_link_libraries(${THIS_TARGET_NAME}
     iomodels
     Threads::Threads
     ${BOOST_LIST_OF_LIBRARIES_TO_LINK_WITH}
+    ${GFX_LIST_OF_LIBRARIES_TO_LINK_WITH}
     )
 
 if (LIBRT)

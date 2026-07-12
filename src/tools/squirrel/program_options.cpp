@@ -19,7 +19,8 @@ program_options::program_options(int argc, char* argv[])
     add_value("timeout", std::to_string(5ULL * 60ULL)); // 5 minutes
     add_option("memout", "Total number of bytes (integer) available for the analysis.", "1");
     add_value("memout", std::to_string(5ULL * 1024ULL * 1024ULL * 1024ULL)); // 5 GB
-}
+   add_option("gfx", "Enables visualization of data structures.", "0");
+ }
 
 static program_options_ptr  global_program_options;
 

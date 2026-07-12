@@ -296,6 +296,7 @@
             "cwd": "${workspaceFolder}/dist/benchmarks",
             "justMyCode": true,
             "args": [
+                "--gfx",
                 "--input_file",
                     "fast/_.c",
                 "--jsonc",
@@ -311,6 +312,7 @@
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
             "args": [
+                "--gfx",
                 "--sala",
                     "__sala.json",
                 "--timeout", "1000000",

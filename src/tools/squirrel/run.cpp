@@ -1,5 +1,6 @@
 #include <squirrel/program_info.hpp>
 #include <squirrel/program_options.hpp>
+#include <squirrel/gfx/visualizer.hpp>
 #include <sala/program.hpp>
 #include <sala/streaming.hpp>
 #include <sala/call_graph.hpp>
@@ -92,6 +93,9 @@ void run(int argc, char* argv[])
     }
     std::size_t const  memout_bytes{ (std::size_t)std::stoull(get_program_options()->value("memout")) };
 
+    if (get_program_options()->has("gfx"))
+        gfx::create_visualizer();
+
     sala::CallGraph const  call_graph = sala::make_call_graph(*sala_program_ptr);
     sala::NavigationGraph const  nav_graph{ *sala_program_ptr, call_graph };
     chickaree::PathTree  tree{ nav_graph.entry(sala_program_ptr->entry_function()) };
@@ -121,4 +125,7 @@ void run(int argc, char* argv[])
         if (solver.report().cps_failure)
             std::cout << "CAUSE: Failed to solve a coverage problem.";
     }
+
+    gfx::visualize();
+    gfx::destroy_visualizer();
 }
