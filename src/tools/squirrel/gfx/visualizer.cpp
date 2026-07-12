@@ -1,15 +1,15 @@
 #include <squirrel/gfx/visualizer.hpp>
 #include <squirrel/gfx/renderer.hpp>
-#include <SDL3/SDL.h>
-#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 #include <imgui.h>
-#include <imgui_impl_sdl3.h>
+#include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <thread>
 #include <mutex>
 #include <chrono>
 #include <memory>
 #include <stdexcept>
+#include <iostream>
 
 namespace gfx {
 
@@ -27,7 +27,8 @@ struct Visualizer
 
 private:
 
-    void process_events();
+    static void glfw_error_callback(int error, char const* description);
+
     void render_begin();
     void render_end();
 
@@ -36,10 +37,8 @@ private:
     Visualizer& operator=(Visualizer const&) = delete;
     Visualizer& operator=(Visualizer&&) = delete;
 
-    SDL_Window* m_window_ptr;
-    SDL_GLContext m_gl_context_ptr;
+    GLFWwindow* m_window_ptr;
     ImGuiIO* m_gui_io_ptr;
-    ImVec4 m_clear_color;
     Renderer*  m_renderer;
 };
 
@@ -49,50 +48,43 @@ bool Visualizer::s_stop_flag{ false };
 bool Visualizer::s_render{ false };
 
 
+void Visualizer::glfw_error_callback(int const error, char const* const description)
+{
+    std::cerr << "GLFW Error " << error << " " << description << "\n";
+}
+
+
 Visualizer::Visualizer()
     : m_window_ptr{ nullptr }
-    , m_gl_context_ptr{ nullptr }
     , m_gui_io_ptr{ nullptr }
-    , m_clear_color{ 0.45f, 0.55f, 0.60f, 1.00f }
     , m_renderer{ nullptr }
 {
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-    SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
-    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    glfwSetErrorCallback(glfw_error_callback);
+    if (!glfwInit())
+        return;
 
-    float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
-    const SDL_PropertiesID props = SDL_CreateProperties();
-    SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "Squirrel's visualizer");
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, 0);
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, 0);
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, 1024);
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, 768);
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_FLAGS_NUMBER, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-    m_window_ptr = SDL_CreateWindowWithProperties(props);
+    float const main_scale = ImGui_ImplGlfw_GetContentScaleForMonitor(glfwGetPrimaryMonitor());
+    m_window_ptr = glfwCreateWindow(
+        (int)(1024 * main_scale),
+        (int)(768 * main_scale),
+        "Squirrel's visualizer",
+        nullptr,
+        nullptr
+        );
     if (m_window_ptr == nullptr)
-        throw std::runtime_error("Error: The call 'SDL_CreateWindow' function has FAILED.");
-    m_gl_context_ptr = SDL_GL_CreateContext(m_window_ptr);
-    if (m_gl_context_ptr == nullptr)
-        throw std::runtime_error("Error: The call 'SDL_GL_CreateContext' function has FAILED.");
-    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
-        throw std::runtime_error("Error: The call to 'gladLoadGLLoader' has FAILED.");
-    SDL_GL_MakeCurrent(m_window_ptr, m_gl_context_ptr);
-    SDL_GL_SetSwapInterval(1);
-    SDL_ShowWindow(m_window_ptr);
+        return;
+    glfwMakeContextCurrent(m_window_ptr);
+    glfwSwapInterval(1); // Enable vsync
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     m_gui_io_ptr = &ImGui::GetIO();
     m_gui_io_ptr->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    //m_gui_io_ptr->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    m_gui_io_ptr->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
@@ -103,8 +95,8 @@ Visualizer::Visualizer()
     style.FontScaleDpi = main_scale;        // Set initial font scale. (in docking branch: using io.ConfigDpiScaleFonts=true automatically overrides this for every window depending on the current monitor)
 
     // Setup Platform/Renderer backends
-    ImGui_ImplSDL3_InitForOpenGL(m_window_ptr, m_gl_context_ptr);
-    const char* glsl_version = nullptr;
+    ImGui_ImplGlfw_InitForOpenGL(m_window_ptr, true);
+    char const* glsl_version = nullptr;
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     m_renderer = new Renderer();
@@ -116,27 +108,34 @@ Visualizer::~Visualizer()
     delete m_renderer;
     m_renderer = nullptr;
 
-    if (m_gl_context_ptr != nullptr)
-    {
-        SDL_GL_DestroyContext(m_gl_context_ptr);
-        m_gl_context_ptr = nullptr;
-    }
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
     if (m_window_ptr != nullptr)
     {
-        SDL_DestroyWindow(m_window_ptr);
+        glfwDestroyWindow(m_window_ptr);
         m_window_ptr = nullptr;
     }
-    SDL_Quit();
+
+    glfwTerminate();
 }
 
 
 void Visualizer::next_frame()
 {
-    process_events();
-
-    if (SDL_GetWindowFlags(m_window_ptr) & SDL_WINDOW_MINIMIZED)
+    if (glfwWindowShouldClose(m_window_ptr))
     {
-        SDL_Delay(10);
+        std::lock_guard<std::mutex> const lock(s_mutex);
+        s_stop_flag = true;
+        s_render = false;
+        return;
+    }
+
+    glfwPollEvents();
+    if (glfwGetWindowAttrib(m_window_ptr, GLFW_ICONIFIED) != 0)
+    {
+        ImGui_ImplGlfw_Sleep(10);
         return;
     }
 
@@ -149,7 +148,7 @@ void Visualizer::next_frame()
     }
 
     m_renderer->set_waiting_for_content(!do_render);
-    m_renderer->next_frame();
+    m_renderer->next_frame(*m_gui_io_ptr);
 
     render_end();
 
@@ -161,59 +160,10 @@ void Visualizer::next_frame()
 }
 
 
-void Visualizer::process_events()
-{
-    SDL_Event event;
-    while (SDL_PollEvent(&event))
-    {
-        ImGui_ImplSDL3_ProcessEvent(&event);
-
-        switch (event.type)
-        {
-        case SDL_EVENT_QUIT:
-            {
-                std::lock_guard<std::mutex> const lock(s_mutex);
-                s_stop_flag = true;
-                s_render = false;
-            }
-            break;
-        case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-            if (event.window.windowID == SDL_GetWindowID(m_window_ptr))
-            {
-                std::lock_guard<std::mutex> const lock(s_mutex);
-                s_stop_flag = true;
-                s_render = false;
-            }
-            break;
-        case SDL_EVENT_WINDOW_RESIZED:
-        case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED :
-            if (event.window.windowID == SDL_GetWindowID(m_window_ptr)) {
-            }
-            break;
-        case SDL_EVENT_WINDOW_MINIMIZED:
-            break;
-        case SDL_EVENT_WINDOW_MAXIMIZED:
-        case SDL_EVENT_WINDOW_RESTORED:
-            break;
-        case SDL_EVENT_WINDOW_MOUSE_ENTER:
-            break;
-        case SDL_EVENT_WINDOW_MOUSE_LEAVE:
-            break;
-        case SDL_EVENT_WINDOW_FOCUS_GAINED:
-            break;
-        case SDL_EVENT_WINDOW_FOCUS_LOST:
-            break;
-        default:
-            break;
-        }
-    }
-}
-
-
 void Visualizer::render_begin()
 {
     ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplSDL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 }
 
@@ -221,16 +171,20 @@ void Visualizer::render_begin()
 void Visualizer::render_end()
 {
     ImGui::Render();
-    glViewport(0, 0, (int)m_gui_io_ptr->DisplaySize.x, (int)m_gui_io_ptr->DisplaySize.y);
+    int display_w, display_h;
+    glfwGetFramebufferSize(m_window_ptr, &display_w, &display_h);
+    glViewport(0, 0, display_w, display_h);
+    ImVec4 const& clear_color = m_renderer->clear_color();
     glClearColor(
-        m_clear_color.x * m_clear_color.w,
-        m_clear_color.y * m_clear_color.w,
-        m_clear_color.z * m_clear_color.w,
-        m_clear_color.w
+        clear_color.x * clear_color.w,
+        clear_color.y * clear_color.w,
+        clear_color.z * clear_color.w,
+        clear_color.w
         );
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    SDL_GL_SwapWindow(m_window_ptr);
+
+    glfwSwapBuffers(m_window_ptr);
 }
 
 

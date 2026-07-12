@@ -95,15 +95,15 @@ message("LLVM STATUS:
     Libraries   ${LLVM_LIBRARY_DIRS}
     Targets     ${LLVM_TARGETS_TO_BUILD}")
 
-find_package(SDL3 CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
 set(GFX_LIST_OF_LIBRARIES_TO_LINK_WITH
     OpenGL::GL
     glad::glad
     imgui::imgui
-    SDL3::SDL3
+    glfw
     )
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
