@@ -116,9 +116,9 @@ void run(int argc, char* argv[])
     if (solver.success())
     {
         std::cout << "SUCCESS: A feasible path was found:\n";
-        for (std::uint32_t const  graph_node_index : solver.path())
+        for (std::uint32_t const  tree_node_index : solver.path())
         {
-            sala::NavigationGraph::Node const&  n{ nav_graph.node(graph_node_index) };
+            sala::NavigationGraph::Node const&  n{ nav_graph.node(tree.graph_node_index(tree_node_index)) };
             std::cout << n.function << ", "  << n.basic_block << '\n';
         }
     }
