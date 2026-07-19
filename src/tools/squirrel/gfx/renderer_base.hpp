@@ -2,6 +2,7 @@
 #   define TOOL_SQUIRREL_GFX_RENDERER_BASE_HPP_INCLUDED
 
 #   include <squirrel/gfx/data_sources.hpp>
+#   include <squirrel/gfx/math.hpp>
 #   include <imgui.h>
 
 namespace gfx {
@@ -9,7 +10,7 @@ namespace gfx {
 
 struct  RendererBase
 {
-    RendererBase(DataSources const*  data_sources) : m_data{ data_sources } {}
+    RendererBase(DataSources const*  data_sources) : m_data{ data_sources }, m_frame_count{ 0ULL } {}
     virtual ~RendererBase() {}
 
     DataSources const&  data() const { return *m_data; }
@@ -19,11 +20,17 @@ struct  RendererBase
     chickaree::PathTree const&  tree() const { return *data().tree; }
     chickaree::Solver const&  solver() const { return *data().solver; }
 
-    virtual void next_frame() = 0;
+    vec2 window_origin() const { return ImGui::GetCursorScreenPos(); } // Left top corner.
+    vec2 window_size() const { return ImGui::GetContentRegionAvail(); } // Width and height.
+
+    std::uint64_t frame_count() const { return m_frame_count; }
+
+    virtual void next_frame() { ++m_frame_count; }
 
 private:
 
     DataSources const* m_data;
+    std::uint64_t m_frame_count;
 };
 
 

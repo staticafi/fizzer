@@ -28,10 +28,10 @@ void Renderer::next_frame()
         );
 
     if (ImGui::BeginTabBar("RootTabs")) {
-        if (ImGui::BeginTabItem("Controls")) {
-            render_controls();
-            ImGui::EndTabItem();
-        }
+        // if (ImGui::BeginTabItem("Controls")) {
+        //     render_controls();
+        //     ImGui::EndTabItem();
+        // }
         if (ImGui::BeginTabItem("NavGraph")) {
             m_nav_graph_renderer.next_frame();
             ImGui::EndTabItem();
