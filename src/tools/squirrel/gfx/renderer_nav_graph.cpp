@@ -52,6 +52,7 @@ RendererNavGraph::RendererNavGraph(DataSources const* const  data_sources)
                 .half_size = vec2{ 0.0f, 0.0f },
                 .velocity = vec2::zero(),
                 .force = vec2::zero(),
+                .type = NodeLayout::ENTRY,
                 .text_lines{}
             };
 
@@ -71,6 +72,18 @@ RendererNavGraph::RendererNavGraph(DataSources const* const  data_sources)
                 std::stringstream sstr;
                 sstr << instr_index << ":\t" << bbs.instructions().at(instr_index);
                 layout.text_lines.push_back(sstr.str());
+            }
+
+            if (item.node_index != nav_graph().entry(fn_index))
+            {
+                if (nav_graph().is_call(item.node_index))
+                    layout.type = NodeLayout::CALL;
+                else if (nav_graph().is_ret(item.node_index))
+                    layout.type = NodeLayout::RET;
+                else if (nav_graph().successors(item.node_index).size() == 1ULL)
+                    layout.type = NodeLayout::JUMP;
+                else
+                    layout.type = NodeLayout::BRANCH;
             }
 
             m_function_node_layouts.back().node_layouts[item.node_index] = layout;
@@ -230,14 +243,22 @@ void RendererNavGraph::draw_node(ImDrawList& dl, std::uint32_t const node_index)
     FunctionLayout const& fn_layout{ m_function_node_layouts.at(nav_graph().node(node_index).function) };
     NodeLayout const& node_layout{ fn_layout.node_layouts.at(node_index) };
 
+    ImColor color;
+    switch (node_layout.type)
+    {
+        case NodeLayout::ENTRY: color = IM_COL32(75, 25, 55, 255); break;
+        case NodeLayout::CALL: color = IM_COL32(25, 75, 55, 255); break;
+        case NodeLayout::RET: color = IM_COL32(75, 55, 25, 255); break;
+        case NodeLayout::BRANCH:
+        case NodeLayout::JUMP: color = IM_COL32(75, 75, 75, 255); break;
+        default: UNREACHABLE(); break;
+    }
+
     Rect rect{ node_rect(node_index) };
     dl.AddRectFilled(
         rect.left_top,
         rect.right_bottom,
-        nav_graph().is_entry(node_index)  ? IM_COL32(75, 25, 55, 255) :
-        nav_graph().is_ret(node_index)    ? IM_COL32(75, 55, 25, 255) :
-        nav_graph().is_call(node_index)   ? IM_COL32(25, 75, 55, 255) :
-                                            IM_COL32(75, 75, 75, 255) ,
+        color,
         0.0f,
         0
     );

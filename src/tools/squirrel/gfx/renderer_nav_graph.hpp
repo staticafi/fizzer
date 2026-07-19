@@ -17,10 +17,20 @@ struct  RendererNavGraph : public RendererBase
 
     struct NodeLayout
     {
+        enum Type
+        {
+            ENTRY,
+            CALL,
+            RET,
+            BRANCH,
+            JUMP,
+        };
+
         vec2 origin;    // Center of the node.
         vec2 half_size; // Half width and half height.
         vec2 velocity;
         vec2 force;
+        Type type;
         std::vector<std::string> text_lines;
     };
 
