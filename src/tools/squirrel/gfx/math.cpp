@@ -40,7 +40,7 @@ vec2 collision_constraint_force(vec2 const& pos1, float const rad1, vec2 const& 
 
     vec2 dpos = pos2 - pos1;
     float current_dist = dpos.length();
-    float const collision_dist = rad1 + rad2 + 100.0f;
+    float const collision_dist = rad1 + rad2;
     if (current_dist >= collision_dist)
         return vec2::zero();
     if (current_dist < 0.0001f)
