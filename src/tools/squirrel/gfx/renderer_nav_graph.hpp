@@ -6,7 +6,7 @@
 #   include <imgui.h>
 #   include <unordered_map>
 #   include <vector>
-
+#   include <string>
 
 namespace gfx {
 
@@ -21,6 +21,7 @@ struct  RendererNavGraph : public RendererBase
         vec2 half_size; // Half width and half height.
         vec2 velocity;
         vec2 force;
+        std::vector<std::string> text_lines;
     };
 
     struct FunctionLayout

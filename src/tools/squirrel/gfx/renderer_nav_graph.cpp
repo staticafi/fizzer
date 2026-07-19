@@ -1,7 +1,9 @@
 #include <squirrel/gfx/renderer_nav_graph.hpp>
 #include <squirrel/gfx/shape.hpp>
+#include <sala/streaming.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
+#include <sstream>
 #include <cstdint>
 
 namespace gfx {
@@ -23,12 +25,34 @@ RendererNavGraph::RendererNavGraph(DataSources const* const  data_sources)
         vec2 origin = vec2{ 25.0f, 0.0f };
         for (std::uint32_t bb_index = nav_graph().begin(fn_index), bb_end = nav_graph().end(fn_index); bb_index != bb_end; ++bb_index)
         {
-            m_function_node_layouts.back().node_layouts[bb_index] = NodeLayout {
+            NodeLayout layout {
                 .origin = origin,
-                .half_size = vec2{ 15.0f, 10.0f },
+                .half_size = vec2{ 0.0f, 0.0f },
                 .velocity = vec2::zero(),
-                .force = vec2::zero()
+                .force = vec2::zero(),
+                .text_lines{}
             };
+
+            sala::NavigationGraph::Node const& n{ nav_graph().node(bb_index) };
+
+            layout.text_lines.push_back(
+                    "idx: " + std::to_string(bb_index) +
+                    ", fn: " + std::to_string(n.function) +
+                    ", bb: " + std::to_string(n.basic_block) +
+                    ", inst: " + std::to_string(n.instruction)
+                    );
+
+            auto const& bbs{ program().functions().at(fn_index).basic_blocks().at(n.basic_block) };
+            for (std::size_t i = 0ULL, end = nav_graph().num_instructions(bb_index); i != end; ++i)
+            {
+                std::size_t const instr_index = ((n.instruction + 1ULL) - end) + i;
+                std::stringstream sstr;
+                sstr << instr_index << ":\t" << bbs.instructions().at(instr_index);
+                layout.text_lines.push_back(sstr.str());
+            }
+
+            m_function_node_layouts.back().node_layouts[bb_index] = layout;
+
             origin.x *= -1.0f;
             origin.y += 100.0f;
         }
@@ -65,8 +89,26 @@ void RendererNavGraph::next_frame()
     ImGui::BeginChild("RightPane", ImVec2(0, 0), true);
 
         if (frame_count() == 1ULL)
-            for (auto& fn_layout : m_function_node_layouts)
+        {
+            for (std::size_t fn_index = 0ULL; fn_index != nav_graph().lookups().size(); ++fn_index)
+            {
+                FunctionLayout& fn_layout{ m_function_node_layouts.at(fn_index) };
                 fn_layout.origin = window_origin() + vec2{ window_size().x / 2.0f, 0.0f };
+                for (auto& idx_and_layout : fn_layout.node_layouts)
+                {
+                    std::uint32_t const node_index{ idx_and_layout.first };
+                    NodeLayout& layout{ idx_and_layout.second };
+
+                    for (std::string const& line : layout.text_lines)
+                    {
+                        vec2 const line_size = ImGui::CalcTextSize(line.c_str());
+                        layout.half_size.x = std::max(layout.half_size.x, line_size.x);
+                        layout.half_size.y += line_size.y;
+                    }
+                    layout.half_size *= 0.5f;
+                }
+            }
+        }
 
         ImDrawList& dl = *ImGui::GetWindowDrawList();
         FunctionLayout& fn_layout{ m_function_node_layouts.at(selected_function) };
@@ -143,6 +185,9 @@ Rect RendererNavGraph::node_rect_local(std::uint32_t node_index, float const ext
 
 void RendererNavGraph::draw_node(ImDrawList& dl, std::uint32_t const node_index) const
 {
+    FunctionLayout const& fn_layout{ m_function_node_layouts.at(nav_graph().node(node_index).function) };
+    NodeLayout const& node_layout{ fn_layout.node_layouts.at(node_index) };
+
     Rect rect{ node_rect(node_index) };
     dl.AddRectFilled(
         rect.left_top,
@@ -161,8 +206,12 @@ void RendererNavGraph::draw_node(ImDrawList& dl, std::uint32_t const node_index)
         0.0f,
         0
     );
-    std::string text = std::to_string(node_index);
-    dl.AddText(rect.left_top, IM_COL32(255, 255, 255, 255), text.data(), text.data() + text.size());
+    vec2 pos = rect.left_top;
+    for (std::string const& line : node_layout.text_lines)
+    {
+        dl.AddText(pos, IM_COL32(255, 255, 255, 255), line.data(), line.data() + line.size());
+        pos.y += ImGui::CalcTextSize(line.c_str()).y;
+    }
 }
 
 
