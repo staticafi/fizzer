@@ -4,6 +4,7 @@
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <sstream>
+#include <deque>
 #include <cstdint>
 
 namespace gfx {
@@ -22,28 +23,49 @@ RendererNavGraph::RendererNavGraph(DataSources const* const  data_sources)
             .origin = vec2::zero(),
             .node_layouts = {}
         });
-        vec2 origin = vec2{ 25.0f, 0.0f };
-        for (std::uint32_t bb_index = nav_graph().begin(fn_index), bb_end = nav_graph().end(fn_index); bb_index != bb_end; ++bb_index)
+
+        struct IndexAndDepth
         {
+            std::uint32_t node_index;
+            vec2 pos;
+            float size;
+        };
+
+        float const height = std::log2f(nav_graph().lookup(fn_index).end - nav_graph().lookup(fn_index).begin);
+        float const leaves = std::pow(2.0f, height);
+        float const size = leaves * (400.0f + 50.0f);
+
+        std::deque<IndexAndDepth> queue{ IndexAndDepth{
+                .node_index = nav_graph().begin(fn_index),
+                .pos{ 0.0f, 0.0f },
+                .size = size
+                } };
+        do
+        {
+            IndexAndDepth const item = queue.front();
+            queue.pop_front();
+
+            // Processing the current item.
+
             NodeLayout layout {
-                .origin = origin,
+                .origin = item.pos,
                 .half_size = vec2{ 0.0f, 0.0f },
                 .velocity = vec2::zero(),
                 .force = vec2::zero(),
                 .text_lines{}
             };
 
-            sala::NavigationGraph::Node const& n{ nav_graph().node(bb_index) };
+            sala::NavigationGraph::Node const& n{ nav_graph().node(item.node_index) };
 
             layout.text_lines.push_back(
-                    "idx: " + std::to_string(bb_index) +
+                    "idx: " + std::to_string(item.node_index) +
                     ", fn: " + std::to_string(n.function) +
                     ", bb: " + std::to_string(n.basic_block) +
                     ", inst: " + std::to_string(n.instruction)
                     );
 
             auto const& bbs{ program().functions().at(fn_index).basic_blocks().at(n.basic_block) };
-            for (std::size_t i = 0ULL, end = nav_graph().num_instructions(bb_index); i != end; ++i)
+            for (std::size_t i = 0ULL, end = nav_graph().num_instructions(item.node_index); i != end; ++i)
             {
                 std::size_t const instr_index = ((n.instruction + 1ULL) - end) + i;
                 std::stringstream sstr;
@@ -51,11 +73,31 @@ RendererNavGraph::RendererNavGraph(DataSources const* const  data_sources)
                 layout.text_lines.push_back(sstr.str());
             }
 
-            m_function_node_layouts.back().node_layouts[bb_index] = layout;
+            m_function_node_layouts.back().node_layouts[item.node_index] = layout;
 
-            origin.x *= -1.0f;
-            origin.y += 100.0f;
+            // Adding successor nodes do the queue.
+
+            std::vector<std::uint32_t> succ_node_indices;
+            if (nav_graph().is_call(item.node_index))
+                succ_node_indices.push_back(nav_graph().bb_next(item.node_index));
+            else
+                succ_node_indices = nav_graph().successors(item.node_index);
+
+            if (succ_node_indices.empty())
+                continue;
+            float dx = item.size / (float)succ_node_indices.size();
+            float x = item.pos.x + (succ_node_indices.size() == 1ULL ? 0.0 : -item.size / 2.0f + dx / 2.0f);
+            for (std::uint32_t const succ_node_index : succ_node_indices)
+            {
+                queue.push_back(IndexAndDepth{
+                        .node_index = succ_node_index,
+                        .pos{ x, item.pos.y + 200.0f },
+                        .size = item.size / 2.0f
+                        });
+                x += dx;
+            }
         }
+        while (!queue.empty());
     }
 }
 
@@ -82,9 +124,9 @@ void RendererNavGraph::next_frame()
     }
     ImGui::SameLine();
 
-    clear_forces(selected_function);
-    compute_forces(selected_function);
-    apply_forces(selected_function);
+    // clear_forces(selected_function);
+    // compute_forces(selected_function);
+    // apply_forces(selected_function);
 
     ImGui::BeginChild("RightPane", ImVec2(0, 0), true);
 
@@ -312,7 +354,7 @@ void RendererNavGraph::compute_forces(std::uint32_t const fn_index)
 
 void RendererNavGraph::apply_forces(std::uint32_t const fn_index)
 {
-    float const MAX_SPEED = 500.0f;
+    float const MAX_SPEED = 100.0f;
     float const dt = 1.0f / 60.0f; // 60 Hz. Moreover, we do not need real-time simulation.
     for (auto& [ _, layout ] : m_function_node_layouts.at(fn_index).node_layouts)
     {
