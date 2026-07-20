@@ -203,6 +203,9 @@ static void visualizer_thread_procedure(DataSources const  data)
         try
         {
             visualizer_ptr->next_frame();
+            //std::this_thread::yield();
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(10ms);
         }
         catch (...)
         {
