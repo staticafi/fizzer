@@ -97,6 +97,8 @@ Visualizer::Visualizer(DataSources const&  data)
     char const* glsl_version = nullptr;
     ImGui_ImplOpenGL3_Init(glsl_version);
 
+    glfwMaximizeWindow(m_window_ptr);
+
     m_renderer = new Renderer(data);
 }
 
