@@ -134,10 +134,7 @@ void Visualizer::next_frame()
 
     glfwPollEvents();
     if (glfwGetWindowAttrib(m_window_ptr, GLFW_ICONIFIED) != 0)
-    {
-        ImGui_ImplGlfw_Sleep(10);
         return;
-    }
 
     render_begin();
 
