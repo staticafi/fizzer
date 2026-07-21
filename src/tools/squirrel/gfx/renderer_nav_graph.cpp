@@ -4,6 +4,7 @@
 #include <sala/streaming_utils.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
+#include <unordered_set>
 #include <sstream>
 #include <deque>
 #include <cstdint>
@@ -38,6 +39,7 @@ RendererNavGraph::RendererNavGraph(DataSources const* const  data_sources)
         float const leaves = std::pow(2.0f, height);
         float const size = leaves * (400.0f + 50.0f);
 
+        std::unordered_set<std::uint32_t> visited;
         std::deque<IndexAndDepth> queue{ IndexAndDepth{
                 .node_index = nav_graph().begin(fn_index),
                 .pos{ 0.0f, 0.0f },
@@ -47,6 +49,10 @@ RendererNavGraph::RendererNavGraph(DataSources const* const  data_sources)
         {
             IndexAndDepth const item = queue.front();
             queue.pop_front();
+
+            if (visited.contains(item.node_index))
+                continue;
+            visited.insert(item.node_index);
 
             //  We create only empty layout for the node. We fill the layout
             // later (we cannot do it here, because we can get here repeatedly).
