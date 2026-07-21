@@ -82,6 +82,14 @@ private:
     void draw_node(ImDrawList& dl, FunctionLayout const& fn_layout, std::uint32_t node_index, NodeLayout const& node_layout) const;
     void draw_edge(ImDrawList& dl, FunctionLayout const& fn_layout, EdgeID const& edge_id, EdgeLayout const& edge_layout) const;
 
+    void draw_node_tooltip(
+            ImDrawList& dl,
+            vec2 const& pos,
+            FunctionLayout const& fn_layout,
+            std::uint32_t node_index,
+            NodeLayout const& node_layout
+            ) const;
+
     void inter_costs_table_to_text(
             std::vector<std::string>& out_text_lines,
             sala::NavigationGraph::InterCosts::Table const& inter_costs

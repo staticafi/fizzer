@@ -1,6 +1,7 @@
 #include <squirrel/gfx/renderer_nav_graph.hpp>
 #include <squirrel/gfx/shape.hpp>
 #include <sala/streaming.hpp>
+#include <sala/streaming_utils.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <sstream>
@@ -232,7 +233,7 @@ void RendererNavGraph::next_frame()
                         std::uint32_t const begin_node_index{ nav_graph().begin(fn_index) };
                         std::uint32_t const end_node_index{ nav_graph().end(fn_index) };
                         if (ImGui::BeginTable(
-                                "Inra costs",
+                                "Intra costs",
                                 end_node_index - begin_node_index + 1U, 
                                 ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV
                                 ))
@@ -330,6 +331,23 @@ void RendererNavGraph::next_frame()
 
         for (auto const& id_and_layout : fn_layout.edge_layouts)
             draw_edge(dl, fn_layout, id_and_layout.first, id_and_layout.second);
+
+        if (mouse_tracking.is_valid && !mouse_tracking.is_right_button_down)
+            for (auto const& idx_and_layout : fn_layout.node_layouts)
+            {
+                vec2 pos = nearest_point_on_rect_to_point(
+                        make_rect_from_center_and_half_size(
+                                idx_and_layout.second.origin + fn_layout.origin,
+                                idx_and_layout.second.half_size
+                                ),
+                        mouse_tracking.last_pos
+                        );
+                if (equal(mouse_tracking.last_pos, pos))
+                {
+                    draw_node_tooltip(dl, pos - fn_layout.origin, fn_layout, idx_and_layout.first, idx_and_layout.second);
+                    break;
+                }
+            }
     }
     ImGui::EndChild();
 
@@ -375,6 +393,10 @@ void RendererNavGraph::draw_node(
         NodeLayout const& node_layout
         ) const
 {
+    Rect rect{ make_rect_from_center_and_half_size(node_layout.origin + fn_layout.origin, node_layout.half_size) };
+    if (!collision(rect, window_rect()))
+        return;
+
     ImU32 color;
     switch (node_layout.type)
     {
@@ -386,7 +408,6 @@ void RendererNavGraph::draw_node(
         default: UNREACHABLE(); break;
     }
 
-    Rect rect{ make_rect_from_center_and_half_size(node_layout.origin + fn_layout.origin, node_layout.half_size) };
     dl.AddRectFilled(
         rect.left_top,
         rect.right_bottom,
@@ -425,23 +446,12 @@ void RendererNavGraph::draw_edge(
 
     auto [ from, to ] = nearest_points_of_rects(from_rect, to_rect);
 
-    ImU32 color;
-    switch (edge_layout.type)
-    {
-        case EdgeLayout::CALL: color = IM_COL32(100, 200, 100, 255); break;
-        case EdgeLayout::BRANCH_FALSE: color = IM_COL32(100, 100, 200, 255); break;
-        case EdgeLayout::BRANCH_TRUE: color = IM_COL32(200, 100, 100, 255); break;
-        case EdgeLayout::JUMP: color = IM_COL32(175, 175, 175, 255); break;
-        default: UNREACHABLE(); break;
-    }
-
-    draw_arrow(dl, from, to, color, 1.0f);
-
-    float max_line_height = 0.0f;
+    vec2 max_line_size{ 0.0f, 0.0f };
     for (std::string const& line : edge_layout.text_lines)
     {
         vec2 const size = ImGui::CalcTextSize(line.c_str());
-        max_line_height = std::max(max_line_height, size.y);
+        max_line_size.x = std::max(max_line_size.x, size.x); 
+        max_line_size.y = std::max(max_line_size.y, size.y); 
     }
 
     float constexpr SEPARATION_X = 5U;
@@ -454,15 +464,168 @@ void RendererNavGraph::draw_edge(
     vec2 pos{ avg(from, to) };
     pos.x += SEPARATION_X;
     if (dir.y >= 0.0f)
-        pos.y -= (float)edge_layout.text_lines.size() * max_line_height + SEPARATION_Y;
+        pos.y -= (float)edge_layout.text_lines.size() * max_line_size.y + SEPARATION_Y;
     else
         pos.y += SEPARATION_Y;
+
+    Rect const text_rect{
+            .left_top = pos,
+            .right_bottom = pos + vec2{ max_line_size.x, max_line_size.y * (float)edge_layout.text_lines.size() }
+            };
+
+    Rect const wnd_rect = window_rect();
+    if (!collision(make_rect_from_line(from, to), wnd_rect) && !collision(text_rect, wnd_rect))
+        return;
+
+    ImU32 color;
+    switch (edge_layout.type)
+    {
+        case EdgeLayout::CALL: color = IM_COL32(100, 200, 100, 255); break;
+        case EdgeLayout::BRANCH_FALSE: color = IM_COL32(100, 100, 200, 255); break;
+        case EdgeLayout::BRANCH_TRUE: color = IM_COL32(200, 100, 100, 255); break;
+        case EdgeLayout::JUMP: color = IM_COL32(175, 175, 175, 255); break;
+        default: UNREACHABLE(); break;
+    }
+
+    draw_arrow(dl, from, to, color, 1.0f);
 
     for (std::string const& line : edge_layout.text_lines)
     {
         dl.AddText(pos, color, line.data(), line.data() + line.size());
-        pos.y += max_line_height;
+        pos.y += max_line_size.y;
     }
+}
+
+
+void RendererNavGraph::draw_node_tooltip(
+        ImDrawList& dl,
+        vec2 const& pos,
+        FunctionLayout const& fn_layout,
+        std::uint32_t node_index,
+        NodeLayout const& node_layout
+        ) const
+{
+    // if (!ImGui::IsItemHovered())
+    //     return;
+
+    std::uint32_t hovered_line_index = 0U;
+    {
+        vec2 line_left_top = node_layout.origin - node_layout.half_size;
+        for ( ; hovered_line_index != (std::uint32_t)node_layout.text_lines.size(); ++hovered_line_index)
+        {
+            float const line_height = ImGui::CalcTextSize(node_layout.text_lines.at(hovered_line_index).c_str()).y;
+            Rect const line_rect{
+                    .left_top = line_left_top,
+                    .right_bottom = line_left_top + vec2{ 2.0f* node_layout.half_size.x, line_height }
+                    };
+            if (collision(line_rect, pos))
+                break;
+            line_left_top.y += line_height;
+        }
+        if (hovered_line_index == (std::uint32_t)node_layout.text_lines.size())
+            return; // May happen only due to floating point imprecision. (So, happens almost never.)
+    }
+
+    if (hovered_line_index == 0U)
+    {
+        ImGui::BeginTooltip();
+        {
+            ImGui::Text("TODO");
+        }
+        ImGui::EndTooltip();
+        return;
+    }
+
+    sala::NavigationGraph::Node const& n = nav_graph().node(node_index);
+    sala::Instruction const& instr =
+            program().functions().at(n.function)
+                     .basic_blocks().at(n.basic_block)
+                     .instructions().at(n.instruction + 1U - nav_graph().num_instructions(node_index) + (hovered_line_index - 1U));
+
+    ImGui::BeginTooltip();
+        if (ImGui::BeginTable("Vars info", 4U, ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV))
+        {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0); ImGui::Text("Desc");
+            ImGui::TableSetColumnIndex(1); ImGui::Text("Idx");
+            ImGui::TableSetColumnIndex(2); ImGui::Text("Size");
+            ImGui::TableSetColumnIndex(3); ImGui::Text("BM/Value");
+
+            for (std::uint32_t i = 0U; i != (std::uint32_t)instr.descriptors().size(); ++i)
+            {
+                ImGui::TableNextRow();
+
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("%s", sala::instruction_descriptor_to_string(instr.descriptors().at(i)).c_str());
+                
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%u", instr.operands().at(i));
+
+                switch (instr.descriptors().at(i))
+                {
+                    case sala::Instruction::Descriptor::STATIC:
+                        {
+                            auto const& var = program().static_variables().at(instr.operands().at(i));
+                            ImGui::TableSetColumnIndex(2);
+                            ImGui::Text("%u", (std::uint32_t)var.num_bytes());
+                            if (var.source_back_mapping().line != 0 || var.source_back_mapping().column != 0)
+                            {
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("%s", sala::source_back_mapping_to_string(var.source_back_mapping()).c_str());
+                            }
+                        }
+                        break;
+                    case sala::Instruction::Descriptor::LOCAL:
+                        {
+                            auto const& var = program().functions().at(n.function).local_variables().at(instr.operands().at(i));
+                            ImGui::TableSetColumnIndex(2);
+                            ImGui::Text("%u", (std::uint32_t)var.num_bytes());
+                            if (var.source_back_mapping().line != 0 || var.source_back_mapping().column != 0)
+                            {
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("%s", sala::source_back_mapping_to_string(var.source_back_mapping()).c_str());
+                            }
+                        }
+                        break;
+                    case sala::Instruction::Descriptor::PARAMETER:
+                        {
+                            auto const& var = program().functions().at(n.function).parameters().at(instr.operands().at(i));
+                            ImGui::TableSetColumnIndex(2);
+                            ImGui::Text("%u", (std::uint32_t)var.num_bytes());
+                            if (var.source_back_mapping().line != 0 || var.source_back_mapping().column != 0)
+                            {
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("%s", sala::source_back_mapping_to_string(var.source_back_mapping()).c_str());
+                            }
+                        }
+                        break;
+                    case sala::Instruction::Descriptor::CONSTANT:
+                        {
+                            auto const& cvar = program().constants().at(instr.operands().at(i));
+                            ImGui::TableSetColumnIndex(2);
+                            ImGui::Text("%u", (std::uint32_t)cvar.num_bytes());
+                            ImGui::TableSetColumnIndex(3);
+                            ImGui::Text("%s", sala::bytes_to_hex_string(cvar.bytes()).c_str());
+                        }
+                        break;
+                    case sala::Instruction::Descriptor::FUNCTION:
+                        {
+                            auto const& fn = program().functions().at(n.function);
+                            ImGui::TableSetColumnIndex(2);
+                            ImGui::Text("1");
+                            if (fn.source_back_mapping().line != 0 || fn.source_back_mapping().column != 0)
+                            {
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("%s", sala::source_back_mapping_to_string(fn.source_back_mapping()).c_str());
+                            }
+                        }
+                        break;
+                    default: UNREACHABLE(); break;
+                }
+            }
+            ImGui::EndTable();
+        }
+    ImGui::EndTooltip();
 }
 
 

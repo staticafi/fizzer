@@ -51,6 +51,9 @@ inline vec2 orthogonal_ccw(vec2 const& u) { return vec2{ -u.y, u.x }; }
 
 inline vec2 avg(vec2 const& a, vec2 const& b) { return 0.5f * (a + b); }
 
+inline bool equal(vec2 const& a, vec2 const& b, float epsilon = 1e-4f)
+{ vec2 d = b - a; float x = d*d; return x < epsilon*epsilon; }
+
 
 struct Rect
 {
@@ -64,8 +67,16 @@ inline float radius(Rect const& rect) { return 0.5f * (rect.left_top - rect.righ
 inline Rect make_rect_from_center_and_half_size(vec2 const& center, vec2 const& half_size)
 { return Rect{ .left_top = center - half_size, .right_bottom = center + half_size }; }
 
+inline Rect make_rect_from_line(vec2 const& a, vec2 const& b)
+{ return Rect{ .left_top = vec2{ std::min(a.x, b.x), std::min(a.y, b.y) }, .right_bottom = vec2{ std::max(a.x, b.x), std::max(a.y, b.y) } }; }
+
 inline Rect move_rect(Rect const& rect, vec2 const& shift)
 { return Rect{ .left_top = rect.left_top + shift, .right_bottom = rect.right_bottom + shift }; }
+
+inline bool collision(Rect const& r, vec2 const& p)
+{return r.left_top.x <= p.x && p.x <= r.right_bottom.x && r.left_top.y <= p.y && p.y <= r.right_bottom.y; }
+
+bool collision(Rect const& r1, Rect const& r2);
 
 vec2 nearest_point_on_rect_to_point(Rect const& rect, vec2 const& point);
 std::pair<vec2, vec2> nearest_points_of_rects(Rect const& r1, Rect const& r2);

@@ -3,6 +3,14 @@
 
 namespace gfx {
 
+
+bool collision(Rect const& r1, Rect const& r2)
+{
+    return !(r1.right_bottom.x < r2.left_top.x || r2.right_bottom.x < r1.left_top.x ||
+             r1.right_bottom.y < r2.left_top.y || r2.right_bottom.y < r1.left_top.y );
+}
+
+
 vec2 nearest_point_on_rect_to_point(Rect const& rect, vec2 const& point)
 {
     return vec2 {
