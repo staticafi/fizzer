@@ -157,32 +157,7 @@ RendererNavGraph::RendererNavGraph(DataSources const* const  data_sources)
             if (edge_layout.type == EdgeLayout::CALL)
             {
                 // We add text of costs of all callees in format 'callee1:cost1, callee2:cost2, ...'
-
-                std::vector<std::uint32_t> sorted_callees;
-                {
-                    sala::NavigationGraph::InterCosts::Table const& inter_costs = nav_graph().inter_cost_from_call(node_index);
-                    for (auto it = inter_costs.begin(); it != inter_costs.end(); ++it)
-                        sorted_callees.push_back(it->first);
-                    std::sort(sorted_callees.begin(), sorted_callees.end());
-                }
-
-                std::stringstream sstr;
-                std::uint32_t counter{ 0U };
-                for (auto it = sorted_callees.begin(); it != sorted_callees.end(); ++it)
-                {
-                    if (it != sorted_callees.begin())
-                        sstr << ", ";
-                    sstr << *it << ':' << nav_graph().inter_cost_from_call(node_index, *it);
-                    ++counter;
-                    if (counter == 5U)
-                    {
-                        edge_layout.text_lines.push_back(sstr.str());
-                        sstr.clear();
-                        counter = 0U;
-                    }
-                }
-                if (counter > 0U)
-                    edge_layout.text_lines.push_back(sstr.str());
+                inter_costs_table_to_text(edge_layout.text_lines, nav_graph().inter_cost_from_call(node_index));
             }
         }
     }
@@ -205,33 +180,104 @@ void RendererNavGraph::next_frame()
                 IM_COL32(255, 175, 0, 255),     // Entry function
                 IM_COL32(150, 150, 150, 255)    // Extern function
                 };
-        for (std::uint32_t i = 0; i < (std::uint32_t)program().functions().size(); ++i) {
-            INVARIANT(i == data().program->functions().at(i).index());
-            std::string const label = std::to_string(i) + ": " + program().functions().at(i).name();
+        for (std::uint32_t fn_index = 0; fn_index < (std::uint32_t)program().functions().size(); ++fn_index) {
+            INVARIANT(fn_index == data().program->functions().at(fn_index).index());
+            std::string const label = std::to_string(fn_index) + ": " + program().functions().at(fn_index).name();
 
             bool is_color_style_pushed = false;
-            if (i == 0U)
+            if (fn_index == 0U)
             {
                 ImGui::PushStyleColor(ImGuiCol_Text, special_functions_colors[0]);
                 is_color_style_pushed = true;
             }
-            else if (i == program().entry_function())
+            else if (fn_index == program().entry_function())
             {
                 ImGui::PushStyleColor(ImGuiCol_Text, special_functions_colors[1]);
                 is_color_style_pushed = true;
             }
-            else if (external_functions.contains(i))
+            else if (external_functions.contains(fn_index))
             {
                 ImGui::PushStyleColor(ImGuiCol_Text, special_functions_colors[2]);
                 is_color_style_pushed = true;
             }
 
-            if (ImGui::Selectable(label.c_str(), selected_function == i)) {
-                selected_function = i;
+            if (ImGui::Selectable(label.c_str(), selected_function == fn_index)) {
+                selected_function = fn_index;
             }
 
             if (is_color_style_pushed)
                 ImGui::PopStyleColor();
+
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::BeginTooltip();
+                {
+                    ImGui::Text("Avg. cost: %u", nav_graph().func_avg_cost(fn_index));
+
+                    {
+                        std::vector<std::string> text_lines;
+                        inter_costs_table_to_text(text_lines, nav_graph().inter_costs(fn_index).from_entry);
+                        if (!text_lines.empty())
+                        {
+                            ImGui::Separator();
+                            text_lines[0] = "Callees: " + text_lines[0];
+                            for (auto const& line : text_lines)
+                                ImGui::Text("%s", line.c_str());
+                        }
+                    }
+
+                    {
+                        ImGui::Separator();
+                        ImGui::Text("Intra costs:");
+                        std::uint32_t const begin_node_index{ nav_graph().begin(fn_index) };
+                        std::uint32_t const end_node_index{ nav_graph().end(fn_index) };
+                        if (ImGui::BeginTable(
+                                "Inra costs",
+                                end_node_index - begin_node_index + 1U, 
+                                ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV
+                                ))
+                        {
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::Text("");
+                            for (std::uint32_t node_index = begin_node_index; node_index != end_node_index; ++node_index)
+                            {
+                                ImGui::TableSetColumnIndex(node_index + 1U - begin_node_index);
+                                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 200, 0, 255));
+                                    ImGui::Text("%u", node_index);
+                                ImGui::PopStyleColor();
+                            }
+
+                            for (std::uint32_t row_node_index = begin_node_index; row_node_index != end_node_index; ++row_node_index)
+                            {
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(0);
+                                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 200, 0, 255));
+                                    ImGui::Text("%u", row_node_index);
+                                ImGui::PopStyleColor();
+
+                                for (std::uint32_t col_node_index = begin_node_index; col_node_index != end_node_index; ++col_node_index)
+                                {
+                                    ImGui::TableSetColumnIndex(col_node_index + 1U - begin_node_index);
+                                    sala::NavigationGraph::Cost const cost = nav_graph().intra_cost(row_node_index, col_node_index);
+                                    if (cost == sala::NavigationGraph::INFINITY_COST)
+                                    {
+                                        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(100, 100, 100, 255));
+                                            ImGui::Text("INF");
+                                        ImGui::PopStyleColor();
+                                    }
+                                    else
+                                        ImGui::Text("%u", cost);
+                                }
+                            }
+
+                            ImGui::EndTable();
+                        }
+
+                    }
+                }
+                ImGui::EndTooltip();
+            }
         }
     }
     ImGui::EndChild();
@@ -431,6 +477,38 @@ void RendererNavGraph::draw_edge(
         dl.AddText(pos, color, line.data(), line.data() + line.size());
         pos.y += max_line_height;
     }
+}
+
+
+void RendererNavGraph::inter_costs_table_to_text(
+        std::vector<std::string>& out_text_lines,
+        sala::NavigationGraph::InterCosts::Table const& inter_costs
+        ) const
+{
+    std::vector<std::uint32_t> sorted_callees;
+    {
+        for (auto it = inter_costs.begin(); it != inter_costs.end(); ++it)
+            sorted_callees.push_back(it->first);
+        std::sort(sorted_callees.begin(), sorted_callees.end());
+    }
+
+    std::stringstream sstr;
+    std::uint32_t counter{ 0U };
+    for (auto it = sorted_callees.begin(); it != sorted_callees.end(); ++it)
+    {
+        if (it != sorted_callees.begin())
+            sstr << ", ";
+        sstr << *it << ':' << inter_costs.at(*it);
+        ++counter;
+        if (counter == 5U)
+        {
+            out_text_lines.push_back(sstr.str());
+            sstr.clear();
+            counter = 0U;
+        }
+    }
+    if (counter > 0U)
+        out_text_lines.push_back(sstr.str());
 }
 
 
