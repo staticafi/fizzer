@@ -79,9 +79,6 @@ private:
 
     void update_mouse_data();
 
-    Rect node_rect(std::uint32_t node_index) const;
-    Rect node_rect_local(std::uint32_t node_index, float extent = 0.0f) const;
-
     void draw_node(ImDrawList& dl, FunctionLayout const& fn_layout, std::uint32_t node_index, NodeLayout const& node_layout) const;
     void draw_edge(ImDrawList& dl, FunctionLayout const& fn_layout, EdgeID const& edge_id, EdgeLayout const& edge_layout) const;
 

@@ -368,26 +368,6 @@ void RendererNavGraph::update_mouse_data()
 }
 
 
-Rect RendererNavGraph::node_rect(std::uint32_t const node_index) const
-{
-    FunctionLayout const& fn_layout{ m_function_layouts.at(nav_graph().node(node_index).function) };
-    NodeLayout const& node_layout{ fn_layout.node_layouts.at(node_index) };
-    vec2 const left_top{ node_layout.origin - node_layout.half_size };
-    vec2 const right_bottom{ node_layout.origin + node_layout.half_size };
-    return Rect{ .left_top = left_top + fn_layout.origin, .right_bottom = right_bottom + fn_layout.origin };
-}
-
-
-Rect RendererNavGraph::node_rect_local(std::uint32_t node_index, float const extent) const
-{
-    FunctionLayout const& fn_layout{ m_function_layouts.at(nav_graph().node(node_index).function) };
-    NodeLayout const& node_layout{ fn_layout.node_layouts.at(node_index) };
-    vec2 const left_top{ node_layout.origin - node_layout.half_size };
-    vec2 const right_bottom{ node_layout.origin + node_layout.half_size };
-    return Rect{ .left_top = left_top - vec2{ extent, extent }, .right_bottom = right_bottom + vec2{ extent, extent } };
-}
-
-
 void RendererNavGraph::draw_node(
         ImDrawList& dl,
         FunctionLayout const& fn_layout,
@@ -406,7 +386,7 @@ void RendererNavGraph::draw_node(
         default: UNREACHABLE(); break;
     }
 
-    Rect rect{ node_rect(node_index) };
+    Rect rect{ make_rect_from_center_and_half_size(node_layout.origin + fn_layout.origin, node_layout.half_size) };
     dl.AddRectFilled(
         rect.left_top,
         rect.right_bottom,
@@ -437,7 +417,13 @@ void RendererNavGraph::draw_edge(
         EdgeLayout const& edge_layout
         ) const
 {
-    auto [ from, to ] = nearest_points_of_rects(node_rect(edge_id.first), node_rect(edge_id.second));
+    NodeLayout const& from_layout{ fn_layout.node_layouts.at(edge_id.first) };
+    NodeLayout const& to_layout{ fn_layout.node_layouts.at(edge_id.second) };
+
+    Rect const from_rect = make_rect_from_center_and_half_size(from_layout.origin + fn_layout.origin, from_layout.half_size);
+    Rect const to_rect = make_rect_from_center_and_half_size(to_layout.origin + fn_layout.origin, to_layout.half_size);
+
+    auto [ from, to ] = nearest_points_of_rects(from_rect, to_rect);
 
     ImU32 color;
     switch (edge_layout.type)
@@ -532,11 +518,21 @@ void RendererNavGraph::compute_forces(std::uint32_t const fn_index)
     for (std::uint32_t i = begin_node_index; i < end_node_index; ++i)
     {
         NodeLayout& i_layout{ fn_layouts.node_layouts.at(i) };
-        Rect const i_rect{ node_rect_local(i, 0.5f * NEUTRAL_DISTANCE) };
+        Rect const i_rect{
+            make_rect_from_center_and_half_size(
+                    i_layout.origin,
+                    i_layout.half_size + 0.5f * vec2{NEUTRAL_DISTANCE, NEUTRAL_DISTANCE}
+                    )
+            };
         for (std::uint32_t j = i + 1U; j < end_node_index; ++j)
         {
             NodeLayout& j_layout{ fn_layouts.node_layouts.at(j) };
-            Rect const j_rect{ node_rect_local(j, 0.5f * NEUTRAL_DISTANCE) };
+            Rect const j_rect{
+                    make_rect_from_center_and_half_size(
+                            j_layout.origin,
+                            j_layout.half_size + 0.5f * vec2{NEUTRAL_DISTANCE, NEUTRAL_DISTANCE}
+                            )
+                    };
             vec2 const force = collision_constraint_force(i_rect, j_rect);
             i_layout.force += force;
             j_layout.force -= force;
@@ -554,11 +550,15 @@ void RendererNavGraph::compute_forces(std::uint32_t const fn_index)
         else
             dst_node_indices = nav_graph().successors(src_node_index);
 
-        Rect const src_rect{ node_rect_local(src_node_index) };
+        Rect const src_rect{
+                make_rect_from_center_and_half_size(src_layout.origin, src_layout.half_size)
+                };
         for (std::uint32_t const dst_node_index : dst_node_indices)
         {
             NodeLayout& dst_layout{ fn_layouts.node_layouts.at(dst_node_index) };
-            Rect const dst_rect{ node_rect_local(dst_node_index) };
+            Rect const dst_rect{
+                    make_rect_from_center_and_half_size(dst_layout.origin, dst_layout.half_size)
+                    };
             vec2 const force = distance_constraint_force(src_rect, dst_rect, NEUTRAL_DISTANCE);
 
             src_layout.force += force;
@@ -577,7 +577,10 @@ void RendererNavGraph::compute_forces(std::uint32_t const fn_index)
     }
 
     NodeLayout& entry_layout{ fn_layouts.node_layouts.at(begin_node_index) };
-    entry_layout.force += snap_constraint_force(node_rect_local(begin_node_index), vec2::zero());
+    entry_layout.force += snap_constraint_force(
+            make_rect_from_center_and_half_size(entry_layout.origin, entry_layout.half_size),
+            vec2::zero()
+            );
 }
 
 
