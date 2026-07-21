@@ -12,12 +12,14 @@ struct  Renderer
 {
     Renderer(DataSources const&  data_sources);
 
-    void set_waiting_for_content(bool const state) { m_waiting_for_content = state; }
+    void set_waiting_for_content(bool state);
     bool is_waiting_for_content() const { return m_waiting_for_content; }
 
     void next_frame();
 
 private:
+
+    void next_frame(RendererBase& renderer);
 
     void render_controls();
     void render_path_tree();
@@ -25,6 +27,7 @@ private:
     void render_call_graph();
 
     bool m_waiting_for_content;
+    bool m_data_updated;
     DataSources m_data;
     RendererNavGraph  m_nav_graph_renderer;
 };

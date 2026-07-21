@@ -8,9 +8,19 @@ namespace gfx {
 
 Renderer::Renderer(DataSources const&  data_sources)
     : m_waiting_for_content{ true }
+    , m_data_updated{ true }
     , m_data{ data_sources }
     , m_nav_graph_renderer( &m_data )
 {}
+
+
+void Renderer::set_waiting_for_content(bool const state)
+{
+    if (m_waiting_for_content && !state)
+        m_data_updated = true;
+    m_waiting_for_content = state;
+}
+
 
 void Renderer::next_frame()
 {
@@ -27,13 +37,19 @@ void Renderer::next_frame()
         ImGuiWindowFlags_NoBringToFrontOnFocus
         );
 
+    if (is_waiting_for_content())
+    {
+        ImGui::Text("Waiting for content...");
+        return;
+    }
+
     if (ImGui::BeginTabBar("RootTabs")) {
         // if (ImGui::BeginTabItem("Controls")) {
         //     render_controls();
         //     ImGui::EndTabItem();
         // }
         if (ImGui::BeginTabItem("NavGraph")) {
-            m_nav_graph_renderer.next_frame();
+            next_frame(m_nav_graph_renderer);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("PathTree")) {
@@ -52,6 +68,18 @@ void Renderer::next_frame()
     }
 
     ImGui::End();
+
+    m_data_updated = false;
+}
+
+
+void Renderer::next_frame(RendererBase& renderer)
+{
+    if (m_data_updated)
+        renderer.on_data_updated();
+    renderer.next_frame();
+    if (renderer.is_waiting_for_content())
+        set_waiting_for_content(true);
 }
 
 

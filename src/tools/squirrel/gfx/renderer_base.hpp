@@ -26,6 +26,8 @@ struct  RendererBase
 
     std::uint64_t frame_count() const { return m_frame_count; }
 
+    virtual bool is_waiting_for_content() { return false; }
+    virtual void on_data_updated() {}
     virtual void next_frame() { ++m_frame_count; }
 
 private:
