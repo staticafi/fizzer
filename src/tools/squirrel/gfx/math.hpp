@@ -70,6 +70,14 @@ inline Rect make_rect_from_center_and_half_size(vec2 const& center, vec2 const& 
 inline Rect make_rect_from_line(vec2 const& a, vec2 const& b)
 { return Rect{ .left_top = vec2{ std::min(a.x, b.x), std::min(a.y, b.y) }, .right_bottom = vec2{ std::max(a.x, b.x), std::max(a.y, b.y) } }; }
 
+inline Rect make_rect_from_triangle(vec2 const& a, vec2 const& b, vec2 const& c)
+{
+    return Rect{
+            .left_top = vec2{ std::min(std::min(a.x, b.x), c.x), std::min(std::min(a.y, b.y), c.y) },
+            .right_bottom = vec2{ std::max(std::max(a.x, b.x), c.x), std::max(std::max(a.y, b.y), c.y) }
+            };
+}
+
 inline Rect move_rect(Rect const& rect, vec2 const& shift)
 { return Rect{ .left_top = rect.left_top + shift, .right_bottom = rect.right_bottom + shift }; }
 
