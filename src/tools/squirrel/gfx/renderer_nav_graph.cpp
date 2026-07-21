@@ -450,7 +450,23 @@ void RendererNavGraph::draw_edge(
     Rect const from_rect = make_rect_from_center_and_half_size(from_layout.origin + fn_layout.origin, from_layout.half_size);
     Rect const to_rect = make_rect_from_center_and_half_size(to_layout.origin + fn_layout.origin, to_layout.half_size);
 
-    auto [ from, to ] = nearest_points_of_rects(from_rect, to_rect);
+    vec2 from, to, mid;
+    if (edge_id.first == edge_id.second)
+    {
+        from = vec2{ from_rect.right_bottom.x, from_rect.left_top.y };
+        to = from_rect.right_bottom;
+        mid = avg(from, to) - 2.0f * orthogonal_ccw(to - from);
+    }
+    else if (fn_layout.edge_layouts.contains({ edge_id.second, edge_id.first}))
+    {
+        std::tie(from, to) = nearest_points_of_rects(from_rect, to_rect);
+        mid = avg(from, to) - 0.5f * orthogonal_ccw(to - from);
+    }
+    else
+    {
+        std::tie(from, to) = nearest_points_of_rects(from_rect, to_rect);
+        mid = avg(from, to);
+    }
 
     vec2 max_line_size{ 0.0f, 0.0f };
     for (std::string const& line : edge_layout.text_lines)
@@ -463,11 +479,13 @@ void RendererNavGraph::draw_edge(
     float constexpr SEPARATION_X = 5U;
     float constexpr SEPARATION_Y = 5U;
 
-    vec2 dir = to - from;
+    vec2 pos, dir;
+
+    std::tie(pos, dir) = point_and_derivative_in_middle_of_curved_arrow(from, mid, to);
+
     if (dir.x < 0.0f)
         dir = -dir;
 
-    vec2 pos{ avg(from, to) };
     pos.x += SEPARATION_X;
     if (dir.y >= 0.0f)
         pos.y -= (float)edge_layout.text_lines.size() * max_line_size.y + SEPARATION_Y;
@@ -480,7 +498,7 @@ void RendererNavGraph::draw_edge(
             };
 
     Rect const wnd_rect = window_rect();
-    if (!collision(make_rect_from_line(from, to), wnd_rect) && !collision(text_rect, wnd_rect))
+    if (!collision(make_rect_from_triangle(from, mid, to), wnd_rect) && !collision(text_rect, wnd_rect))
         return;
 
     ImU32 color;
@@ -493,7 +511,7 @@ void RendererNavGraph::draw_edge(
         default: UNREACHABLE(); break;
     }
 
-    draw_arrow(dl, from, to, color, 1.0f);
+    draw_arrow_curved(dl, from, mid, to, color, 1.0f);
 
     for (std::string const& line : edge_layout.text_lines)
     {
