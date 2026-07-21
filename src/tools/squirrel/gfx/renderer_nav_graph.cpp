@@ -527,20 +527,15 @@ void RendererNavGraph::draw_node_tooltip(
     }
 
     if (hovered_line_index == 0U)
-    {
-        ImGui::BeginTooltip();
-        {
-            ImGui::Text("TODO");
-        }
-        ImGui::EndTooltip();
         return;
-    }
 
     sala::NavigationGraph::Node const& n = nav_graph().node(node_index);
     sala::Instruction const& instr =
             program().functions().at(n.function)
                      .basic_blocks().at(n.basic_block)
                      .instructions().at(n.instruction + 1U - nav_graph().num_instructions(node_index) + (hovered_line_index - 1U));
+    if (instr.descriptors().empty())
+        return;
 
     ImGui::BeginTooltip();
         if (ImGui::BeginTable("Vars info", 4U, ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV))
@@ -605,7 +600,63 @@ void RendererNavGraph::draw_node_tooltip(
                             ImGui::TableSetColumnIndex(2);
                             ImGui::Text("%u", (std::uint32_t)cvar.num_bytes());
                             ImGui::TableSetColumnIndex(3);
-                            ImGui::Text("%s", sala::bytes_to_hex_string(cvar.bytes()).c_str());
+                            ImGui::Text("h[]: %s", sala::bytes_to_hex_string(cvar.bytes()).c_str());
+                            {
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(3);
+                                std::string str{ cvar.bytes().begin(), cvar.bytes().end() };
+                                if (str.size() > 50ULL)
+                                    str.resize(50ULL);
+                                ImGui::Text("c[]: %s", str.c_str());
+                            }
+                            if (cvar.num_bytes() == 1ULL)
+                            {
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("i8: %d", (int)*(std::int8_t*)cvar.bytes().data());
+
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("u8: %d", (unsigned int)*(std::uint8_t*)cvar.bytes().data());
+                            }
+                            if (cvar.num_bytes() == 2ULL)
+                            {
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("i16: %d", *(std::int16_t*)cvar.bytes().data());
+
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("u16: %d", *(std::uint16_t*)cvar.bytes().data());
+                            }
+                            else if (cvar.num_bytes() == 4ULL)
+                            {
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("i32: %d", *(std::int32_t*)cvar.bytes().data());
+
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("u32: %d", *(std::uint32_t*)cvar.bytes().data());
+
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("f32: %e", (double)*(float*)cvar.bytes().data());
+                            }
+                            else if (cvar.num_bytes() == 8ULL)
+                            {
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("i64: %lld", (long long int)*(std::int64_t*)cvar.bytes().data());
+
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("u64: %llu", (unsigned long long int)*(std::uint64_t*)cvar.bytes().data());
+
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(3);
+                                ImGui::Text("f64: %e", *(double*)cvar.bytes().data());
+                            }
                         }
                         break;
                     case sala::Instruction::Descriptor::FUNCTION:
