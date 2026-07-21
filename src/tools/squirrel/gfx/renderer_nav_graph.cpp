@@ -529,9 +529,6 @@ void RendererNavGraph::draw_node_tooltip(
         NodeLayout const& node_layout
         ) const
 {
-    // if (!ImGui::IsItemHovered())
-    //     return;
-
     std::uint32_t hovered_line_index = 0U;
     {
         vec2 line_left_top = node_layout.origin - node_layout.half_size;
