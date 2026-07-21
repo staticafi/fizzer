@@ -22,6 +22,7 @@ struct  RendererBase
 
     vec2 window_origin() const { return ImGui::GetCursorScreenPos(); } // Left top corner.
     vec2 window_size() const { return ImGui::GetContentRegionAvail(); } // Width and height.
+    Rect window_rect() const { vec2 o = window_origin(); return Rect{ .left_top = o, .right_bottom = o + window_size() }; }
 
     std::uint64_t frame_count() const { return m_frame_count; }
 
