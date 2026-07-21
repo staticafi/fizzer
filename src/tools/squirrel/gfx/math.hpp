@@ -61,6 +61,12 @@ struct Rect
 inline vec2 center(Rect const& rect) { return avg(rect.left_top, rect.right_bottom); }
 inline float radius(Rect const& rect) { return 0.5f * (rect.left_top - rect.right_bottom).length(); }
 
+inline Rect make_rect_from_center_and_half_size(vec2 const& center, vec2 const& half_size)
+{ return Rect{ .left_top = center - half_size, .right_bottom = center + half_size }; }
+
+inline Rect move_rect(Rect const& rect, vec2 const& shift)
+{ return Rect{ .left_top = rect.left_top + shift, .right_bottom = rect.right_bottom + shift }; }
+
 vec2 nearest_point_on_rect_to_point(Rect const& rect, vec2 const& point);
 std::pair<vec2, vec2> nearest_points_of_rects(Rect const& r1, Rect const& r2);
 
