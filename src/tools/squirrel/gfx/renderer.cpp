@@ -8,9 +8,11 @@ namespace gfx {
 
 Renderer::Renderer(DataSources const&  data_sources)
     : m_waiting_for_content{ true }
+    , m_first_round{ true }
     , m_data_updated{ true }
     , m_data{ data_sources }
     , m_nav_graph_renderer( &m_data )
+    , m_path_tree_renderer{ &m_data }
 {}
 
 
@@ -44,16 +46,16 @@ void Renderer::next_frame()
     }
 
     if (ImGui::BeginTabBar("RootTabs")) {
-        // if (ImGui::BeginTabItem("Controls")) {
-        //     render_controls();
-        //     ImGui::EndTabItem();
-        // }
+        if (ImGui::BeginTabItem("Controls")) {
+            render_controls();
+            ImGui::EndTabItem();
+        }
         if (ImGui::BeginTabItem("NavGraph")) {
             next_frame(m_nav_graph_renderer);
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("PathTree")) {
-            render_path_tree();
+        if (ImGui::BeginTabItem("PathTree", nullptr, m_first_round ? ImGuiTabItemFlags_SetSelected : 0)) {
+            next_frame(m_path_tree_renderer);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Solver")) {
@@ -69,6 +71,7 @@ void Renderer::next_frame()
 
     ImGui::End();
 
+    m_first_round = false;
     m_data_updated = false;
 }
 
@@ -86,12 +89,6 @@ void Renderer::next_frame(RendererBase& renderer)
 void Renderer::render_controls()
 {
     ImGui::Text("TODO: Controls");
-}
-
-
-void Renderer::render_path_tree()
-{
-    ImGui::Text("TODO: PathTree");
 }
 
 

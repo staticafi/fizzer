@@ -3,6 +3,7 @@
 
 #   include <squirrel/gfx/data_sources.hpp>
 #   include <squirrel/gfx/renderer_nav_graph.hpp>
+#   include <squirrel/gfx/renderer_path_tree.hpp>
 #   include <imgui.h>
 
 namespace gfx {
@@ -27,9 +28,11 @@ private:
     void render_call_graph();
 
     bool m_waiting_for_content;
+    bool m_first_round;
     bool m_data_updated;
     DataSources m_data;
     RendererNavGraph  m_nav_graph_renderer;
+    RendererPathTree  m_path_tree_renderer;
 };
 
 
