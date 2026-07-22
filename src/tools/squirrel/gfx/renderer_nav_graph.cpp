@@ -174,8 +174,6 @@ void RendererNavGraph::next_frame()
 {
     Super::next_frame();
 
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-
     ImGui::BeginChild("LeftPane", ImVec2(split_x, 0), true);
     {
         std::unordered_set<std::uint32_t> external_functions {
@@ -289,6 +287,7 @@ void RendererNavGraph::next_frame()
     }
     ImGui::EndChild();
 
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
     ImGui::SameLine();
     {
         ImGui::InvisibleButton("vsplitter", ImVec2(8.0f, -1)); // 8px wide
@@ -297,6 +296,7 @@ void RendererNavGraph::next_frame()
         }
     }
     ImGui::SameLine();
+    ImGui::PopStyleVar();
 
     // clear_forces(selected_function);
     // compute_forces(selected_function);
@@ -329,7 +329,7 @@ void RendererNavGraph::next_frame()
         ImDrawList& dl = *ImGui::GetWindowDrawList();
         FunctionLayout& fn_layout{ m_function_layouts.at(selected_function) };
 
-        update_mouse_data();
+        update_mouse_tracking_data(mouse_tracking);
         fn_layout.origin += mouse_tracking.delta;
 
         for (auto const& idx_and_layout : fn_layout.node_layouts)
@@ -356,39 +356,6 @@ void RendererNavGraph::next_frame()
             }
     }
     ImGui::EndChild();
-
-    ImGui::PopStyleVar();
-}
-
-
-void RendererNavGraph::update_mouse_data()
-{
-    if (!ImGui::IsWindowHovered())
-    {
-        mouse_tracking = {};
-        return;
-    }
-
-    ImGuiIO& io = ImGui::GetIO();
-    vec2 const pos = io.MousePos;
-    bool const down = io.MouseDown[1];
-
-    if (!mouse_tracking.is_valid)
-    {
-        mouse_tracking.is_valid = true;
-        mouse_tracking.last_pos = pos;
-        mouse_tracking.is_right_button_down = down;
-        mouse_tracking.delta = vec2::zero();
-        return;
-    }
-
-    if (mouse_tracking.is_right_button_down)
-        mouse_tracking.delta = pos - mouse_tracking.last_pos;
-    else
-        mouse_tracking.delta = vec2::zero();
-
-    mouse_tracking.last_pos = pos;
-    mouse_tracking.is_right_button_down = down;
 }
 
 

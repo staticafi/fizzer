@@ -2,6 +2,7 @@
 #   define TOOL_SQUIRREL_GFX_RENDERER_NAV_GRAPH_HPP_INCLUDED
 
 #   include <squirrel/gfx/renderer_base.hpp>
+#   include <squirrel/gfx/mouse_tracking.hpp>
 #   include <squirrel/gfx/math.hpp>
 #   include <utility/std_pair_hash.hpp>
 #   include <imgui.h>
@@ -68,16 +69,6 @@ struct  RendererNavGraph : public RendererBase
     void next_frame() override;
 
 private:
-
-    struct MouseTracking
-    {
-        bool is_valid{ false };
-        bool is_right_button_down{ false };
-        vec2 last_pos{ vec2::zero() };
-        vec2 delta{ vec2::zero() };
-    };
-
-    void update_mouse_data();
 
     void draw_node(ImDrawList& dl, FunctionLayout const& fn_layout, std::uint32_t node_index, NodeLayout const& node_layout) const;
     void draw_edge(ImDrawList& dl, FunctionLayout const& fn_layout, EdgeID const& edge_id, EdgeLayout const& edge_layout) const;
