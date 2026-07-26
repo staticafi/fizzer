@@ -309,7 +309,7 @@ void RendererNavGraph::next_frame()
             for (std::size_t fn_index = 0ULL; fn_index != nav_graph().lookups().size(); ++fn_index)
             {
                 FunctionLayout& fn_layout{ m_function_layouts.at(fn_index) };
-                fn_layout.origin = window_origin() + vec2{ window_size().x / 2.0f, window_size().x / 4.0f };
+                fn_layout.origin = window_origin() + vec2{ window_size().x / 2.0f, 150.0f };
                 for (auto& idx_and_layout : fn_layout.node_layouts)
                 {
                     std::uint32_t const node_index{ idx_and_layout.first };
@@ -350,7 +350,7 @@ void RendererNavGraph::next_frame()
                         );
                 if (equal(mouse_tracking.last_pos, pos))
                 {
-                    draw_node_tooltip(dl, pos - fn_layout.origin, fn_layout, idx_and_layout.first, idx_and_layout.second);
+                    draw_node_tooltip(pos - fn_layout.origin, fn_layout, idx_and_layout.first, idx_and_layout.second);
                     break;
                 }
             }
@@ -489,7 +489,6 @@ void RendererNavGraph::draw_edge(
 
 
 void RendererNavGraph::draw_node_tooltip(
-        ImDrawList& dl,
         vec2 const& pos,
         FunctionLayout const& fn_layout,
         std::uint32_t node_index,

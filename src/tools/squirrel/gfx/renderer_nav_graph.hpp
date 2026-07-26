@@ -74,7 +74,6 @@ private:
     void draw_edge(ImDrawList& dl, FunctionLayout const& fn_layout, EdgeID const& edge_id, EdgeLayout const& edge_layout) const;
 
     void draw_node_tooltip(
-            ImDrawList& dl,
             vec2 const& pos,
             FunctionLayout const& fn_layout,
             std::uint32_t node_index,
