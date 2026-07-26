@@ -6,6 +6,7 @@
 #   include <squirrel/gfx/math.hpp>
 #   include <imgui.h>
 #   include <vector>
+#   include <cstdint>
 
 namespace gfx {
 
@@ -19,11 +20,19 @@ struct  RendererPathTree : public RendererBase
         // Center of the node.
         vec2 origin{ vec2::zero() };
 
-        // The X-coordinate is the smallest of all coordinates of all
-        // nodes in all subtrees of this node. The Y-coordinate is the
-        // largest of all coordinates of allnodes in all subtrees of
-        // this node.
-        vec2 subtrees_width{ vec2::zero() };
+        // Half size of the rect representing the node.
+        // It is computed from the text size.
+        vec2 half_size{ vec2::zero() };
+
+        std::string text;
+
+        // The smallest coordinate origin.x of all coordinates of all
+        // nodes in all subtrees of this node.
+        float subtrees_min_x{ 0.0f };
+
+        // The largest coordinate origin.x of all coordinates of all
+        // nodes in all subtrees of this node.
+        float subtrees_max_x{ 0.0f };
     };
 
     RendererPathTree(DataSources const*  data_sources);
@@ -32,8 +41,17 @@ struct  RendererPathTree : public RendererBase
 
 private:
 
-    void draw_node(ImDrawList& dl, std::uint32_t node_index, NodeLayout const& node_layout) const;
-    void draw_edge(ImDrawList& dl) const;
+    NodeLayout& layout(std::uint32_t const node_index) { return m_node_layouts.at(node_index); }
+    NodeLayout const& layout(std::uint32_t const node_index) const { return m_node_layouts.at(node_index); }
+
+    void compute_node_locations(std::uint32_t node_index = 0U, float min_x = 0.0f, float y = 0.0f);
+    void normalize_node_locations();
+
+    void draw_subtree(ImDrawList& dl, std::uint32_t node_index, Rect const& visible_rect) const;
+    void draw_node(ImDrawList& dl, std::uint32_t node_index) const;
+    void draw_edge(ImDrawList& dl, std::uint32_t from_node_index, std::uint32_t to_node_index) const;
+
+    void draw_node_tooltip(std::uint32_t node_index) const;
 
     // Used for moving the viewport over the tree.
     MouseTracking m_mouse_tracking;
