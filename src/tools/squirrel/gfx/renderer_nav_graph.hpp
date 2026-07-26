@@ -1,7 +1,7 @@
 #ifndef TOOL_SQUIRREL_GFX_RENDERER_NAV_GRAPH_HPP_INCLUDED
 #   define TOOL_SQUIRREL_GFX_RENDERER_NAV_GRAPH_HPP_INCLUDED
 
-#   include <squirrel/gfx/renderer_base.hpp>
+#   include <squirrel/gfx/renderer_data.hpp>
 #   include <squirrel/gfx/mouse_tracking.hpp>
 #   include <squirrel/gfx/math.hpp>
 #   include <utility/std_pair_hash.hpp>
@@ -13,9 +13,9 @@
 namespace gfx {
 
 
-struct  RendererNavGraph : public RendererBase
+struct  RendererNavGraph : public RendererData
 {
-    using Super = RendererBase;
+    using Super = RendererData;
 
     struct NodeLayout
     {

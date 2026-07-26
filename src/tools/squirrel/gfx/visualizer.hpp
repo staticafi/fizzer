@@ -2,14 +2,12 @@
 #   define TOOL_SQUIRREL_GFX_VISUALIZER_HPP_INCLUDED
 
 #   include <squirrel/gfx/data_sources.hpp>
+#   include <utility/visualizer.hpp>
 
 namespace gfx {
 
 
-void  create_visualizer(DataSources const& data);
-void  destroy_visualizer();
-
-void  visualize();
+visualizer::ConstructorType get_visualizer_constructor(DataSources const& data);
 
 
 }

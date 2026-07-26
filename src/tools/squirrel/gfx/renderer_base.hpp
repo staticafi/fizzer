@@ -1,24 +1,17 @@
 #ifndef TOOL_SQUIRREL_GFX_RENDERER_BASE_HPP_INCLUDED
 #   define TOOL_SQUIRREL_GFX_RENDERER_BASE_HPP_INCLUDED
 
-#   include <squirrel/gfx/data_sources.hpp>
 #   include <squirrel/gfx/math.hpp>
 #   include <imgui.h>
+#   include <cstdint>
 
 namespace gfx {
 
 
 struct  RendererBase
 {
-    RendererBase(DataSources const*  data_sources) : m_data{ data_sources }, m_frame_count{ 0ULL } {}
+    RendererBase() : m_frame_count{ 0ULL } {}
     virtual ~RendererBase() {}
-
-    DataSources const&  data() const { return *m_data; }
-    sala::Program const&  program() const { return *data().program; }
-    sala::CallGraph const&  call_graph() const { return *data().call_graph; }
-    sala::NavigationGraph const&  nav_graph() const { return *data().nav_graph; }
-    chickaree::PathTree const&  tree() const { return *data().tree; }
-    chickaree::Solver const&  solver() const { return *data().solver; }
 
     vec2 window_origin() const { return ImGui::GetCursorScreenPos(); } // Left top corner.
     vec2 window_size() const { return ImGui::GetContentRegionAvail(); } // Width and height.
@@ -32,7 +25,6 @@ struct  RendererBase
 
 private:
 
-    DataSources const* m_data;
     std::uint64_t m_frame_count;
 };
 

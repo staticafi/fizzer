@@ -14,16 +14,14 @@
 namespace gfx {
 
 
-struct Visualizer
+struct Visualizer : public ::visualizer::VisualizerBase
 {
-    static std::mutex  s_mutex;
-    static bool s_stop_flag;
-    static bool s_render;
+    using Super = ::visualizer::VisualizerBase;
 
     Visualizer(DataSources const&  data);
     ~Visualizer();
 
-    void next_frame();
+    void next_frame() override;
 
 private:
 
@@ -32,19 +30,9 @@ private:
     void render_begin();
     void render_end();
 
-    Visualizer(Visualizer const&) = delete;
-    Visualizer(Visualizer&&) = delete;
-    Visualizer& operator=(Visualizer const&) = delete;
-    Visualizer& operator=(Visualizer&&) = delete;
-
     GLFWwindow* m_window_ptr;
     Renderer*  m_renderer;
 };
-
-
-std::mutex  Visualizer::s_mutex{};
-bool Visualizer::s_stop_flag{ false };
-bool Visualizer::s_render{ false };
 
 
 void Visualizer::glfw_error_callback(int const error, char const* const description)
@@ -54,7 +42,8 @@ void Visualizer::glfw_error_callback(int const error, char const* const descript
 
 
 Visualizer::Visualizer(DataSources const&  data)
-    : m_window_ptr{ nullptr }
+    : Super{}
+    , m_window_ptr{ nullptr }
     , m_renderer{ nullptr }
 {
     glfwSetErrorCallback(glfw_error_callback);
@@ -138,22 +127,13 @@ void Visualizer::next_frame()
 
     render_begin();
 
-    bool do_render;
-    {
-        std::lock_guard<std::mutex> const lock(s_mutex);
-        do_render = !s_stop_flag && s_render;
-    }
-
-    m_renderer->set_waiting_for_content(!do_render);
+    m_renderer->set_waiting_for_content(!can_render());
     m_renderer->next_frame();
 
     render_end();
 
     if (m_renderer->is_waiting_for_content())
-    {
-        std::lock_guard<std::mutex> const lock(s_mutex);
-        s_render = false;
-    }
+        set_waiting_for_content();
 }
 
 
@@ -179,89 +159,9 @@ void Visualizer::render_end()
 }
 
 
-///////////////////////////////////////////////////////////////////////////
-// Next follows thread managements and interaction between threads.
-///////////////////////////////////////////////////////////////////////////
-
-
-static std::thread  s_visualizer_thread{};
-
-
-static void visualizer_thread_procedure(DataSources const  data)
+visualizer::ConstructorType get_visualizer_constructor(DataSources const& data)
 {
-    std::unique_ptr<Visualizer>  visualizer_ptr{ std::make_unique<Visualizer>(data) };
-    while (true)
-    {
-        {
-            std::lock_guard<std::mutex> const lock(Visualizer::s_mutex);
-            if (Visualizer::s_stop_flag)
-                break;
-        }
-        try
-        {
-            visualizer_ptr->next_frame();
-            //std::this_thread::yield();
-            using namespace std::chrono_literals;
-            std::this_thread::sleep_for(10ms);
-        }
-        catch (...)
-        {
-            break;
-        }
-    }
-    std::lock_guard<std::mutex> const lock(Visualizer::s_mutex);
-    visualizer_ptr = nullptr;
-    Visualizer::s_stop_flag = true;
-}
-
-
-void  create_visualizer(DataSources const& data)
-{
-    if (s_visualizer_thread.joinable())
-        return;
-    Visualizer::s_stop_flag = false;
-    Visualizer::s_render = false;
-    s_visualizer_thread = std::thread(visualizer_thread_procedure, data);
-}
-
-
-void  destroy_visualizer()
-{
-    if (!s_visualizer_thread.joinable())
-        return;
-
-    {
-        std::lock_guard<std::mutex> const lock(Visualizer::s_mutex);
-        Visualizer::s_stop_flag = true;
-        Visualizer::s_render = false;
-    }
-    if (s_visualizer_thread.joinable())
-        s_visualizer_thread.join();
-}
-
-
-void  visualize()
-{
-    if (!s_visualizer_thread.joinable())
-        return;
-
-    {
-        std::lock_guard<std::mutex> const lock(Visualizer::s_mutex);
-        if (Visualizer::s_stop_flag)
-            return;
-        Visualizer::s_render = true;
-    }
-
-    while (s_visualizer_thread.joinable())
-    {
-        {
-            std::lock_guard<std::mutex> const lock(Visualizer::s_mutex);
-            if (!Visualizer::s_render || Visualizer::s_stop_flag)
-                break;
-        }
-        std::this_thread::yield();
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
-    }
+    return [data](){ return std::make_unique<Visualizer>(data); };
 }
 
 

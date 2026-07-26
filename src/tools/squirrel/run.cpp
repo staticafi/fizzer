@@ -1,6 +1,8 @@
 #include <squirrel/program_info.hpp>
 #include <squirrel/program_options.hpp>
 #include <squirrel/gfx/visualizer.hpp>
+#include <utility/visualizer.hpp>
+#include <utility/visualizer_breakpoint.hpp>
 #include <sala/program.hpp>
 #include <sala/streaming.hpp>
 #include <sala/call_graph.hpp>
@@ -99,13 +101,13 @@ void run(int argc, char* argv[])
     chickaree::Solver  solver{ *sala_program_ptr, nav_graph, tree };
 
     if (get_program_options()->has("gfx"))
-        gfx::create_visualizer(gfx::DataSources{
+        visualizer::create_visualizer(gfx::get_visualizer_constructor(gfx::DataSources{
             .program = &*sala_program_ptr,
             .call_graph = &call_graph,
             .nav_graph = &nav_graph,
             .tree = &tree,
             .solver = &solver
-        });
+        }));
 
     solver.run(
             (std::uint32_t)fn_index,
@@ -133,6 +135,6 @@ void run(int argc, char* argv[])
             std::cout << "CAUSE: Failed to solve a coverage problem.";
     }
 
-    gfx::visualize();
-    gfx::destroy_visualizer();
+    VISUALIZER_BREAKPOINT();
+    visualizer::destroy_visualizer();
 }

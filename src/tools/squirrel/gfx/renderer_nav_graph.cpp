@@ -14,7 +14,7 @@ namespace gfx {
 
 
 RendererNavGraph::RendererNavGraph(DataSources const* const  data_sources)
-    : RendererBase{ data_sources }
+    : Super{ data_sources }
     , split_x{ 300.0f }
     , selected_function{ data_sources->program->entry_function() }
     , mouse_tracking{}

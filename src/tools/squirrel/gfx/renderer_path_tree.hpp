@@ -1,7 +1,7 @@
 #ifndef TOOL_SQUIRREL_GFX_RENDERER_PATH_TREE_HPP_INCLUDED
 #   define TOOL_SQUIRREL_GFX_RENDERER_PATH_TREE_HPP_INCLUDED
 
-#   include <squirrel/gfx/renderer_base.hpp>
+#   include <squirrel/gfx/renderer_data.hpp>
 #   include <squirrel/gfx/mouse_tracking.hpp>
 #   include <squirrel/gfx/math.hpp>
 #   include <imgui.h>
@@ -11,9 +11,9 @@
 namespace gfx {
 
 
-struct  RendererPathTree : public RendererBase
+struct  RendererPathTree : public RendererData
 {
-    using Super = RendererBase;
+    using Super = RendererData;
 
     struct NodeLayout
     {

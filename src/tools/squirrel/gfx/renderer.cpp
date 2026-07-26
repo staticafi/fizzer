@@ -11,6 +11,7 @@ Renderer::Renderer(DataSources const&  data_sources)
     , m_first_round{ true }
     , m_data_updated{ true }
     , m_data{ data_sources }
+    , m_controls_renderer{}
     , m_nav_graph_renderer( &m_data )
     , m_path_tree_renderer{ &m_data }
 {}
@@ -41,13 +42,15 @@ void Renderer::next_frame()
 
     if (is_waiting_for_content())
     {
-        ImGui::Text("Waiting for content...");
+        ImGui::BeginChild("Waiting for content", ImVec2(0, 0), true);
+            ImGui::Text("Waiting for content...");
+        ImGui::EndChild();
         return;
     }
 
     if (ImGui::BeginTabBar("RootTabs")) {
         if (ImGui::BeginTabItem("Controls")) {
-            render_controls();
+            next_frame(m_controls_renderer);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("NavGraph")) {
@@ -83,12 +86,6 @@ void Renderer::next_frame(RendererBase& renderer)
     renderer.next_frame();
     if (renderer.is_waiting_for_content())
         set_waiting_for_content(true);
-}
-
-
-void Renderer::render_controls()
-{
-    ImGui::Text("TODO: Controls");
 }
 
 

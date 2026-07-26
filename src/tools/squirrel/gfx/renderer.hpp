@@ -2,6 +2,7 @@
 #   define TOOL_SQUIRREL_GFX_RENDERER_HPP_INCLUDED
 
 #   include <squirrel/gfx/data_sources.hpp>
+#   include <squirrel/gfx/renderer_controls.hpp>
 #   include <squirrel/gfx/renderer_nav_graph.hpp>
 #   include <squirrel/gfx/renderer_path_tree.hpp>
 #   include <imgui.h>
@@ -31,6 +32,7 @@ private:
     bool m_first_round;
     bool m_data_updated;
     DataSources m_data;
+    RendererControls  m_controls_renderer;
     RendererNavGraph  m_nav_graph_renderer;
     RendererPathTree  m_path_tree_renderer;
 };

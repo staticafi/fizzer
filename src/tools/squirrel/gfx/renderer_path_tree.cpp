@@ -15,7 +15,7 @@ static float constexpr NODE_BORDER = 3.0f;
 
 
 RendererPathTree::RendererPathTree(DataSources const* const  data_sources)
-    : RendererBase{ data_sources }
+    : Super{ data_sources }
     , m_mouse_tracking{}
     , m_origin{ vec2::zero() }
     , m_node_layouts( tree().nodes().size() )
