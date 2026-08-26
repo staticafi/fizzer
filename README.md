@@ -53,11 +53,6 @@ start with the **age** project:
     sudo apt install make cmake ninja-build
     ```
 - **vcpkg** software package manager: https://github.com/microsoft/vcpkg
-  - Once you have the package manager installed, install into it required packages:
-    ```
-    vcpkg install boost llvm[core] --clean-after-build
-    ```
-    On Windows append the option `--triplet=x64-windows` to the command and `--triplet=x64-linux` on Ubuntu.
 - **Microsoft Visual Studio Code** (VS code) source-code editor: https://code.visualstudio.com/
     - Once you have the editor installed, install into it these extensions:
         - **C/C++** by Microsoft: https://github.com/microsoft/vscode-cpptools
@@ -77,6 +72,11 @@ start with the **age** project:
         tasks, e.g., building benchmarks and killing non-terminating clients.
         You only need to copy the file from the `setup` folder to the folder
         `.vscode` folder.
+- These packages must be installed
+    ```
+    sudo apt install zlib1g-dev libzstd-dev autoconf autoconf-archive automake libtool
+    sudo apt install libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config
+    ```
 - (Optional) If you also want to analyze 32-bit programs, then you must also
   build 32-bit version of Fizzer's libraries. That is done automatically via
   Fizzer's `build.sh` script. However, 32-bit version of C++ standard library

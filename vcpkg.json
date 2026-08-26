@@ -2,6 +2,11 @@
   "dependencies": [
     "eigen3",
     "catch2",
+    "boost-algorithm",
+    "boost-json",
+    "boost-process",
+    "boost-interprocess",
+    "boost-system",
     "glad",
     "opengl",
     "glfw3",
