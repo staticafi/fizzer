@@ -16,26 +16,33 @@
                 // "--skip_building",
                 // "--skip_fuzzing",
                 // "--silent_build",
+                // "--sala_executor",
                 // "--m32",
 
                 "--save_mapping",
 
-                "--max_executions", "10000",
+                "--max_executions", "10000000",
                 "--max_seconds", "15",
                 "--max_trace_length", "10000",
                 "--max_exec_milliseconds", "250",
                 "--max_exec_megabytes", "1024",
                 "--max_bytes", "65536",
-                "--opt_max_seconds", "10",
-                "--opt_max_trace_length", "1000000",
-                "--opt_max_exec_milliseconds", "3000",
+                "--opt_max_seconds", "30",
+                "--opt_max_trace_length", "10000000",
+                "--opt_max_exec_milliseconds", "500",
                 "--opt_max_exec_megabytes", " 2048",
                 "--opt_max_bytes", "134217728",
                 "--clear_output_dir",
                 "--progress_recording",
                 // "--silent_mode",
-                "--render",
+                // "--render",
                 // "--test_type", "testcomp",
+                // "--lsa_max_rounds", "100",
+                // "--lsa_build_local_space", "1",
+                // "--lsa_build_constraints", "1",
+                // "--lsa_use_gradient_descent", "1",
+                // "--lsa_use_bit_flips", "1",
+                // "--lsa_use_random_fuzzing", "1",
 
                 "--input_file",
                     "fast/_.c"
@@ -47,26 +54,39 @@
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
             "args": [
-                "--path_to_target", "__target",
-                "--path_to_sala", "__sala.json",
+                "--path_to_target",
+                    "__target",
+                    // "source_target",
+                "--path_to_sala",
+                    "__sala.json",
+                    // "source_sala.json",
+                // "--sala_executor",
                 "--max_executions", "10000000",
                 "--max_seconds", "1000000",
                 "--max_trace_length", "10000",
                 "--max_exec_milliseconds", "250",
                 "--max_exec_megabytes", "1024",
                 "--max_bytes", "65536",
-                "--opt_max_seconds", "10",
-                "--opt_max_trace_length", "1000000",
-                "--opt_max_exec_milliseconds", "3000",
-                "--opt_max_exec_megabytes", " 2048",
-                "--opt_max_bytes", "134217728",
+                "--opt_max_seconds", "0",
+                // "--opt_max_trace_length", "1000000",
+                // "--opt_max_exec_milliseconds", "3000",
+                // "--opt_max_exec_megabytes", " 2048",
+                // "--opt_max_bytes", "134217728",
                 "--progress_recording",
                 // "--silent_mode",
-                "--render",
+                // "--render",
                 // "--test_type", "testcomp",
+                // "--lsa_max_rounds", "100",
+                // "--lsa_build_local_space", "1",
+                // "--lsa_build_constraints", "1",
+                // "--lsa_use_gradient_descent", "1",
+                // "--lsa_use_bit_flips", "1",
+                // "--lsa_use_random_fuzzing", "1",
                 "--output_dir", "${workspaceFolder}/dist/output"
             ],
             "stopAtEntry": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
             "cwd": "${workspaceFolder}/dist/output",
             "setupCommands": [
                 {
@@ -80,40 +100,55 @@
             "name": "Benman @ dbg",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/benchmarks/benman.py",
+            "program": "benman.py",
             "console": "integratedTerminal",
             "args": [
-                // "--verbose",
+                "--verbose",
                 "--clear",
                 "--build",
                 "--fuzz",
                 "--input",
-                    "all"
+                    // "all"
                     // "fast"
                     // "medium"
                     // "slow"
                     // "pending"
 
                     // "fast/_.c"
+                    "fast/int16_if_parabola.c"
                 ],
             "cwd": "${workspaceFolder}/dist/benchmarks",
             "justMyCode": true
         },
         {
-            "name": "debug instrumenter",
-            // On Windows use this:
-                // "type": "cppvsdbg",
-            // On Linux use this:
-                "type": "cppdbg", "setupCommands": [{ "description": "Enable pretty-printing for gdb", "text": "-enable-pretty-printing", "ignoreFailures": true }],
+            "name": "debug composer",
+            "type": "cppdbg",
+            "setupCommands": [{ "description": "Enable pretty-printing for gdb", "text": "-enable-pretty-printing", "ignoreFailures": true }],
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
             "args": [
-                "--input", "${workspaceFolder}/dist/output/_.ll",
-                "--output", "${workspaceFolder}/dist/output/__instrumented.ll",
+                "--input", "${workspaceFolder}/dist/output/source.ll",
+                "--data", "${workspaceFolder}/dist/data/",
+                "--output", "${workspaceFolder}/dist/output/source_composed.ll",
+                //"--noargs"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/dist/output"
+            // clang -O0 -g -S -emit-llvm -Wno-everything -fbracket-depth=1024 ./original.c -o source.ll
+        },
+        {
+            "name": "debug instrumenter",
+            "type": "cppdbg",
+            "setupCommands": [{ "description": "Enable pretty-printing for gdb", "text": "-enable-pretty-printing", "ignoreFailures": true }],
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "args": [
+                "--input", "${workspaceFolder}/dist/output/source.ll",
+                "--output", "${workspaceFolder}/dist/output/source_instrumented.ll",
                 "--save_mapping"
             ],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/dist"
+            "cwd": "${workspaceFolder}/dist/output"
         },
         {
             "name": "salac.py",
@@ -150,7 +185,7 @@
             ],
             "args": [
                 "--input",
-                    "_.ll"
+                    "_.ll",
                 ]
         },
         {
@@ -169,10 +204,11 @@
             ],
             "args": [
                 "--jsonc",
+                "--entry", "__fizzer_private_entry_function",
                 "--input",
                     //"_.sim.ll",
-                    //"__instrumented.sim.ll",
-                    "_.ll"
+                    "__instrumented.sim.ll",
+                    //"_.ll"
                 ]
         },
         {
@@ -190,10 +226,12 @@
                 }
             ],
             "args": [
+                "--jsonc",
                 "--input",
-                    "_.raw.json",
+                    "__sala.json",
+                    //"__instrumented.raw.json",
 
-                "--output", "."
+                "--output", "__sala.opt.json"
                 ]
         },
         {
@@ -211,7 +249,7 @@
                 }
             ],
             "args": [
-                "--input", "safety_func_ptr_call.json", "--data", "../../benchmarks/salatd/interpret/safety_func_ptr_call.01.txt"
+                "--input", "cmdline01.json", "--data", "../../benchmarks/salatd/interpret/cmdline01.01.txt"
                 ]
         },
         {
@@ -245,7 +283,7 @@
                 }
             ],
             "args": [
-                "--input", "_.json", "--data", "../../benchmarks/salatd/inputflow/_.00.txt"
+                "--input", "cmdline01.json", "--data", "../../benchmarks/salatd/inputflow/cmdline01.00.txt"
                 ]
         },
         {

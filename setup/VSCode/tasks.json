@@ -8,7 +8,7 @@
             "options": {
                 "cwd": "${workspaceFolder}/dist/benchmarks"
             },
-            "args": [ "${workspaceFolder}/benchmarks/benman.py",
+            "args": [ "benman.py",
                 // "--verbose",
                 "--clear",
                 "--build",
@@ -16,9 +16,29 @@
                 "--input",
                     // "all"
                     "fast"
+                    // "iid_testing"
                     // "pending"
-                    // "fast/_.c"
+                    // "fast/nested_ifs.c"
                 // , ">", "./dist/benchmarks/benman_output.txt"
+            ]
+        },
+        {
+            "label": "Explorer",
+            "type": "shell",
+            "command": "java",
+            "dependsOrder": "sequence",
+            "dependsOn": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "args": [
+                "-Xss100m",
+                "-Xms512m",
+                "-Xmx10000m",
+                "-Dsun.awt.disablegrab=true",
+                "-jar",
+                "../fizzer_explorer/target/ProgressExplorer-1.0-SNAPSHOT-jar-with-dependencies.jar",
+                "../fizzer/dist/output/progress_recording"
             ]
         },
         {
@@ -38,6 +58,7 @@
                     //"compile"
                     //"interpret"
                     "inputflow"
+                    //"inputflow/cmdline02.c"
             ]
         },
         {
@@ -51,7 +72,7 @@
         {
             "label": "TestCov",
             "type": "shell",
-            "command": "testcov",
+            "command": "${workspaceFolder}/../fizzer_eval/testcov/bin/testcov",
             "dependsOrder": "sequence",
             "dependsOn": [ "zip tests" ],
             "options": {
@@ -68,6 +89,26 @@
             "options": {
                 "cwd": "${workspaceFolder}/dist/output/test-suite"
             }
-        }
+        },
+        {
+            "label": "squirrel",
+            "type": "shell",
+            "command": "${command:python.interpreterPath}",
+            "options": {
+                "cwd": "${workspaceFolder}/dist/benchmarks"
+            },
+            "args": [
+                "${workspaceFolder}/dist/squirrel.py",
+
+                "--gfx",
+                "--input_file",
+                    "fast/_.c",
+                "--jsonc",
+                // "--m32",
+                "--timeout", "60",
+                "--memout", "3221225472", // 3 GB
+                "--output_dir", "${workspaceFolder}/dist/output"
+            ]
+        },
     ]
 }
