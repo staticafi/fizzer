@@ -100,41 +100,45 @@ void run(int argc, char* argv[])
     chickaree::PathTree  tree{ nav_graph.entry(sala_program_ptr->entry_function()) };
     chickaree::Solver  solver{ *sala_program_ptr, nav_graph, tree };
 
-    if (get_program_options()->has("gfx"))
-        visualizer::create_visualizer(gfx::get_visualizer_constructor(gfx::DataSources{
-            .program = &*sala_program_ptr,
-            .call_graph = &call_graph,
-            .nav_graph = &nav_graph,
-            .tree = &tree,
-            .solver = &solver
-        }));
-
-    solver.run(
-            (std::uint32_t)fn_index,
-            (std::uint32_t)bb_index,
-            timeout_seconds - std::chrono::duration<double>(std::chrono::system_clock::now() - start_time_point).count(),
-            (std::int64_t)memout_bytes
-            );
-    if (solver.success())
+    try
     {
-        std::cout << "SUCCESS: A feasible path was found:\n";
-        for (std::uint32_t const  tree_node_index : solver.path())
+        if (get_program_options()->has("gfx"))
+            visualizer::create_visualizer(gfx::get_visualizer_constructor(gfx::DataSources{
+                .program = &*sala_program_ptr,
+                .call_graph = &call_graph,
+                .nav_graph = &nav_graph,
+                .tree = &tree,
+                .solver = &solver
+            }));
+
+        solver.run(
+                (std::uint32_t)fn_index,
+                (std::uint32_t)bb_index,
+                timeout_seconds - std::chrono::duration<double>(std::chrono::system_clock::now() - start_time_point).count(),
+                (std::int64_t)memout_bytes
+                );
+        if (solver.success())
         {
-            sala::NavigationGraph::Node const&  n{ nav_graph.node(tree.graph_node_index(tree_node_index)) };
-            std::cout << n.function << ", "  << n.basic_block << '\n';
+            std::cout << "SUCCESS: A feasible path was found:\n";
+            for (std::uint32_t const  tree_node_index : solver.path())
+            {
+                sala::NavigationGraph::Node const&  n{ nav_graph.node(tree.graph_node_index(tree_node_index)) };
+                std::cout << n.function << ", "  << n.basic_block << '\n';
+            }
         }
-    }
-    else
-    {
-        std::cout << "FAILURE: No feasible path to the specified basic block was found.";
-        if (solver.report().timeout)
-            std::cout << "CAUSE: Timeout.";
-        if (solver.report().memout)
-            std::cout << "CAUSE: Out of memory.";
-        if (solver.report().cps_failure)
-            std::cout << "CAUSE: Failed to solve a coverage problem.";
-    }
+        else
+        {
+            std::cout << "FAILURE: No feasible path to the specified basic block was found.";
+            if (solver.report().timeout)
+                std::cout << "CAUSE: Timeout.";
+            if (solver.report().memout)
+                std::cout << "CAUSE: Out of memory.";
+            if (solver.report().cps_failure)
+                std::cout << "CAUSE: Failed to solve a coverage problem.";
+        }
 
-    VISUALIZER_BREAKPOINT();
+        VISUALIZER_BREAKPOINT();
+    }
+    catch (visualizer::VisualizerTerminationException const&) {}
     visualizer::destroy_visualizer();
 }
