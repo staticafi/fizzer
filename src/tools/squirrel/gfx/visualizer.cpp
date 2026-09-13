@@ -19,7 +19,7 @@ struct Visualizer : public ::visualizer::VisualizerBase
     using Super = ::visualizer::VisualizerBase;
 
     Visualizer(DataSources const&  data);
-    ~Visualizer();
+    ~Visualizer() override;
 
     void next_frame() override;
 
