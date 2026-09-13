@@ -31,18 +31,7 @@ void RendererPathTree::next_frame()
         if (frame_count() == 1ULL)
         {
             m_origin = window_origin() + vec2{ window_size().x / 2.0f, 50.0f };
-
-            for (std::uint32_t node_index = 0U; node_index != (std::uint32_t)m_node_layouts.size(); ++node_index)
-            {
-                std::uint32_t const graph_node_index{ tree().node(node_index).graph_node_index };
-                sala::NavigationGraph::Node const& n{ nav_graph().node(graph_node_index) };
-                layout(node_index).text = std::to_string(n.function) + ":" + std::to_string(n.basic_block) + ":" + std::to_string(n.instruction);
-            }
-            for (std::uint32_t node_index = 0U; node_index != (std::uint32_t)m_node_layouts.size(); ++node_index)
-                layout(node_index).half_size = 0.5f * ImGui::CalcTextSize(layout(node_index).text.c_str()) + vec2{ NODE_BORDER, NODE_BORDER };
-
-            compute_node_locations();
-            normalize_node_locations();
+            on_data_updated();
         }
 
         update_mouse_tracking_data(m_mouse_tracking);
@@ -53,6 +42,25 @@ void RendererPathTree::next_frame()
         draw_subtree(dl, 0U, move_rect(window_rect(), -m_origin));
     }
     ImGui::EndChild();
+}
+
+
+void RendererPathTree::on_data_updated()
+{
+    m_node_layouts.clear();
+    m_node_layouts.resize(tree().nodes().size(), {});
+
+    for (std::uint32_t node_index = 0U; node_index != (std::uint32_t)m_node_layouts.size(); ++node_index)
+    {
+        std::uint32_t const graph_node_index{ tree().node(node_index).graph_node_index };
+        sala::NavigationGraph::Node const& n{ nav_graph().node(graph_node_index) };
+        layout(node_index).text = std::to_string(n.function) + ":" + std::to_string(n.basic_block) + ":" + std::to_string(n.instruction);
+    }
+    for (std::uint32_t node_index = 0U; node_index != (std::uint32_t)m_node_layouts.size(); ++node_index)
+        layout(node_index).half_size = 0.5f * ImGui::CalcTextSize(layout(node_index).text.c_str()) + vec2{ NODE_BORDER, NODE_BORDER };
+
+    compute_node_locations();
+    normalize_node_locations();
 }
 
 

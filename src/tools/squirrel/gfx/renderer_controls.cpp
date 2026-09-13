@@ -1,5 +1,4 @@
 #include <squirrel/gfx/renderer_controls.hpp>
-#include <utility/visualizer_breakpoint.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <sstream>
@@ -16,6 +15,7 @@ RendererControls::RendererControls()
     : Super{}
     , m_waiting_for_content{ false }
     , m_target_breakpoint_id{ 0U }
+    , m_selected_breakpoint_id{ 0U }
     , m_breakpoint_texts{}
     , m_max_breakpoint_text_size{ 0U }
 {}
@@ -39,19 +39,22 @@ void RendererControls::next_frame()
             ImGui::Text("Current breakpoint: %s", m_breakpoint_texts.at(get_current_breakpoint_id() + 1U).c_str());
 
             if (ImGui::Button("Step"))
+            {
+                m_target_breakpoint_id = m_selected_breakpoint_id;
                 m_waiting_for_content = true;
+            }
             else
             {
                 ImGui::SameLine();
 
                 ImGui::SetNextItemWidth(m_max_breakpoint_text_size);
-                if (ImGui::BeginCombo("Choose breakpoint", m_breakpoint_texts.at(m_target_breakpoint_id).c_str()))
+                if (ImGui::BeginCombo("Choose breakpoint", m_breakpoint_texts.at(m_selected_breakpoint_id).c_str()))
                 {
                     for (BreakPointID id = 0U; id != (BreakPointID)m_breakpoint_texts.size(); ++id)
                     {
-                        bool is_selected = (m_target_breakpoint_id == id);
+                        bool is_selected = (m_selected_breakpoint_id == id);
                         if (ImGui::Selectable(m_breakpoint_texts.at(id).c_str(), is_selected))
-                            m_target_breakpoint_id = id;
+                            m_selected_breakpoint_id = id;
                         if (is_selected)
                             ImGui::SetItemDefaultFocus();
                     }

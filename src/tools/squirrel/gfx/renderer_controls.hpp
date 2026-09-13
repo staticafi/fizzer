@@ -2,9 +2,9 @@
 #   define TOOL_SQUIRREL_GFX_RENDERER_CONTROLS_HPP_INCLUDED
 
 #   include <squirrel/gfx/renderer_base.hpp>
-#   include <squirrel/gfx/visualizer_breakpoint.hpp>
 #   include <squirrel/gfx/mouse_tracking.hpp>
 #   include <squirrel/gfx/math.hpp>
+#   include <utility/visualizer_breakpoint.hpp>
 #   include <imgui.h>
 #   include <vector>
 #   include <string>
@@ -28,7 +28,8 @@ private:
     void update_breakpoint_infos();
 
     bool m_waiting_for_content;
-    detail::BreakPointID m_target_breakpoint_id;
+    ::visualizer::detail::BreakPointID m_target_breakpoint_id;
+    ::visualizer::detail::BreakPointID m_selected_breakpoint_id;
     std::vector<std::string> m_breakpoint_texts;
     float m_max_breakpoint_text_size;
 };

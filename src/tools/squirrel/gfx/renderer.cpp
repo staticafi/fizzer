@@ -45,7 +45,16 @@ void Renderer::next_frame()
         ImGui::BeginChild("Waiting for content", ImVec2(0, 0), true);
             ImGui::Text("Waiting for content...");
         ImGui::EndChild();
+        ImGui::End();
         return;
+    }
+
+    if (m_data_updated)
+    {
+        m_controls_renderer.on_data_updated();
+        m_nav_graph_renderer.on_data_updated();
+        m_path_tree_renderer.on_data_updated();
+        m_data_updated = false;
     }
 
     if (ImGui::BeginTabBar("RootTabs")) {
@@ -81,8 +90,6 @@ void Renderer::next_frame()
 
 void Renderer::next_frame(RendererBase& renderer)
 {
-    if (m_data_updated)
-        renderer.on_data_updated();
     renderer.next_frame();
     if (renderer.is_waiting_for_content())
         set_waiting_for_content(true);

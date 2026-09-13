@@ -38,6 +38,7 @@ struct  RendererPathTree : public RendererData
     RendererPathTree(DataSources const*  data_sources);
 
     void next_frame() override;
+    void on_data_updated() override;
 
 private:
 
