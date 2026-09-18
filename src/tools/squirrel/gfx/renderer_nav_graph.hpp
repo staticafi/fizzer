@@ -70,6 +70,21 @@ struct  RendererNavGraph : public RendererData
 
 private:
 
+    struct NodePlacementInfo
+    {
+        struct SubWidth
+        {
+            float min_x{ 0.0f };
+            float max_x{ 0.0f };
+        };
+
+        std::uint32_t fn_index{ 0U };
+        std::unordered_map<std::uint32_t, SubWidth> visited{};
+    };
+
+    void compute_node_locations(NodePlacementInfo& info, std::uint32_t const node_index, float min_x, float const y);
+    void normalize_node_locations(std::uint32_t fn_index);
+
     void draw_node(ImDrawList& dl, FunctionLayout const& fn_layout, std::uint32_t node_index, NodeLayout const& node_layout) const;
     void draw_edge(ImDrawList& dl, FunctionLayout const& fn_layout, EdgeID const& edge_id, EdgeLayout const& edge_layout) const;
 

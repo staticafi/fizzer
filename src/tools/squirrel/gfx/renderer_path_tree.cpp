@@ -70,6 +70,7 @@ void RendererPathTree::compute_node_locations(std::uint32_t const node_index, fl
     node_layout.origin.y = y;
     node_layout.subtrees_min_x = min_x;
     node_layout.subtrees_max_x = min_x + 2.0f * node_layout.half_size.x;
+    std::vector<float> x_coords;
     for (std::uint32_t child_node_index = tree().child(node_index);
             child_node_index != chickaree::PathTree::INVALID_INDEX;
             child_node_index = tree().sibling(child_node_index))
@@ -77,8 +78,22 @@ void RendererPathTree::compute_node_locations(std::uint32_t const node_index, fl
         compute_node_locations(child_node_index, min_x, y + 2.0f * node_layout.half_size.y + NODE_SEPARATION_VERTICAL);
         node_layout.subtrees_max_x = layout(child_node_index).subtrees_max_x;
         min_x = node_layout.subtrees_max_x + NODE_SEPARATION_HORIZONTAL;
+        x_coords.push_back(layout(child_node_index).origin.x);
     }
-    node_layout.origin.x = 0.5f * (node_layout.subtrees_min_x + node_layout.subtrees_max_x);
+    if (x_coords.empty())
+        node_layout.origin.x = 0.5f * (node_layout.subtrees_min_x + node_layout.subtrees_max_x);
+    else
+    {
+        float lo_x = x_coords.back();
+        float hi_x = lo_x;
+        x_coords.pop_back();
+        for (float const x : x_coords)
+        {
+            lo_x = std::min(lo_x, x);
+            hi_x = std::max(hi_x, x);
+        }
+        node_layout.origin.x = 0.5f * (lo_x + hi_x);
+    }
 }
 
 

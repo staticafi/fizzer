@@ -28,65 +28,20 @@ RendererNavGraph::RendererNavGraph(DataSources const* const  data_sources)
             .edge_layouts = {}
         });
 
-        struct IndexAndDepth
+        // Create empty node and edge layouts.
+        std::uint32_t const begin_node_index = nav_graph().begin(fn_index);
+        std::uint32_t const end_node_index = nav_graph().end(fn_index);
+        for (std::uint32_t i = begin_node_index; i < end_node_index; ++i)
         {
-            std::uint32_t node_index;
-            vec2 pos;
-            float size;
-        };
-
-        float const height = std::log2f(nav_graph().lookup(fn_index).end - nav_graph().lookup(fn_index).begin);
-        float const leaves = std::pow(2.0f, height);
-        float const size = leaves * (400.0f + 50.0f);
-
-        std::unordered_set<std::uint32_t> visited;
-        std::deque<IndexAndDepth> queue{ IndexAndDepth{
-                .node_index = nav_graph().begin(fn_index),
-                .pos{ 0.0f, 0.0f },
-                .size = size
-                } };
-        do
-        {
-            IndexAndDepth const item = queue.front();
-            queue.pop_front();
-
-            if (visited.contains(item.node_index))
-                continue;
-            visited.insert(item.node_index);
-
-            //  We create only empty layout for the node. We fill the layout
-            // later (we cannot do it here, because we can get here repeatedly).
-            // Here here we only set origin to position of the last related
-            // item in the queue. 
-            m_function_layouts.back().node_layouts.insert({ item.node_index, {} }).first->second.origin = item.pos;
-
-            // Adding successor nodes do the queue.
-
+            m_function_layouts.back().node_layouts.insert({ i, {} });
             std::vector<std::uint32_t> succ_node_indices;
-            if (nav_graph().is_call(item.node_index))
-                succ_node_indices.push_back(nav_graph().bb_next(item.node_index));
+            if (nav_graph().is_call(i))
+                succ_node_indices.push_back(nav_graph().bb_next(i));
             else
-                succ_node_indices = nav_graph().successors(item.node_index);
-
-            if (succ_node_indices.empty())
-                continue;
-            float dx = item.size / (float)succ_node_indices.size();
-            float x = item.pos.x + (succ_node_indices.size() == 1ULL ? 0.0 : -item.size / 2.0f + dx / 2.0f);
-            for (std::uint32_t const succ_node_index : succ_node_indices)
-            {
-                //  We create only empty layout for the edge. We fill the layout
-                // later (we cannot do it here, because we can get here repeatedly).
-                m_function_layouts.back().edge_layouts.insert({ {item.node_index, succ_node_index}, {} });
-
-                queue.push_back(IndexAndDepth{
-                        .node_index = succ_node_index,
-                        .pos{ x, item.pos.y + 200.0f },
-                        .size = item.size / 2.0f
-                        });
-                x += dx;
-            }
+                succ_node_indices = nav_graph().successors(i);
+            for (std::uint32_t const j : succ_node_indices)
+                m_function_layouts.back().edge_layouts.insert({ {i, j}, {} });
         }
-        while (!queue.empty());
 
         // Here we fill in layouts of nodes.
         for (auto& idx_and_layout : m_function_layouts.back().node_layouts)
@@ -169,6 +124,59 @@ RendererNavGraph::RendererNavGraph(DataSources const* const  data_sources)
         }
     }
 }
+
+
+void RendererNavGraph::compute_node_locations(NodePlacementInfo& info, std::uint32_t const node_index, float min_x, float const y)
+{
+    static float constexpr NODE_SEPARATION_HORIZONTAL = 50.0f;
+    static float constexpr NODE_SEPARATION_VERTICAL = 100.0f;
+
+    NodeLayout& node_layout{ m_function_layouts.at(info.fn_index).node_layouts.at(node_index) };
+    NodePlacementInfo::SubWidth& sub_width{ info.visited.insert({ node_index, { min_x, min_x + 2.0f * node_layout.half_size.x } }).first->second };
+    node_layout.origin.y = y;
+    std::vector<std::uint32_t> succ_node_indices;
+    if (nav_graph().is_call(node_index))
+        succ_node_indices.push_back(nav_graph().bb_next(node_index));
+    else
+        succ_node_indices = nav_graph().successors(node_index);
+    std::vector<std::uint32_t> proper_childs;
+    for (std::uint32_t const child_node_index : succ_node_indices)
+    {
+        if (info.visited.contains(child_node_index))
+            continue;
+        compute_node_locations(info, child_node_index, min_x, y + 2.0f * node_layout.half_size.y + NODE_SEPARATION_VERTICAL);
+        NodePlacementInfo::SubWidth& child_sub_width{ info.visited.at(child_node_index) };
+        sub_width.max_x = std::max(sub_width.max_x, child_sub_width.max_x);
+        min_x = sub_width.max_x + NODE_SEPARATION_HORIZONTAL;
+        proper_childs.push_back(child_node_index);
+    }
+    if (proper_childs.empty())
+        node_layout.origin.x = 0.5f * (sub_width.min_x + sub_width.max_x);
+    else
+    {
+        auto const& layouts = m_function_layouts.at(info.fn_index).node_layouts;
+        float lo_x = layouts.at(proper_childs.back()).origin.x;
+        float hi_x = lo_x;
+        proper_childs.pop_back();
+        for (std::uint32_t const child_node_index : proper_childs)
+        {
+            float x = layouts.at(child_node_index).origin.x;
+            lo_x = std::min(lo_x, x);
+            hi_x = std::max(hi_x, x);
+        }
+        node_layout.origin.x = 0.5f * (lo_x + hi_x);
+    }
+}
+
+
+void RendererNavGraph::normalize_node_locations(std::uint32_t const fn_index)
+{
+    auto& fn_layouts{ m_function_layouts.at(fn_index) };
+    vec2 const shift = -fn_layouts.node_layouts.at(nav_graph().begin(fn_index)).origin;
+    for (auto& [ _, layout ] : fn_layouts.node_layouts)
+        layout.origin += shift;
+}
+
 
 void RendererNavGraph::next_frame()
 {
@@ -323,6 +331,11 @@ void RendererNavGraph::next_frame()
                     }
                     layout.half_size *= 0.5f;
                 }
+
+                NodePlacementInfo info{};
+                info.fn_index = fn_index;
+                compute_node_locations(info, nav_graph().begin(fn_index), 0.0f, 0.0f);
+                normalize_node_locations(fn_index);
             }
         }
 
@@ -706,11 +719,29 @@ void RendererNavGraph::clear_forces(std::uint32_t const fn_index)
 }
 
 
+std::pair<vec2, float> compute_direction_and_dist(
+        vec2 const& origin_1, vec2 const& half_sizes_1,
+        vec2 const& origin_2, vec2 const& half_sizes_2,
+        float halfsize_extension = 50.0f
+        )
+    {
+        vec2 dir = origin_2 - origin_1;
+        float const len = dir.length();
+        if (len < 0.01f)
+            dir = vec2::axis_y();
+        else
+            dir /= len;
+        vec2 const ext{ halfsize_extension, halfsize_extension };
+        float const i_rad = (half_sizes_1 + ext).length();
+        float const j_rad = (half_sizes_2 + ext).length();
+        return { dir, len - i_rad - j_rad };
+    };
+
+
 void RendererNavGraph::compute_forces(std::uint32_t const fn_index)
 {
-    float const NEUTRAL_DISTANCE = 50.0f;
-    float const VISCOUS_DRAG_COEFF = 1.0f;
-    vec2 const GRAVITY_FORCE{ 0.0f, 100.0f };
+    float const VISCOUS_DRAG_COEFF = 0.5f;
+    vec2 const GRAVITY_FORCE{ 0.0f, 10.0f };
 
     auto& fn_layouts{ m_function_layouts.at(fn_index) };
 
@@ -719,55 +750,43 @@ void RendererNavGraph::compute_forces(std::uint32_t const fn_index)
     for (std::uint32_t i = begin_node_index; i < end_node_index; ++i)
     {
         NodeLayout& i_layout{ fn_layouts.node_layouts.at(i) };
-        Rect const i_rect{
-            make_rect_from_center_and_half_size(
-                    i_layout.origin,
-                    i_layout.half_size + 0.5f * vec2{NEUTRAL_DISTANCE, NEUTRAL_DISTANCE}
-                    )
-            };
         for (std::uint32_t j = i + 1U; j < end_node_index; ++j)
         {
             NodeLayout& j_layout{ fn_layouts.node_layouts.at(j) };
-            Rect const j_rect{
-                    make_rect_from_center_and_half_size(
-                            j_layout.origin,
-                            j_layout.half_size + 0.5f * vec2{NEUTRAL_DISTANCE, NEUTRAL_DISTANCE}
-                            )
-                    };
-            vec2 const force = collision_constraint_force(i_rect, j_rect);
+
+            auto [dir, dist] = compute_direction_and_dist(
+                i_layout.origin, i_layout.half_size,
+                j_layout.origin, j_layout.half_size
+                );
+            if (dist > 0.0f)
+                continue;
+
+            vec2 force = -(10.0f * dist * dist) * dir;
             i_layout.force += force;
             j_layout.force -= force;
         }
-    }
 
-    for (auto& idx_and_layout : fn_layouts.node_layouts)
-    {
-        std::uint32_t const src_node_index{ idx_and_layout.first };
-        NodeLayout& src_layout{ idx_and_layout.second };
-
-        std::vector<std::uint32_t> dst_node_indices;
-        if (nav_graph().is_call(src_node_index))
-            dst_node_indices.push_back(nav_graph().bb_next(src_node_index));
+        std::vector<std::uint32_t> j_nodes;
+        if (nav_graph().is_call(i))
+            j_nodes.push_back(nav_graph().bb_next(i));
         else
-            dst_node_indices = nav_graph().successors(src_node_index);
+            j_nodes = nav_graph().successors(i);
 
-        Rect const src_rect{
-                make_rect_from_center_and_half_size(src_layout.origin, src_layout.half_size)
-                };
-        for (std::uint32_t const dst_node_index : dst_node_indices)
+        for (std::uint32_t const j : j_nodes)
         {
-            NodeLayout& dst_layout{ fn_layouts.node_layouts.at(dst_node_index) };
-            Rect const dst_rect{
-                    make_rect_from_center_and_half_size(dst_layout.origin, dst_layout.half_size)
-                    };
-            vec2 const force = distance_constraint_force(src_rect, dst_rect, NEUTRAL_DISTANCE);
+            NodeLayout& j_layout{ fn_layouts.node_layouts.at(j) };
 
-            src_layout.force += force;
-            dst_layout.force -= force;
+            auto [dir, dist] = compute_direction_and_dist(
+                i_layout.origin, i_layout.half_size,
+                j_layout.origin, j_layout.half_size
+                );
+            if (dist < 0.0f)
+                continue;
+            vec2 force = (1.0f * dist) * dir;
+
+            i_layout.force += force;
+            j_layout.force -= force;
         }
-
-        src_layout.force += viscous_drag_force(src_layout.velocity, VISCOUS_DRAG_COEFF);
-        src_layout.force += GRAVITY_FORCE;
     }
 
     for (std::uint32_t i = begin_node_index; i < end_node_index; ++i)
@@ -776,22 +795,52 @@ void RendererNavGraph::compute_forces(std::uint32_t const fn_index)
         i_layout.force += viscous_drag_force(i_layout.velocity, VISCOUS_DRAG_COEFF);
         i_layout.force += GRAVITY_FORCE;
     }
-
-    NodeLayout& entry_layout{ fn_layouts.node_layouts.at(begin_node_index) };
-    entry_layout.force += snap_constraint_force(
-            make_rect_from_center_and_half_size(entry_layout.origin, entry_layout.half_size),
-            vec2::zero()
-            );
 }
 
 
 void RendererNavGraph::apply_forces(std::uint32_t const fn_index)
 {
-    float const MAX_SPEED = 100.0f;
+    float const MAX_SPEED = 1000.0f;
     float const dt = 1.0f / 60.0f; // 60 Hz. Moreover, we do not need real-time simulation.
-    for (auto& [ _, layout ] : m_function_layouts.at(fn_index).node_layouts)
-    {
+
+    auto& fn_layouts{ m_function_layouts.at(fn_index) };
+    std::uint32_t const begin_node_index = nav_graph().begin(fn_index);
+    std::uint32_t const end_node_index = nav_graph().end(fn_index);
+
+    vec2& root_velocity = fn_layouts.node_layouts.at(begin_node_index).velocity;
+
+    for (auto& [ idx, layout ] : fn_layouts.node_layouts)
         layout.velocity += dt * layout.force;
+
+    for (int round = 0; round < 5; ++round)
+        for (std::uint32_t i = begin_node_index; i < end_node_index; ++i)
+        {
+            NodeLayout& i_layout{ fn_layouts.node_layouts.at(i) };
+            for (std::uint32_t j = i + 1U; j < end_node_index; ++j)
+            {
+                NodeLayout& j_layout{ fn_layouts.node_layouts.at(j) };
+
+                auto [dir, dist] = compute_direction_and_dist(
+                    i_layout.origin, i_layout.half_size,
+                    j_layout.origin, j_layout.half_size
+                    );
+                if (dist > 0.0f)
+                    continue;
+                root_velocity = vec2::zero();
+                vec2 const dv = j_layout.velocity - i_layout.velocity;
+                float dv_dot_dir = dv * dir;
+                if (dv_dot_dir < 0.0f)
+                {
+                    vec2 const w = (0.5f * dv_dot_dir) * dir;
+                    i_layout.velocity += w;
+                    j_layout.velocity -= w;
+                }
+            }
+        }
+
+    root_velocity = vec2::zero();
+    for (auto& [ _, layout ] : fn_layouts.node_layouts)
+    {
         float const speed = layout.velocity.length();
         if (speed > MAX_SPEED)
             layout.velocity *= MAX_SPEED / speed;
