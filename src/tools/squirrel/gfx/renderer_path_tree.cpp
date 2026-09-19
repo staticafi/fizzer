@@ -1,5 +1,7 @@
 #include <squirrel/gfx/renderer_path_tree.hpp>
 #include <squirrel/gfx/shape.hpp>
+#include <cps/variable_str.hpp>
+#include <cps/comparator_str.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <sstream>
@@ -300,6 +302,127 @@ void RendererPathTree::draw_node_tooltip(std::uint32_t node_index) const
         ImGui::Text("Flags:");
         ImGui::Text("  unreachable: %u", (unsigned int)tn.flags.unreachable);
         ImGui::Text("  executed: %u", (unsigned int)tn.flags.executed);
+
+        NodeLayout const& node_layout{ layout(node_index) };
+        if (node_layout.has_run_outcome_indices())
+        {
+            auto const& run_outcomes{ solver().get_path_executor()->run_outcome() };
+
+            if (!node_layout.get_run_outcome_indices()->inputs.empty())
+            {
+                ImGui::Separator();
+                ImGui::Text("Inputs:");
+                if (ImGui::BeginTable("Inputs", 3U, ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV))
+                {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0); ImGui::Text("Idx");
+                    ImGui::TableSetColumnIndex(1); ImGui::Text("Type");
+                    ImGui::TableSetColumnIndex(2); ImGui::Text("Value");
+                    for (std::uint32_t i : node_layout.get_run_outcome_indices()->inputs)
+                    {
+                        auto const& var = run_outcomes.inputs.variables.at(i);
+                        auto const type = cps::type_as_str(var);
+                        auto const value = cps::value_as_str(var);
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0); ImGui::Text("%d", i);
+                        ImGui::TableSetColumnIndex(1); ImGui::Text("%s", type.c_str());
+                        ImGui::TableSetColumnIndex(2); ImGui::Text("%s", value.c_str());
+                    }
+                    ImGui::EndTable();
+                }
+            }
+            if (!node_layout.get_run_outcome_indices()->constants.empty())
+            {
+                ImGui::Separator();
+                ImGui::Text("Constants:");
+                if (ImGui::BeginTable("Constants", 3U, ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV))
+                {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0); ImGui::Text("Idx");
+                    ImGui::TableSetColumnIndex(1); ImGui::Text("Type");
+                    ImGui::TableSetColumnIndex(2); ImGui::Text("Value");
+                    for (std::uint32_t i : node_layout.get_run_outcome_indices()->constants)
+                    {
+                        auto const& var = run_outcomes.constants.variables.at(i);
+                        auto const type = cps::type_as_str(var);
+                        auto const value = cps::value_as_str(var);
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0); ImGui::Text("%d", i);
+                        ImGui::TableSetColumnIndex(1); ImGui::Text("%s", type.c_str());
+                        ImGui::TableSetColumnIndex(2); ImGui::Text("%s", value.c_str());
+                    }
+                    ImGui::EndTable();
+                }
+            }
+            if (!node_layout.get_run_outcome_indices()->black_box_functions.empty())
+            {
+                ImGui::Separator();
+                ImGui::Text("Black box functions:");
+                if (ImGui::BeginTable("BBF", 7U, ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV))
+                {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0); ImGui::Text("Idx");
+                    ImGui::TableSetColumnIndex(1); ImGui::Text("Inputs");
+                    ImGui::TableSetColumnIndex(2); ImGui::Text("Constants");
+                    ImGui::TableSetColumnIndex(3); ImGui::Text("Comparator");
+                    ImGui::TableSetColumnIndex(4); ImGui::Text("Value");
+                    ImGui::TableSetColumnIndex(5); ImGui::Text("Predicate");
+                    ImGui::TableSetColumnIndex(6); ImGui::Text("Hit counts");
+                    for (std::uint32_t i : node_layout.get_run_outcome_indices()->black_box_functions)
+                    {
+                        auto const comparator = cps::as_str(run_outcomes.black_box_functions.comparators.at(i));
+                        auto const value = run_outcomes.black_box_functions.output.at(i).function;
+                        auto const predicate = run_outcomes.black_box_functions.output.at(i).predicate;
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0); ImGui::Text("%d", i);
+
+                        ImGui::TableSetColumnIndex(1);
+                        if (ImGui::BeginTable((std::string("Inputs:") + std::to_string(i)).c_str(), 1U, ImGuiTableFlags_BordersInner))
+                        {
+                            for (std::uint32_t i : run_outcomes.black_box_functions.inputs_indices.at(i))
+                            {
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(0); ImGui::Text("%d", i);
+                            }
+                            ImGui::EndTable();
+                        }
+
+                        ImGui::TableSetColumnIndex(2);
+                        if (ImGui::BeginTable((std::string("Constants:") + std::to_string(i)).c_str(), 1U, ImGuiTableFlags_BordersInner))
+                        {
+                            for (std::uint32_t i : run_outcomes.black_box_functions.constants_indices.at(i))
+                            {
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(0); ImGui::Text("%d", i);
+                            }
+                            ImGui::EndTable();
+                        }
+
+                        ImGui::TableSetColumnIndex(3); ImGui::Text("%s", comparator.c_str());
+                        ImGui::TableSetColumnIndex(4); ImGui::Text("%f", value);
+                        ImGui::TableSetColumnIndex(5); ImGui::Text("%s", predicate ? "true" : "false");
+
+                        ImGui::TableSetColumnIndex(6);
+                        if (ImGui::BeginTable((std::string("HitCounts:") + std::to_string(i)).c_str(), 2U, ImGuiTableFlags_BordersInner))
+                        {
+                            for (auto [graph_node_index, count] : run_outcomes.black_box_functions.basic_blocks_hit_counts.at(i))
+                            {
+                                sala::NavigationGraph::Node const& n{ nav_graph().node(graph_node_index) };
+                                auto const text = std::to_string(n.function) + ":" + std::to_string(n.basic_block) + ":" + std::to_string(n.instruction);
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(0); ImGui::Text("%s", text.c_str());
+                                ImGui::TableSetColumnIndex(1); ImGui::Text("%d", count);
+                            }
+                            ImGui::EndTable();
+                        }
+                    }
+                    ImGui::EndTable();
+                }
+            }
+        }
 
     ImGui::EndTooltip();
 }
