@@ -17,6 +17,8 @@ struct  RendererPathTree : public RendererData
 
     struct NodeLayout
     {
+        ~NodeLayout() { delete run_outcome_indices; }
+
         // Center of the node.
         vec2 origin{ vec2::zero() };
 
@@ -33,6 +35,22 @@ struct  RendererPathTree : public RendererData
         // The largest coordinate origin.x of all coordinates of all
         // nodes in all subtrees of this node.
         float subtrees_max_x{ 0.0f };
+
+        struct RunOutcomeIndices
+        {
+            std::uint32_t  path_index{ 0U};
+            std::vector<std::uint32_t>  inputs{};
+            std::vector<std::uint32_t>  constants{};
+            std::vector<std::uint32_t>  black_box_functions{};
+        };
+
+        bool has_run_outcome_indices() const { return run_outcome_indices != nullptr; }
+        RunOutcomeIndices* get_run_outcome_indices() const { return run_outcome_indices; }
+        RunOutcomeIndices* get_or_create_run_outcome_indices()
+        { if (run_outcome_indices == nullptr) run_outcome_indices = new RunOutcomeIndices; return run_outcome_indices; }
+
+    private:
+        RunOutcomeIndices* run_outcome_indices{ nullptr };
     };
 
     RendererPathTree(DataSources const*  data_sources);
@@ -47,6 +65,7 @@ private:
 
     void compute_node_locations(std::uint32_t node_index = 0U, float min_x = 0.0f, float y = 0.0f);
     void normalize_node_locations();
+    void compute_run_outcome_indices();
 
     void draw_subtree(ImDrawList& dl, std::uint32_t node_index, Rect const& visible_rect) const;
     void draw_node(ImDrawList& dl, std::uint32_t node_index) const;

@@ -61,6 +61,7 @@ void RendererPathTree::on_data_updated()
 
     compute_node_locations();
     normalize_node_locations();
+    compute_run_outcome_indices();
 }
 
 
@@ -106,6 +107,38 @@ void RendererPathTree::normalize_node_locations()
         node_layout.origin += shift;
         node_layout.subtrees_min_x += shift.x;
         node_layout.subtrees_max_x += shift.x;
+    }
+}
+
+
+void RendererPathTree::compute_run_outcome_indices()
+{
+    chickaree::PathExecutor const* const  executor = solver().get_path_executor();
+    if (executor == nullptr)
+        return;
+
+    {
+        auto const& indices = executor->get_path();
+        for (std::uint32_t i = 0U, end = (std::uint32_t)indices.size(); i != end; ++i)
+            layout(indices.at(i)).get_or_create_run_outcome_indices()->path_index = i;
+    }
+
+    {
+        auto const& indices = executor->run_outcome().inputs.path_indices;
+        for (std::uint32_t i = 0U, end = (std::uint32_t)indices.size(); i != end; ++i)
+            layout(executor->get_path().at(indices.at(i))).get_or_create_run_outcome_indices()->inputs.push_back(i);
+    }
+
+    {
+        auto const& indices = executor->run_outcome().constants.path_indices;
+        for (std::uint32_t i = 0U, end = (std::uint32_t)indices.size(); i != end; ++i)
+            layout(executor->get_path().at(indices.at(i))).get_or_create_run_outcome_indices()->constants.push_back(i);
+    }
+
+    {
+        auto const& indices = executor->run_outcome().black_box_functions.path_indices;
+        for (std::uint32_t i = 0U, end = (std::uint32_t)indices.size(); i != end; ++i)
+            layout(executor->get_path().at(indices.at(i))).get_or_create_run_outcome_indices()->black_box_functions.push_back(i);
     }
 }
 
@@ -190,6 +223,38 @@ void RendererPathTree::draw_node(ImDrawList& dl, std::uint32_t const node_index)
         0
     );
     dl.AddText(rect.left_top + vec2{ NODE_BORDER, NODE_BORDER }, text_color, node_layout.text.data(), node_layout.text.data() + node_layout.text.size());
+
+    if (!node_layout.has_run_outcome_indices())
+        return;
+
+    auto const& run_outcomes{ solver().get_path_executor()->run_outcome() };
+
+    vec2 const rect_ext{ 2.0f, 2.0f };
+    dl.AddRect(
+        rect.left_top - rect_ext,
+        rect.right_bottom + rect_ext,
+        run_outcomes.diverged && node_layout.get_run_outcome_indices()->path_index < run_outcomes.path_index ?
+            IM_COL32(75, 75, 255, 255) :
+            IM_COL32(255, 75, 75, 255),
+        0.0f,
+        0,
+        2.0f
+    );
+    if (!node_layout.get_run_outcome_indices()->inputs.empty())
+    {
+        float const r = 0.5f * (rect.right_bottom.y - rect.left_top.y);
+        dl.AddCircleFilled(rect.left_top + vec2{ -r - 2.0f, r }, r, IM_COL32(255, 75, 75, 255) );
+    }
+    if (!node_layout.get_run_outcome_indices()->constants.empty())
+    {
+        float const r = 0.5f * (rect.right_bottom.y - rect.left_top.y);
+        dl.AddCircleFilled(rect.right_bottom + vec2{ r + 2.0f, -r }, r, IM_COL32(75, 75, 255, 255) );
+    }
+    if (!node_layout.get_run_outcome_indices()->black_box_functions.empty())
+    {
+        float const r = 0.5f * (rect.right_bottom.y - rect.left_top.y);
+        dl.AddCircleFilled(rect.left_top + vec2{ -r - 2.0f, r }, r, IM_COL32(75, 255, 75, 255), 4);
+    }
 }
 
 
