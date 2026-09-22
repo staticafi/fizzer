@@ -86,7 +86,7 @@ void RendererControls::update_breakpoint_infos()
     {
         vis::BreakPoint const& breakpoint = *vis::get_registered_breakpoint(id);
         std::stringstream sstr;
-        sstr << breakpoint.func << '[' + std::to_string(breakpoint.line) << "] " << breakpoint.file;
+        sstr << breakpoint.func << " [line: " + std::to_string(breakpoint.line) << "] " << breakpoint.file;
         m_breakpoint_texts.push_back(sstr.str());
         m_max_breakpoint_text_size = std::fmax(m_max_breakpoint_text_size, ImGui::CalcTextSize(m_breakpoint_texts.back().c_str()).x);
     }
