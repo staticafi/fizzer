@@ -13,7 +13,7 @@
 namespace gfx {
 
 
-RendererCallGraph::RendererCallGraph(DataSources const* const  data_sources)
+RendererCallGraph::RendererCallGraph(DataSources const&  data_sources)
     : Super{ data_sources }
     , m_mouse_tracking{}
     , m_origin{ vec2::zero() }

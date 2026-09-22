@@ -103,7 +103,7 @@ void run(int argc, char* argv[])
     try
     {
         if (get_program_options()->has("gfx"))
-            visualizer::create_visualizer(gfx::get_visualizer_constructor(gfx::DataSources{
+            visualizer::create(gfx::get_visualizer_constructor(gfx::DataSources{
                 .program = &*sala_program_ptr,
                 .call_graph = &call_graph,
                 .nav_graph = &nav_graph,
@@ -139,6 +139,6 @@ void run(int argc, char* argv[])
 
         VISUALIZER_BREAKPOINT();
     }
-    catch (visualizer::VisualizerTerminationException const&) {}
-    visualizer::destroy_visualizer();
+    catch (visualizer::TerminationException const&) {}
+    visualizer::destroy();
 }

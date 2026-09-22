@@ -16,7 +16,7 @@ static float constexpr NODE_SEPARATION_VERTICAL = 20.0f;
 static float constexpr NODE_BORDER = 3.0f;
 
 
-RendererPathTree::RendererPathTree(DataSources const* const  data_sources)
+RendererPathTree::RendererPathTree(DataSources const&  data_sources)
     : Super{ data_sources }
     , m_mouse_tracking{}
     , m_origin{ vec2::zero() }
@@ -30,10 +30,10 @@ void RendererPathTree::next_frame()
 
     ImGui::BeginChild("Tree canvas", ImVec2(0, 0), true);
     {
-        if (frame_count() == 1ULL)
+        if (frame_count() < 10ULL)
         {
             m_origin = window_origin() + vec2{ window_size().x / 2.0f, 50.0f };
-            on_data_updated();
+            on_data_changed();
         }
 
         update_mouse_tracking_data(m_mouse_tracking);
@@ -47,7 +47,7 @@ void RendererPathTree::next_frame()
 }
 
 
-void RendererPathTree::on_data_updated()
+void RendererPathTree::on_data_changed()
 {
     m_node_layouts.clear();
     m_node_layouts.resize(tree().nodes().size(), {});

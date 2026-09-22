@@ -1,7 +1,7 @@
 #ifndef TOOL_SQUIRREL_GFX_RENDERER_CALL_GRAPH_HPP_INCLUDED
 #   define TOOL_SQUIRREL_GFX_RENDERER_CALL_GRAPH_HPP_INCLUDED
 
-#   include <squirrel/gfx/renderer_data.hpp>
+#   include <squirrel/gfx/renderer_base.hpp>
 #   include <squirrel/gfx/mouse_tracking.hpp>
 #   include <squirrel/gfx/math.hpp>
 #   include <utility/std_pair_hash.hpp>
@@ -13,9 +13,9 @@
 namespace gfx {
 
 
-struct  RendererCallGraph : public RendererData
+struct  RendererCallGraph : public RendererBase
 {
-    using Super = RendererData;
+    using Super = RendererBase;
 
     struct NodeLayout
     {
@@ -29,7 +29,7 @@ struct  RendererCallGraph : public RendererData
     using NodeIndices2Layouts = std::unordered_map<std::uint32_t, NodeLayout>;
     using EdgeLayouts = std::unordered_set<EdgeLayout>;
 
-    RendererCallGraph(DataSources const*  data_sources);
+    RendererCallGraph(DataSources const&  data_sources);
 
     void next_frame() override;
 

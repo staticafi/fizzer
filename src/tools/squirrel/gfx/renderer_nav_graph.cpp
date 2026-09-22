@@ -13,10 +13,10 @@
 namespace gfx {
 
 
-RendererNavGraph::RendererNavGraph(DataSources const* const  data_sources)
+RendererNavGraph::RendererNavGraph(DataSources const&  data_sources)
     : Super{ data_sources }
     , split_x{ 300.0f }
-    , selected_function{ data_sources->program->entry_function() }
+    , selected_function{ data_sources.program->entry_function() }
     , mouse_tracking{}
     , m_function_layouts{}
 {

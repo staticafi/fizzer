@@ -1,4 +1,5 @@
 #include <squirrel/gfx/renderer.hpp>
+#include <utility/visualizer_breakpoint.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <cstdint>
@@ -7,22 +8,11 @@ namespace gfx {
 
 
 Renderer::Renderer(DataSources const&  data_sources)
-    : m_waiting_for_content{ true }
-    , m_first_round{ true }
-    , m_data_updated{ true }
-    , m_data{ data_sources }
-    , m_controls_renderer{}
-    , m_nav_graph_renderer( &m_data )
-    , m_path_tree_renderer{ &m_data }
+    : m_controls_renderer{ data_sources }
+    , m_nav_graph_renderer{ data_sources }
+    , m_path_tree_renderer{ data_sources }
+    , m_call_graph_renderer{ data_sources }
 {}
-
-
-void Renderer::set_waiting_for_content(bool const state)
-{
-    if (m_waiting_for_content && !state)
-        m_data_updated = true;
-    m_waiting_for_content = state;
-}
 
 
 void Renderer::next_frame()
@@ -40,75 +30,58 @@ void Renderer::next_frame()
         ImGuiWindowFlags_NoBringToFrontOnFocus
         );
 
-    if (is_waiting_for_content())
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Space, ImGuiInputFlags_RouteGlobal))
+        m_controls_renderer.request_resume_execution();
+
+    if (!visualizer::is_execution_paused_on_breakpoint())
     {
-        ImGui::BeginChild("Waiting for content", ImVec2(0, 0), true);
-            ImGui::Text("Waiting for content...");
+        ImGui::BeginChild("Waiting for breakpoint hit", ImVec2(0, 0), true);
+            ImGui::Text("Waiting till execution hits the chosen breakpoint...");
         ImGui::EndChild();
         ImGui::End();
         return;
     }
 
-    if (m_data_updated)
+    if (m_data_changed)
     {
-        m_controls_renderer.on_data_updated();
-        m_nav_graph_renderer.on_data_updated();
-        m_path_tree_renderer.on_data_updated();
-        m_data_updated = false;
+        m_data_changed = false;
+
+        m_controls_renderer.on_data_changed();
+        m_nav_graph_renderer.on_data_changed();
+        m_path_tree_renderer.on_data_changed();
+        m_call_graph_renderer.on_data_changed();
     }
 
     if (ImGui::BeginTabBar("RootTabs")) {
         if (ImGui::BeginTabItem("Controls")) {
-            next_frame(m_controls_renderer);
+            m_controls_renderer.update();
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("NavGraph")) {
-            next_frame(m_nav_graph_renderer);
+            m_nav_graph_renderer.update();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("PathTree", nullptr, m_first_round ? ImGuiTabItemFlags_SetSelected : 0)) {
-            next_frame(m_path_tree_renderer);
+
+        static bool first_round = true;
+        if (ImGui::BeginTabItem("PathTree", nullptr, first_round ? ImGuiTabItemFlags_SetSelected : 0)) {
+            m_path_tree_renderer.update();
             ImGui::EndTabItem();
         }
+        first_round = false;
+
         if (ImGui::BeginTabItem("Solver")) {
-            render_solver();
+            ImGui::Text("TODO: Solver");
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("CallGraph")) {
-            render_call_graph();
+            m_call_graph_renderer.update();
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
     }
 
     ImGui::End();
-
-    m_first_round = false;
-    m_data_updated = false;
 }
-
-
-void Renderer::next_frame(RendererBase& renderer)
-{
-    renderer.next_frame();
-    if (renderer.is_waiting_for_content())
-        set_waiting_for_content(true);
-}
-
-
-void Renderer::render_solver()
-{
-    ImGui::Text("TODO: Solver");
-}
-
-
-void Renderer::render_call_graph()
-{
-    ImGui::Text("TODO: CallGraph");
-}
-
-
-
 
 
 }

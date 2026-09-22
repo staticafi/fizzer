@@ -1,7 +1,7 @@
 #ifndef TOOL_SQUIRREL_GFX_RENDERER_NAV_GRAPH_HPP_INCLUDED
 #   define TOOL_SQUIRREL_GFX_RENDERER_NAV_GRAPH_HPP_INCLUDED
 
-#   include <squirrel/gfx/renderer_data.hpp>
+#   include <squirrel/gfx/renderer_base.hpp>
 #   include <squirrel/gfx/mouse_tracking.hpp>
 #   include <squirrel/gfx/math.hpp>
 #   include <utility/std_pair_hash.hpp>
@@ -13,9 +13,9 @@
 namespace gfx {
 
 
-struct  RendererNavGraph : public RendererData
+struct  RendererNavGraph : public RendererBase
 {
-    using Super = RendererData;
+    using Super = RendererBase;
 
     struct NodeLayout
     {
@@ -64,7 +64,7 @@ struct  RendererNavGraph : public RendererData
 
     using FunctionLayouts = std::vector<FunctionLayout>;
 
-    RendererNavGraph(DataSources const*  data_sources);
+    RendererNavGraph(DataSources const&  data_sources);
 
     void next_frame() override;
 

@@ -14,14 +14,15 @@
 namespace gfx {
 
 
-struct Visualizer : public ::visualizer::VisualizerBase
+struct Visualizer : public ::visualizer::Visualizer
 {
-    using Super = ::visualizer::VisualizerBase;
+    using Super = ::visualizer::Visualizer;
 
     Visualizer(DataSources const&  data);
     ~Visualizer() override;
 
     void next_frame() override;
+    void on_data_changed() override { m_renderer->on_data_changed(); }
 
 private:
 
@@ -115,9 +116,7 @@ void Visualizer::next_frame()
 {
     if (glfwWindowShouldClose(m_window_ptr))
     {
-        std::lock_guard<std::mutex> const lock(s_mutex);
-        s_stop_flag = true;
-        s_render = false;
+        stop();
         return;
     }
 
@@ -127,13 +126,9 @@ void Visualizer::next_frame()
 
     render_begin();
 
-    m_renderer->set_waiting_for_content(!can_render());
     m_renderer->next_frame();
 
     render_end();
-
-    if (m_renderer->is_waiting_for_content())
-        set_waiting_for_content();
 }
 
 

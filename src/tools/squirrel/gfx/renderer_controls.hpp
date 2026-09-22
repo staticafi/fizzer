@@ -17,19 +17,19 @@ struct  RendererControls : public RendererBase
 {
     using Super = RendererBase;
 
-    RendererControls();
+    RendererControls(DataSources const&  data_sources);
 
     void next_frame() override;
+    void on_data_changed() override;
 
-    bool is_waiting_for_content() override { return m_waiting_for_content; }
+    void request_resume_execution() const;
 
 private:
 
     void update_breakpoint_infos();
 
-    bool m_waiting_for_content;
-    ::visualizer::detail::BreakPointID m_target_breakpoint_id;
-    ::visualizer::detail::BreakPointID m_selected_breakpoint_id;
+    ::visualizer::BreakPointID m_current_breakpoint_id;
+    ::visualizer::BreakPointID m_selected_breakpoint_id;
     std::vector<std::string> m_breakpoint_texts;
     float m_max_breakpoint_text_size;
 };
