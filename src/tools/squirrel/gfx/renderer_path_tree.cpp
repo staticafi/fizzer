@@ -28,7 +28,7 @@ void RendererPathTree::next_frame()
 {
     Super::next_frame();
 
-    ImGui::BeginChild("Tree canvas", ImVec2(0, 0), true);
+    ImGui::BeginChild("Tree canvas", ImVec2(0, 0), ImGuiChildFlags_Borders);
     {
         if (frame_count() < 10ULL)
         {

@@ -27,7 +27,7 @@ void RendererCallGraph::next_frame()
 {
     Super::next_frame();
 
-    ImGui::BeginChild("CG canvas", ImVec2(0, 0), true);
+    ImGui::BeginChild("CG canvas", ImVec2(0, 0), ImGuiChildFlags_Borders);
         ImGui::Text("TODO callgraph.");
     ImGui::EndChild();
 }

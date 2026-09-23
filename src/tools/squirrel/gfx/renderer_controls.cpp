@@ -24,7 +24,7 @@ void RendererControls::next_frame()
 {
     Super::next_frame();
 
-    ImGui::BeginChild("Controls", ImVec2(0, 0), true);
+    ImGui::BeginChild("Controls", ImVec2(0, 0), ImGuiChildFlags_Borders);
 
         update_breakpoint_infos();
 

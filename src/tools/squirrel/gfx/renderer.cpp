@@ -11,6 +11,7 @@ Renderer::Renderer(DataSources const&  data_sources)
     : m_controls_renderer{ data_sources }
     , m_nav_graph_renderer{ data_sources }
     , m_path_tree_renderer{ data_sources }
+    , m_data_tables_renderer{ data_sources }
     , m_call_graph_renderer{ data_sources }
 {}
 
@@ -49,6 +50,7 @@ void Renderer::next_frame()
         m_controls_renderer.on_data_changed();
         m_nav_graph_renderer.on_data_changed();
         m_path_tree_renderer.on_data_changed();
+        m_data_tables_renderer.on_data_changed();
         m_call_graph_renderer.on_data_changed();
     }
 
@@ -69,8 +71,8 @@ void Renderer::next_frame()
         }
         first_round = false;
 
-        if (ImGui::BeginTabItem("Solver")) {
-            ImGui::Text("TODO: Solver");
+        if (ImGui::BeginTabItem("DataTables")) {
+            m_data_tables_renderer.update();
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("CallGraph")) {

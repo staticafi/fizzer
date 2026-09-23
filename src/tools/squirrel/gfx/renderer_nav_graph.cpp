@@ -15,7 +15,7 @@ namespace gfx {
 
 RendererNavGraph::RendererNavGraph(DataSources const&  data_sources)
     : Super{ data_sources }
-    , split_x{ 300.0f }
+    , split_x{ 400.0f }
     , selected_function{ data_sources.program->entry_function() }
     , mouse_tracking{}
     , m_function_layouts{}
@@ -182,7 +182,7 @@ void RendererNavGraph::next_frame()
 {
     Super::next_frame();
 
-    ImGui::BeginChild("LeftPane", ImVec2(split_x, 0), true);
+    ImGui::BeginChild("LeftPane", ImVec2(split_x, 0), ImGuiChildFlags_Borders);
     {
         std::unordered_set<std::uint32_t> external_functions {
                 program().external_functions().begin(),
