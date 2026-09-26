@@ -235,7 +235,7 @@ void RendererPathTree::draw_node(ImDrawList& dl, std::uint32_t const node_index)
     dl.AddRect(
         rect.left_top - rect_ext,
         rect.right_bottom + rect_ext,
-        run_outcomes.diverged && node_layout.get_run_outcome_indices()->path_index < run_outcomes.path_index ?
+        !run_outcomes.diverged || node_layout.get_run_outcome_indices()->path_index < run_outcomes.path_index ?
             IM_COL32(75, 75, 255, 255) :
             IM_COL32(255, 75, 75, 255),
         0.0f,
