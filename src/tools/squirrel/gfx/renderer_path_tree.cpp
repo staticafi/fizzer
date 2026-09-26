@@ -120,27 +120,27 @@ void RendererPathTree::compute_run_outcome_indices()
         return;
 
     {
-        auto const& indices = executor->get_path();
+        auto const& indices = solver().path();
         for (std::uint32_t i = 0U, end = (std::uint32_t)indices.size(); i != end; ++i)
             layout(indices.at(i)).get_or_create_run_outcome_indices()->path_index = i;
     }
 
     {
-        auto const& indices = executor->run_outcome().inputs.path_indices;
+        auto const& indices = executor->run_outcome()->inputs.path_indices;
         for (std::uint32_t i = 0U, end = (std::uint32_t)indices.size(); i != end; ++i)
-            layout(executor->get_path().at(indices.at(i))).get_or_create_run_outcome_indices()->inputs.push_back(i);
+            layout(solver().path().at(indices.at(i))).get_or_create_run_outcome_indices()->inputs.push_back(i);
     }
 
     {
-        auto const& indices = executor->run_outcome().constants.path_indices;
+        auto const& indices = executor->run_outcome()->constants.path_indices;
         for (std::uint32_t i = 0U, end = (std::uint32_t)indices.size(); i != end; ++i)
-            layout(executor->get_path().at(indices.at(i))).get_or_create_run_outcome_indices()->constants.push_back(i);
+            layout(solver().path().at(indices.at(i))).get_or_create_run_outcome_indices()->constants.push_back(i);
     }
 
     {
-        auto const& indices = executor->run_outcome().black_box_functions.path_indices;
+        auto const& indices = executor->run_outcome()->black_box_functions.path_indices;
         for (std::uint32_t i = 0U, end = (std::uint32_t)indices.size(); i != end; ++i)
-            layout(executor->get_path().at(indices.at(i))).get_or_create_run_outcome_indices()->black_box_functions.push_back(i);
+            layout(solver().path().at(indices.at(i))).get_or_create_run_outcome_indices()->black_box_functions.push_back(i);
     }
 }
 
@@ -229,7 +229,7 @@ void RendererPathTree::draw_node(ImDrawList& dl, std::uint32_t const node_index)
     if (!node_layout.has_run_outcome_indices())
         return;
 
-    auto const& run_outcomes{ solver().get_path_executor()->run_outcome() };
+    auto const& run_outcomes{ *solver().get_path_executor()->run_outcome() };
 
     vec2 const rect_ext{ 2.0f, 2.0f };
     dl.AddRect(
@@ -306,7 +306,7 @@ void RendererPathTree::draw_node_tooltip(std::uint32_t node_index) const
         NodeLayout const& node_layout{ layout(node_index) };
         if (node_layout.has_run_outcome_indices())
         {
-            auto const& run_outcomes{ solver().get_path_executor()->run_outcome() };
+            auto const& run_outcomes{ *solver().get_path_executor()->run_outcome() };
 
             if (!node_layout.get_run_outcome_indices()->inputs.empty())
             {
