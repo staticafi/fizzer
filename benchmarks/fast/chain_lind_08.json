@@ -13,8 +13,8 @@
     },
     "results": {
         "termination_type": "NORMAL",
-        "termination_reason": "EXECUTIONS_BUDGET_DEPLETED",
-        "num_executions": 1000,
+        "termination_reason": "ALL_REACHABLE_BRANCHINGS_COVERED",
+        "num_executions": 150,
         "num_covered_branchings": 1,
         "covered_branchings": [
             1
