@@ -51,7 +51,7 @@ bool  fuzzer::coverage_progress_control_props::interruption_enter()
 
     if (fuzzer_ptr->bitflip.is_ready())
     {
-        fuzzer_ptr->bitflip.start(fuzzer_ptr->entry_branching);
+        fuzzer_ptr->bitflip.start(fuzzer_ptr->leaf_branchings, fuzzer_ptr->uncovered_branchings);
         if (fuzzer_ptr->bitflip.is_ready())
         {
             fuzzer_ptr->recording_resume();
@@ -1388,7 +1388,7 @@ bool  fuzzer::generate_next_input(
                 if (coverage_control.is_analysis_interrupted())
                 {
                     if (bitflip.is_ready())
-                        bitflip.start(entry_branching);
+                        bitflip.start(leaf_branchings, uncovered_branchings);
                     if (bitflip.is_ready())
                     {
                         coverage_control.interruption_exit();
@@ -1538,7 +1538,14 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
                 dead_nodes_buffer.insert(construction_props.leaf);
             }
             else if (std::fabs(info.value) < std::fabs(construction_props.leaf->get_best_value()))
+            {
                 construction_props.leaf->update_best_data(current_input, trace, num_driver_executions);
+                if (construction_props.leaf->was_sensitivity_performed() && construction_props.leaf->was_local_search_performed())
+                {
+                    construction_props.leaf->perform_failure_reset();
+                    primary_coverage_targets.process_potential_coverage_target({ construction_props.leaf, false });
+                }
+            }
 
             construction_props.leaf->set_max_successors_trace_index(std::max(
                     construction_props.leaf->get_max_successors_trace_index(),
@@ -1910,7 +1917,7 @@ void  fuzzer::select_next_state()
             state = BITFLIP;
             if (bitflip.is_ready())
             {
-                bitflip.start(entry_branching);
+                bitflip.start(leaf_branchings, uncovered_branchings);
                 if (bitflip.is_ready()) // The start has failed.
                     state = FINISHED;
             }

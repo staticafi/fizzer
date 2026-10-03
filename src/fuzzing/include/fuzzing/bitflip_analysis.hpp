@@ -3,8 +3,10 @@
 
 #   include <fuzzing/basic_types.hpp>
 #   include <fuzzing/branching_node.hpp>
+#   include <utility/std_pair_hash.hpp>
 #   include <utility/random.hpp>
 #   include <unordered_set>
+#   include <vector>
 
 namespace  fuzzing {
 
@@ -31,7 +33,10 @@ struct  bitflip_analysis
 
     branching_node*  get_node() const { return node_ptr; }
 
-    void  start(branching_node*  root_node);
+    void  start(
+            std::unordered_set<branching_node*> const&  leaf_branchings,
+            std::unordered_set<location_and_direction> const& uncovered_branchings
+            );
     void  stop();
 
     bool  generate_next_input(vecb&  bits_ref, input_types_ptr&  types_ref, input_metadata_ptr&  metadata_ref);
@@ -39,25 +44,32 @@ struct  bitflip_analysis
     performance_statistics const&  get_statistics() const { return statistics; }
 
 private:
-    branching_node*  search_for_current_input(branching_node* const  root);
 
-    bool  is_mutated_bit_index_valid() const;
-    bool  is_mutated_type_index_valid() const;
-    bool  generate_next_typed_value(vecb&  bits_ref);
+    void  select_node(
+        std::unordered_set<branching_node*> const&  leaf_branchings,
+        std::unordered_set<location_and_direction> const& uncovered_branchings
+        );
+    void  generate_bit_flips();
+    void  generate_bit_flips_sensitive();
+    void  generate_value_changes();
+    void  generate_value_changes_sensitive();
 
     template<typename T, int N>
     bool  write_bits(vecb&  bits_ref, T const  (&values)[N]);
 
+    struct ValueChange
+    {
+        std::uint32_t  start_bit_index;
+        vecb  bits;
+    };
+
+    using BitFlips = std::unordered_set<std::uint32_t>;
+
     STATE  state;
     branching_node*  node_ptr;
-    typed_input_ptr  current_input;
-    natural_32_bit  mutated_bit_index;
-    natural_32_bit  mutated_type_index;
-    natural_32_bit  mutated_value_index;
-    natural_32_bit  probed_bit_start_index;
-    natural_32_bit  probed_bit_end_index;
-    natural_32_bit  counter;
-    std::unordered_set<typed_input const*>  processed_inputs;
+    typed_input_ptr  input_ptr;
+    std::vector<BitFlips>  bit_flips;
+    std::vector<ValueChange>  value_changes;
     random_generator_for_natural_32_bit  rnd_generator;
 
     performance_statistics  statistics;

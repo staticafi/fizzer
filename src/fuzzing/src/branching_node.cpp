@@ -34,9 +34,9 @@ branching_node::branching_node(
     , local_search_performed{ false }
     , closed{ false }
 
-    , sensitivity_start_execution{ std::numeric_limits<natural_32_bit>::max() }
-    , bitshare_start_execution{ std::numeric_limits<natural_32_bit>::max() }
-    , local_search_start_execution{ std::numeric_limits<natural_32_bit>::max() }
+    , sensitivity_start_execution{ 0U }
+    , bitshare_start_execution{ 0U }
+    , local_search_start_execution{ 0U }
     , best_value_execution{ execution_number }
 
     , max_successors_trace_index{ trace_index_ }
@@ -92,8 +92,8 @@ void  branching_node::perform_failure_reset()
 {
     bitshare_performed = false;
     local_search_performed = false;
-    bitshare_start_execution = std::numeric_limits<natural_32_bit>::max();
-    local_search_start_execution = std::numeric_limits<natural_32_bit>::max();
+    bitshare_start_execution = 0U;
+    local_search_start_execution = 0U;
     closed = false;
     ++num_coverage_failure_resets;
 }
