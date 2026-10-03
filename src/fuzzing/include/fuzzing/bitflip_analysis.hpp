@@ -4,7 +4,7 @@
 #   include <fuzzing/basic_types.hpp>
 #   include <fuzzing/branching_node.hpp>
 #   include <utility/random.hpp>
-#   include <unordered_set>
+#   include <unordered_map>
 
 namespace  fuzzing {
 
@@ -57,7 +57,7 @@ private:
     natural_32_bit  probed_bit_start_index;
     natural_32_bit  probed_bit_end_index;
     natural_32_bit  counter;
-    std::unordered_set<typed_input const*>  processed_inputs;
+    std::unordered_map<typed_input const*, natural_32_bit>  processed_inputs;
     random_generator_for_natural_32_bit  rnd_generator;
 
     performance_statistics  statistics;
