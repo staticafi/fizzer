@@ -132,16 +132,6 @@ static std::unordered_map<data_type, std::vector<vecb> > const  SPECIAL_VALUES =
 }();
 
 
-static natural_32_bit  compute_next_index(natural_32_bit&  counter, natural_32_bit&  index, natural_32_bit const  n, natural_32_bit const  N)
-{
-    ++counter;
-    index = n <= N ? index + 1 : (natural_32_bit)std::floor((float_32_bit)counter * (float_32_bit)n / (float_32_bit)N);
-    if (index >= n)
-        counter = 0;
-    return index;
-}
-
-
 struct search_stack
 {
     enum struct command : natural_8_bit {
@@ -406,27 +396,27 @@ void  bitflip_analysis::search_for_current_input(branching_node* const  root)
 
 void  bitflip_analysis::generate_bit_flips_regular()
 {
-    natural_32_bit  mutated_bit_index{ 0U };
-    natural_32_bit  counter{ 0U };
-    while (mutated_bit_index < current_input->bits().size())
-    {
-        bit_flips.push_back({ mutated_bit_index });
-        compute_next_index(counter, mutated_bit_index, current_input->bits().size(), MAX_BIT_MUTATIONS);
-    }
+    natural_32_bit const num_bits{ (natural_32_bit)current_input->bits().size() };
+    natural_32_bit const max_steps = std::min(num_bits, MAX_BIT_MUTATIONS);
+    natural_32_bit const step = std::max(1U, (natural_32_bit)std::floor((float_32_bit)num_bits / (float_32_bit)max_steps));
+    natural_32_bit  index{ counter % num_bits };
+    for (natural_32_bit i = 0; i < max_steps; ++i, index = (index + step) % num_bits)
+        bit_flips.push_back({ index });
     statistics.num_bitflips_regular += bit_flips.size();
 }
 
 
 void  bitflip_analysis::generate_bit_flips_random()
 {
+    natural_32_bit const num_bits{ (natural_32_bit)current_input->bits().size() };
     natural_32_bit num_flips{ 1 };
     while (bit_flips.size() < MAX_BIT_MUTATIONS)
     {
         bit_flips.push_back({});
         while ((natural_32_bit)bit_flips.back().size() != num_flips)
-            bit_flips.back().insert(get_random_natural_32_bit_in_range(0U, (natural_32_bit)current_input->bits().size() - 1U, rnd_generator));
+            bit_flips.back().insert(get_random_natural_32_bit_in_range(0U, num_bits - 1U, rnd_generator));
         ++num_flips;
-        if (num_flips > node_ptr->get_num_stdin_bits() / 2U)
+        if (num_flips > std::min(num_bits / 2U, 16U))
             num_flips = 1U;
     }
     statistics.num_bitflips_random += bit_flips.size();
@@ -435,20 +425,21 @@ void  bitflip_analysis::generate_bit_flips_random()
 
 void  bitflip_analysis::generate_value_changes_regular()
 {
-    natural_32_bit  mutated_type_index{ 0U };
-    natural_32_bit  mutated_value_index{ 0U };
-    natural_32_bit  counter{ 0U };
-    while (mutated_type_index < current_input->types()->size()
-                && current_input->type_end_bit_index(mutated_type_index) < current_input->bits().size())
+    natural_32_bit const num_types{ (natural_32_bit)current_input->types()->size() };
+    natural_32_bit const max_steps = std::min(num_types, MAX_TYPE_MUTATIONS);
+    natural_32_bit const step = std::max(1U, (natural_32_bit)std::floor((float_32_bit)num_types / (float_32_bit)max_steps));
+    natural_32_bit  index{ counter % num_types };
+    for (natural_32_bit i = 0; i < max_steps; index = (index + step) % num_types)
     {
-        auto it = SPECIAL_VALUES.find(current_input->types()->at(mutated_type_index));
+        auto it = SPECIAL_VALUES.find(current_input->types()->at(index));
         if (it != SPECIAL_VALUES.end())
-            for (auto value_it = it->second.begin(); value_it != it->second.end(); ++value_it)
+            for (auto value_it = it->second.begin(); value_it != it->second.end() && i < max_steps; ++value_it, ++i)
                 value_changes.push_back(ValueChange{
-                    .start_bit_index = current_input->type_start_bit_index(mutated_type_index),
+                    .start_bit_index = current_input->type_start_bit_index(index),
                     .bits = *value_it
                     });
-        compute_next_index(counter, mutated_type_index, current_input->types()->size(), MAX_TYPE_MUTATIONS);
+        else
+            ++i;
     }
     statistics.num_value_changes_regular += value_changes.size();
 }

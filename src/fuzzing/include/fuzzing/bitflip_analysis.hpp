@@ -72,8 +72,8 @@ private:
     natural_32_bit  counter;
     std::vector<BitFlips>  bit_flips;
     std::vector<ValueChange>  value_changes;
-    std::array<std::unordered_set<typed_input_ptr>, 10U>  coverage_increases;
-    std::array<std::unordered_set<typed_input_ptr>, 10U>  coverage_failures;
+    std::array<std::unordered_set<typed_input_ptr>, 8U>  coverage_increases;
+    std::array<std::unordered_set<typed_input_ptr>, 8U>  coverage_failures;
     std::unordered_map<typed_input_ptr, natural_32_bit>  processed_inputs;
     random_generator_for_natural_32_bit  rnd_generator;
 
