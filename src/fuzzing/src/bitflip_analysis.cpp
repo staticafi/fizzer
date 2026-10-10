@@ -332,6 +332,23 @@ void  bitflip_analysis::search_for_current_input(branching_node* const  root)
             if (i + 1UL < coverage_increases.size())
                 coverage_increases.at(i + 1UL).insert(current_input);
 
+            ++statistics.num_coverage_increased;
+
+            return;
+        }
+
+    for (std::size_t i = 0UL; i != coverage_failures.size(); ++i)
+        if (!coverage_failures.at(i).empty())
+        {
+            current_input = *coverage_failures.at(i).begin();
+            counter = (natural_32_bit)i + 1U;
+
+            coverage_failures.at(i).erase(coverage_failures.at(i).begin());
+            if (i + 1UL < coverage_failures.size())
+                coverage_failures.at(i + 1UL).insert(current_input);
+
+            ++statistics.num_coverage_increased;
+
             return;
         }
 
@@ -362,6 +379,7 @@ void  bitflip_analysis::search_for_current_input(branching_node* const  root)
                         processed_inputs.insert({ top.first->get_best_stdin(), 1U });
                         current_input = top.first->get_best_stdin();
                         counter = 1U;
+                        ++statistics.num_processed_inputs;
                         return;
                     }
                     else if (it->second <= min_count)
@@ -369,6 +387,7 @@ void  bitflip_analysis::search_for_current_input(branching_node* const  root)
                         ++it->second;
                         current_input = top.first->get_best_stdin();
                         counter = it->second;
+                        ++statistics.num_processed_inputs;
                         return;
                     }
                 }
