@@ -39,10 +39,19 @@ struct  bitflip_analysis
     performance_statistics const&  get_statistics() const { return statistics; }
 
 private:
-    branching_node*  search_for_current_input(branching_node* const  root);
 
-    bool  is_mutated_bit_index_valid() const;
-    bool  is_mutated_type_index_valid() const;
+    struct ValueChange
+    {
+        std::uint32_t  start_bit_index;
+        vecb  bits;
+    };
+
+    using BitFlips = std::unordered_set<std::uint32_t>;
+
+    branching_node*  search_for_current_input(branching_node* const  root);
+    void  generate_bitflips_regular();
+    void  generate_value_changes_regular();
+
     bool  generate_next_typed_value(vecb&  bits_ref);
 
     template<typename T, int N>
@@ -51,12 +60,8 @@ private:
     STATE  state;
     branching_node*  node_ptr;
     typed_input_ptr  current_input;
-    natural_32_bit  mutated_bit_index;
-    natural_32_bit  mutated_type_index;
-    natural_32_bit  mutated_value_index;
-    natural_32_bit  probed_bit_start_index;
-    natural_32_bit  probed_bit_end_index;
-    natural_32_bit  counter;
+    std::vector<BitFlips>  bit_flips;
+    std::vector<ValueChange>  value_changes;
     std::unordered_map<typed_input_ptr, natural_32_bit>  processed_inputs;
     random_generator_for_natural_32_bit  rnd_generator;
 
