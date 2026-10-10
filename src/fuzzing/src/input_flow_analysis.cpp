@@ -231,7 +231,7 @@ void input_flow_analysis::input_flow::do_ret()
                 sala::ExecState::Termination::ERROR,
                 "input_flow_analysis[extern_code]",
                 "Execution diverged from the expected path in the tree."
-                    " At path index " + std::to_string(path_index) + "/" + std::to_string(data().trace_size - 1U) + ": Unexpected location ID."
+                    " At path index " + std::to_string(path_index) + ": Unexpected location ID."
                     " [Expected: " + std::to_string(expected) +
                     ", obtained: " + std::to_string(obtained) + "]"
                 );
@@ -248,7 +248,7 @@ void input_flow_analysis::input_flow::do_ret()
                 sala::ExecState::Termination::ERROR,
                 "input_flow_analysis[extern_code]",
                 "Execution diverged from the expected path in the tree."
-                    " At path index " + std::to_string(path_index) + "/" + std::to_string(data().trace_size - 1U) + ": Unexpected direction taken."
+                    " At path index " + std::to_string(path_index) + ": Unexpected direction taken."
                     " [Expected: " + std::to_string(expected) +
                     ", obtained: " + obtained.str() + "]"
                     "[NOTE: location ID: " + std::to_string(loc) + "]"
@@ -347,7 +347,7 @@ void  input_flow_analysis::run(computation_io_data* const  data_ptr_, std::funct
         std::size_t const  divergence_index{ data().sensitive_bits.empty() ? 0ULL : data().sensitive_bits.size() - 1ULL };
         statistics.errors.insert(make_problem_message(state.report(
             (state.error_message().empty() ? state.current_location_message() : " ") +
-            "At path index " + std::to_string(divergence_index) + "/" + std::to_string(data().trace_size - 1UL) +
+            "At path index " + std::to_string(divergence_index) +
             ": Unexpected divergence from the path."
             )));
         ++statistics.num_failures;
