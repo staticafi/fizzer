@@ -337,7 +337,7 @@ void  bitflip_analysis::search_for_current_input(branching_node* const  root)
             if (i + 1UL < coverage_failures.size())
                 coverage_failures.at(i + 1UL).insert(current_input);
 
-            ++statistics.num_coverage_increased;
+            ++statistics.num_coverage_failures;
 
             return;
         }
@@ -348,8 +348,14 @@ void  bitflip_analysis::search_for_current_input(branching_node* const  root)
     else
     {
         min_count = processed_inputs.begin()->second;
-        for (auto it = std::next(processed_inputs.begin()); it != processed_inputs.end(); ++it)
-            min_count = std::min(min_count, it->second);
+        for (auto it = std::next(processed_inputs.begin()); it != processed_inputs.end(); )
+            if (it->first.unique())
+                it = processed_inputs.erase(it);
+            else
+            {
+                min_count = std::min(min_count, it->second);
+                ++it;
+            }
     }
 
     search_stack  stack{ root, rnd_generator };
