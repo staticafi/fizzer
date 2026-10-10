@@ -1380,7 +1380,7 @@ bool  fuzzer::generate_next_input(
             case LOCAL_SEARCH:
                 if (local_search.generate_next_input(stdin_bits, types, metadata))
                     return true;
-                if (!local_search.get_node()->has_unexplored_direction())
+                if (local_search.get_node()->has_unexplored_direction())
                     bitflip.on_coverage_failure(local_search.get_node()->get_best_stdin());
                 break;
 
