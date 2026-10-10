@@ -209,8 +209,11 @@ bitflip_analysis::bitflip_analysis()
     : state{ READY }
     , node_ptr{ nullptr }
     , current_input{ nullptr }
+    , counter{ 0U }
     , bit_flips{}
     , value_changes{}
+    , coverage_increases{}
+    , coverage_failures{}
     , processed_inputs{}
     , rnd_generator{}
     , statistics{}
@@ -222,17 +225,18 @@ void  bitflip_analysis::start(branching_node* const  root_node)
     ASSUMPTION(is_ready());
 
     current_input = nullptr;
-    node_ptr = search_for_current_input(root_node);
-    if (node_ptr == nullptr)
+    node_ptr = nullptr;
+    counter = 0U;
+
+    search_for_current_input(root_node);
+    if (current_input == nullptr)
         return;
-    current_input = node_ptr->get_best_stdin();
 
     state = BUSY;
 
     bit_flips.clear();
     value_changes.clear();
 
-    natural_32_bit const  counter{ processed_inputs.at(current_input) };
     if (counter < 2U)
     {
         generate_bit_flips_regular();
@@ -269,8 +273,6 @@ bool  bitflip_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  t
     if (!is_busy())
         return false;
 
-    INVARIANT(node_ptr != nullptr);
-
     if (!bit_flips.empty())
     {
         bits_ref = current_input->bits();
@@ -303,10 +305,35 @@ bool  bitflip_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  t
 }
 
 
-branching_node*  bitflip_analysis::search_for_current_input(branching_node* const  root)
+void  bitflip_analysis::on_coverage_increase_or_location_discovery(typed_input_ptr const  input)
+{
+    coverage_increases[0].insert(input);
+}
+
+
+void  bitflip_analysis::on_coverage_failure(typed_input_ptr const  input)
+{
+    //coverage_failures[0].insert(input);
+}
+
+
+void  bitflip_analysis::search_for_current_input(branching_node* const  root)
 {
     if (root == nullptr)
-        return  nullptr;
+        return;
+
+    for (std::size_t i = 0UL; i != coverage_increases.size(); ++i)
+        if (!coverage_increases.at(i).empty())
+        {
+            current_input = *coverage_increases.at(i).begin();
+            counter = (natural_32_bit)i + 1U;
+
+            coverage_increases.at(i).erase(coverage_increases.at(i).begin());
+            if (i + 1UL < coverage_increases.size())
+                coverage_increases.at(i + 1UL).insert(current_input);
+
+            return;
+        }
 
     natural_32_bit  min_count;
     if (processed_inputs.empty())
@@ -333,12 +360,16 @@ branching_node*  bitflip_analysis::search_for_current_input(branching_node* cons
                     if (it == processed_inputs.end())
                     {
                         processed_inputs.insert({ top.first->get_best_stdin(), 1U });
-                        return top.first;
+                        current_input = top.first->get_best_stdin();
+                        counter = 1U;
+                        return;
                     }
                     else if (it->second <= min_count)
                     {
                         ++it->second;
-                        return top.first;
+                        current_input = top.first->get_best_stdin();
+                        counter = it->second;
+                        return;
                     }
                 }
                 else
@@ -351,7 +382,6 @@ branching_node*  bitflip_analysis::search_for_current_input(branching_node* cons
         }
     }
     while (!stack.empty());
-    return  nullptr;
 }
 
 

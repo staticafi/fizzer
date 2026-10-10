@@ -1380,6 +1380,8 @@ bool  fuzzer::generate_next_input(
             case LOCAL_SEARCH:
                 if (local_search.generate_next_input(stdin_bits, types, metadata))
                     return true;
+                if (!local_search.get_node()->has_unexplored_direction())
+                    bitflip.on_coverage_failure(local_search.get_node()->get_best_stdin());
                 break;
 
             case BITFLIP:
@@ -1623,6 +1625,9 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
         case target_termination::ERROR_IN_DATA: ++statistics.data_errors_in_medium; break;
         default: break;
     }
+
+    if (!construction_props.covered_locations.empty() || construction_props.any_location_discovered)
+        bitflip.on_coverage_increase_or_location_discovery(current_input);
 
     switch (state)
     {

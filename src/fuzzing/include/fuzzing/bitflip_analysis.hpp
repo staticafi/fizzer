@@ -5,6 +5,8 @@
 #   include <fuzzing/branching_node.hpp>
 #   include <utility/random.hpp>
 #   include <unordered_map>
+#   include <unordered_set>
+#   include <array>
 
 namespace  fuzzing {
 
@@ -40,6 +42,9 @@ struct  bitflip_analysis
 
     bool  generate_next_input(vecb&  bits_ref, input_types_ptr&  types_ref, input_metadata_ptr&  metadata_ref);
 
+    void  on_coverage_increase_or_location_discovery(typed_input_ptr  input);
+    void  on_coverage_failure(typed_input_ptr  input);
+
     performance_statistics const&  get_statistics() const { return statistics; }
 
 private:
@@ -52,7 +57,9 @@ private:
 
     using BitFlips = std::unordered_set<std::uint32_t>;
 
-    branching_node*  search_for_current_input(branching_node* const  root);
+    using CoverageInputsArray = std::array<std::unordered_set<typed_input_ptr>, 10U>;
+
+    void  search_for_current_input(branching_node* const  root);
     void  generate_bit_flips_regular();
     void  generate_bit_flips_random();
     void  generate_value_changes_regular();
@@ -61,8 +68,11 @@ private:
     STATE  state;
     branching_node*  node_ptr;
     typed_input_ptr  current_input;
+    natural_32_bit  counter;
     std::vector<BitFlips>  bit_flips;
     std::vector<ValueChange>  value_changes;
+    CoverageInputsArray  coverage_increases;
+    CoverageInputsArray  coverage_failures;
     std::unordered_map<typed_input_ptr, natural_32_bit>  processed_inputs;
     random_generator_for_natural_32_bit  rnd_generator;
 
