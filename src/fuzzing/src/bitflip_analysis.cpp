@@ -313,7 +313,7 @@ void  bitflip_analysis::on_coverage_increase_or_location_discovery(typed_input_p
 
 void  bitflip_analysis::on_coverage_failure(typed_input_ptr const  input)
 {
-    //coverage_failures[0].insert(input);
+    coverage_failures[0].insert(input);
 }
 
 
