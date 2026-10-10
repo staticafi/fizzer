@@ -118,7 +118,17 @@ branching_node*  bitflip_analysis::search_for_current_input(branching_node* cons
 {
     if (root == nullptr)
         return  nullptr;
-    std::vector<branching_node*>  candidates;
+
+    natural_32_bit  min_count;
+    if (processed_inputs.empty())
+        min_count = 0U;
+    else
+    {
+        min_count = processed_inputs.begin()->second;
+        for (auto it = std::next(processed_inputs.begin()); it != processed_inputs.end(); ++it)
+            min_count = std::min(min_count, it->second);
+    }
+
     search_stack  stack{ root, rnd_generator };
     do
     {
@@ -128,41 +138,25 @@ branching_node*  bitflip_analysis::search_for_current_input(branching_node* cons
             case search_stack::command::GO_TO_FALSE_CHILD: stack.push_child(top.first, false); break;
             case search_stack::command::GO_TO_TRUE_CHILD: stack.push_child(top.first, true); break;
             case search_stack::command::TRY_SELECT_FOR_CURRENT_INPUT:
-                if (top.first->get_best_stdin() != nullptr && !top.first->get_best_stdin()->bits().empty()
-                    )// && !processed_inputs.contains(top.first->get_best_stdin().get()))
-                    //return top.first;
-                    candidates.push_back(top.first);
+                if (top.first->get_best_stdin() != nullptr && !top.first->get_best_stdin()->bits().empty())
+                {
+                    auto it = processed_inputs.find(top.first->get_best_stdin().get());
+                    if (it == processed_inputs.end())
+                    {
+                        processed_inputs.insert({ top.first->get_best_stdin().get(), 1U });
+                        return top.first;
+                    }
+                    else if (it->second <= min_count)
+                    {
+                        ++it->second;
+                        return top.first;
+                    }
+                }
                 break;
         }
     }
     while (!stack.empty());
-
-    if (candidates.empty())
-        return nullptr;
-
-    std::size_t  best_idx = 0UL;
-    auto  best_it = processed_inputs.find(candidates.at(best_idx)->get_best_stdin().get());
-    if (best_it != processed_inputs.end())
-        for (std::size_t  idx = 0UL; idx < candidates.size(); ++idx)
-        {
-            auto const it = processed_inputs.find(candidates.at(idx)->get_best_stdin().get());
-            if (it == processed_inputs.end())
-            {
-                best_idx = idx;
-                best_it = it;
-                break;
-            }
-            else if (it->second < best_it->second)
-            {
-                best_idx = idx;
-                best_it = it;
-            }
-        }
-    if (best_it == processed_inputs.end())
-        best_it = processed_inputs.insert({ candidates.at(best_idx)->get_best_stdin().get(), 0U }).first;
-    ++best_it->second;
-
-    return candidates.at(best_idx);
+    return  nullptr;
 }
 
 
@@ -177,8 +171,6 @@ void  bitflip_analysis::start(branching_node* const  root_node)
     current_input = node_ptr->get_best_stdin();
 
     state = BUSY;
-
-    //processed_inputs.insert(current_input.get());
 
     mutated_bit_index = 0;
     mutated_type_index = 0;
@@ -213,9 +205,7 @@ bool  bitflip_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  t
     if (is_mutated_bit_index_valid())
     {
         bits_ref = current_input->bits();
-        natural_32_bit const idx = get_random_natural_32_bit_in_range(0U, (natural_32_bit)current_input->bits().size()  - 1U, rnd_generator);
-        bits_ref.at(idx) = !bits_ref.at(idx);
-        //bits_ref.at(mutated_bit_index) = !bits_ref.at(mutated_bit_index);
+        bits_ref.at(mutated_bit_index) = !bits_ref.at(mutated_bit_index);
 
         probed_bit_start_index = 8 * (mutated_bit_index / 8);
         probed_bit_end_index = probed_bit_start_index + 8;
