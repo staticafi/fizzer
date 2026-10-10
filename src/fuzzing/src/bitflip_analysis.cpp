@@ -1,5 +1,6 @@
 #include <fuzzing/bitflip_analysis.hpp>
 #include <fuzzing/progress_recorder.hpp>
+#include <utility/std_pair_hash.hpp>
 #include <utility/assumptions.hpp>
 #include <utility/invariants.hpp>
 #include <utility/timeprof.hpp>
@@ -211,7 +212,7 @@ bitflip_analysis::bitflip_analysis()
     , bit_flips{}
     , value_changes{}
     , processed_inputs{}
-    , rnd_generator{ 1U }
+    , rnd_generator{}
     , statistics{}
 {}
 
@@ -231,8 +232,17 @@ void  bitflip_analysis::start(branching_node* const  root_node)
     bit_flips.clear();
     value_changes.clear();
 
-    generate_bitflips_regular();
-    generate_value_changes_regular();
+    natural_32_bit const  counter{ processed_inputs.at(current_input) };
+    if (counter < 2U)
+    {
+        generate_bit_flips_regular();
+        generate_value_changes_regular();
+    }
+    else
+    {
+        generate_bit_flips_random();
+        generate_value_changes_random();
+    }
 
     ++statistics.start_calls;
     statistics.max_bits = std::max(statistics.max_bits, current_input->bits().size());
@@ -345,7 +355,7 @@ branching_node*  bitflip_analysis::search_for_current_input(branching_node* cons
 }
 
 
-void  bitflip_analysis::generate_bitflips_regular()
+void  bitflip_analysis::generate_bit_flips_regular()
 {
     natural_32_bit  mutated_bit_index{ 0U };
     natural_32_bit  counter{ 0U };
@@ -354,6 +364,23 @@ void  bitflip_analysis::generate_bitflips_regular()
         bit_flips.push_back({ mutated_bit_index });
         compute_next_index(counter, mutated_bit_index, current_input->bits().size(), MAX_BIT_MUTATIONS);
     }
+    statistics.num_bitflips_regular += bit_flips.size();
+}
+
+
+void  bitflip_analysis::generate_bit_flips_random()
+{
+    natural_32_bit num_flips{ 1 };
+    while (bit_flips.size() < MAX_BIT_MUTATIONS)
+    {
+        bit_flips.push_back({});
+        while ((natural_32_bit)bit_flips.back().size() != num_flips)
+            bit_flips.back().insert(get_random_natural_32_bit_in_range(0U, (natural_32_bit)current_input->bits().size() - 1U, rnd_generator));
+        ++num_flips;
+        if (num_flips > node_ptr->get_num_stdin_bits() / 2U)
+            num_flips = 1U;
+    }
+    statistics.num_bitflips_random += bit_flips.size();
 }
 
 
@@ -374,7 +401,31 @@ void  bitflip_analysis::generate_value_changes_regular()
                     });
         compute_next_index(counter, mutated_type_index, current_input->types()->size(), MAX_TYPE_MUTATIONS);
     }
+    statistics.num_value_changes_regular += value_changes.size();
+}
 
+
+void  bitflip_analysis::generate_value_changes_random()
+{
+    natural_32_bit const  max_type_idx{ (natural_32_bit)current_input->types()->size() - 1U };
+    natural_32_bit const  max_selected{ std::max(std::min((max_type_idx + 1U) / 2U, 8U), 1U) };
+
+    std::unordered_set<std::pair<natural_32_bit, vecb const*> >  selected;
+    for (natural_32_bit i = 0; i < MAX_TYPE_MUTATIONS; ++i)
+    {
+        natural_32_bit const  type_idx = get_random_natural_32_bit_in_range(0U, max_type_idx, rnd_generator);
+        auto it = SPECIAL_VALUES.find(current_input->types()->at(type_idx));
+        if (it != SPECIAL_VALUES.end())
+        {
+            natural_32_bit const  value_idx = get_random_natural_32_bit_in_range(0U, (natural_32_bit)it->second.size() - 1U, rnd_generator);
+            selected.insert({ type_idx, &it->second.at(value_idx) });
+        }
+    }
+
+    for (auto [type_idx, bits_ptr] : selected)
+        value_changes.push_back({ current_input->type_start_bit_index(type_idx), *bits_ptr });
+
+    statistics.num_value_changes_random += value_changes.size();
 }
 
 

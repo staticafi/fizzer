@@ -22,6 +22,10 @@ struct  bitflip_analysis
         std::size_t  generated_inputs{ 0 };
         std::size_t  max_bits{ 0 };
         std::size_t  start_calls{ 0 };
+        std::size_t  num_bitflips_regular{ 0 };
+        std::size_t  num_value_changes_regular{ 0 };
+        std::size_t  num_bitflips_random{ 0 };
+        std::size_t  num_value_changes_random{ 0 };
     };
 
     bitflip_analysis();
@@ -49,13 +53,10 @@ private:
     using BitFlips = std::unordered_set<std::uint32_t>;
 
     branching_node*  search_for_current_input(branching_node* const  root);
-    void  generate_bitflips_regular();
+    void  generate_bit_flips_regular();
+    void  generate_bit_flips_random();
     void  generate_value_changes_regular();
-
-    bool  generate_next_typed_value(vecb&  bits_ref);
-
-    template<typename T, int N>
-    bool  write_bits(vecb&  bits_ref, T const  (&values)[N]);
+    void  generate_value_changes_random();
 
     STATE  state;
     branching_node*  node_ptr;

@@ -206,6 +206,10 @@ void  print_fuzzing_outcomes(std::ostream&  ostr, fuzzing_outcomes const&  resul
     ostr << shift << "\"bitflip_analysis\": {\n"
          << shift << shift << "\"generated_inputs\": " << results.bitflip_statistics.generated_inputs << ",\n"
          << shift << shift << "\"max_bits\": " << results.bitflip_statistics.max_bits << ",\n"
+         << shift << shift << "\"num_bitflips_regular\": " << results.bitflip_statistics.num_bitflips_regular << ",\n"
+         << shift << shift << "\"num_bitflips_random\": " << results.bitflip_statistics.num_bitflips_random << ",\n"
+         << shift << shift << "\"num_value_changes_regular\": " << results.bitflip_statistics.num_value_changes_regular << ",\n"
+         << shift << shift << "\"num_value_changes_random\": " << results.bitflip_statistics.num_value_changes_random << ",\n"
          << shift << shift << "\"start_calls\": " << results.bitflip_statistics.start_calls << "\n"
          << shift << "},\n"
          ;
