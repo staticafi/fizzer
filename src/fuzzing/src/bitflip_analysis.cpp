@@ -96,7 +96,7 @@ bitflip_analysis::bitflip_analysis()
     , probed_bit_end_index{ 0U }
     , counter{ 0U }
     , processed_inputs{}
-    , rnd_generator{}
+    , rnd_generator{ 1U }
     , statistics{}
 {}
 
@@ -140,10 +140,10 @@ branching_node*  bitflip_analysis::search_for_current_input(branching_node* cons
             case search_stack::command::TRY_SELECT_FOR_CURRENT_INPUT:
                 if (top.first->get_best_stdin() != nullptr && !top.first->get_best_stdin()->bits().empty())
                 {
-                    auto it = processed_inputs.find(top.first->get_best_stdin().get());
+                    auto it = processed_inputs.find(top.first->get_best_stdin());
                     if (it == processed_inputs.end())
                     {
-                        processed_inputs.insert({ top.first->get_best_stdin().get(), 1U });
+                        processed_inputs.insert({ top.first->get_best_stdin(), 1U });
                         return top.first;
                     }
                     else if (it->second <= min_count)
@@ -151,6 +151,12 @@ branching_node*  bitflip_analysis::search_for_current_input(branching_node* cons
                         ++it->second;
                         return top.first;
                     }
+                }
+                else
+                {
+                    auto it = processed_inputs.find(top.first->get_best_stdin());
+                    if (it == processed_inputs.end() && it->first.unique())
+                        processed_inputs.erase(it);
                 }
                 break;
         }
