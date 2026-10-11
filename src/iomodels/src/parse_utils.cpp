@@ -160,4 +160,18 @@ bool  append_typed_bytes(connection::medium&  dst, com::data_type const  type, v
 }
 
 
+extern  natural_32_bit  cmdline_metadata_record_bytes_count(natural_8_bit const*  first_byte_ptr);
+extern  natural_32_bit  simple_metadata_record_bytes_count(natural_8_bit const*  first_byte_ptr);
+
+natural_32_bit  metadata_record_bytes_count(natural_8_bit const*  first_byte_ptr)
+{
+    switch (com::from_record_id(*first_byte_ptr))
+    {
+        case com::record_type::CMDLINE: return cmdline_metadata_record_bytes_count(first_byte_ptr + 1UL) + 1U;
+        case com::record_type::SIMPLE: return simple_metadata_record_bytes_count(first_byte_ptr + 1UL) + 1U;
+        default: UNREACHABLE(); return 0U;
+    }
+}
+
+
 }

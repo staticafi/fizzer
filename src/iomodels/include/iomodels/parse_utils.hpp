@@ -3,6 +3,7 @@
 
 #   include <com/execution_results.hpp>
 #   include <com/record_type.hpp>
+#   include <utility/basic_numeric_types.hpp>
 
 namespace  connection { struct medium; }
 
@@ -64,6 +65,12 @@ bool  append_metadata(connection::medium&  dst, void*  data, natural_64_bit  cou
 template<typename T> inline bool  append_metadata(connection::medium&  dst, T value) { return append_metadata(dst, &value, sizeof(value)); }
 inline bool  append_metadata(connection::medium&  dst, com::record_type const  rec_type) { return append_metadata(dst, com::to_record_id(rec_type)); }
 bool  append_typed_bytes(connection::medium&  dst, com::data_type  type, void*  bytes);
+
+/////////////////////////////////////////////////////////////////////////////////////
+// Miscellaneous utility functions.
+
+// Accepts a pointer to the first byte of metadata record (typically in an array of all metadata records).
+natural_32_bit  metadata_record_bytes_count(natural_8_bit const*  first_byte_ptr);
 
 
 }
