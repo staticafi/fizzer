@@ -26,12 +26,20 @@ struct  bitflip_analysis
         std::size_t  start_calls{ 0 };
         std::size_t  num_coverage_increased{ 0 };
         std::size_t  num_coverage_failures{ 0 };
-        std::size_t  num_crossovers{ 0 };
         std::size_t  num_processed_inputs{ 0 };
         std::size_t  num_bitflips_regular{ 0 };
         std::size_t  num_value_changes_regular{ 0 };
         std::size_t  num_bitflips_random{ 0 };
         std::size_t  num_value_changes_random{ 0 };
+        std::size_t  num_crossovers{ 0 };
+        std::size_t  successes_coverage_increased{ 0 };
+        std::size_t  successes_coverage_failures{ 0 };
+        std::size_t  successes_processed_inputs{ 0 };
+        std::size_t  successes_bitflips_regular{ 0 };
+        std::size_t  successes_value_changes_regular{ 0 };
+        std::size_t  successes_bitflips_random{ 0 };
+        std::size_t  successes_value_changes_random{ 0 };
+        std::size_t  successes_crossovers{ 0 };
     };
 
     bitflip_analysis();
@@ -45,6 +53,7 @@ struct  bitflip_analysis
     void  stop();
 
     bool  generate_next_input(vecb&  bits_ref, input_types_ptr&  types_ref, input_metadata_ptr&  metadata_ref);
+    void  process_execution_results(bool  was_coverage_increased, bool  was_location_discovered);
 
     void  on_coverage_increase_or_location_discovery(typed_input_ptr  input);
     void  on_coverage_failure(typed_input_ptr  input);
@@ -60,6 +69,14 @@ private:
     };
 
     using BitFlips = std::unordered_set<std::uint32_t>;
+
+    struct statistics_update_markers
+    {
+        enum struct SELECTION { NONE, COVERAGE_INCREASED, COVERAGE_FAILURES, PROCESSED_INPUTS };
+        enum struct MUTATOR { NONE, BITFLIPS, VALUE_CHANGES, CROSSOVERS };
+        SELECTION  selection{ SELECTION::NONE };
+        MUTATOR  mutator{ MUTATOR::NONE };
+    };
 
     void  search_for_current_input(branching_node* const  root);
     void  generate_bit_flips_regular();
@@ -81,6 +98,7 @@ private:
     random_generator_for_natural_32_bit  rnd_generator;
 
     performance_statistics  statistics;
+    statistics_update_markers  statistics_markers;
 };
 
 

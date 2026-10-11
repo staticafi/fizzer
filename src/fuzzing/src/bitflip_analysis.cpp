@@ -5,13 +5,14 @@
 #include <utility/invariants.hpp>
 #include <utility/timeprof.hpp>
 #include <vector>
+#include <algorithm>
 
 namespace  fuzzing {
 
 
-static natural_32_bit constexpr  MAX_BIT_MUTATIONS = 8U * 16U;
+static natural_32_bit constexpr  MAX_BIT_MUTATIONS = 128U;
 static natural_32_bit constexpr  MAX_TYPE_MUTATIONS = 8U;
-static natural_32_bit constexpr  MAX_CROSSOVERS = 8U * 8U;
+static natural_32_bit constexpr  MAX_CROSSOVERS = 32U;
 
 
 template<typename T, int N>
@@ -138,10 +139,97 @@ static void  compute_crossover(
         typed_input_ptr const  input_2,
         vecb&  bits_ref,
         input_types_ptr&  types_ref,
-        input_metadata_ptr&  metadata_ref
+        input_metadata_ptr&  metadata_ref,
+        random_generator_for_natural_32_bit&  rnd_generator
         )
 {
-    // TODO!
+    natural_32_bit const  num_split_points{
+        std::min(
+            (natural_32_bit)std::min(input_1->types()->size(), input_2->types()->size()),
+            get_random_natural_32_bit_in_range(1U, 10U, rnd_generator)
+            )
+        };
+
+    auto const& generate_split_points = [num_split_points, &rnd_generator](typed_input_ptr const  input) -> std::vector<natural_32_bit>
+    {
+        std::unordered_set<natural_32_bit>  split_points_set{ (natural_32_bit)input->types()->size() - 1U };
+        {
+            std::vector<natural_32_bit>  indices;
+            for (natural_32_bit i = 0U; i < (natural_32_bit)input->types()->size() - 1U; ++i)
+                indices.push_back(i);
+            while ((natural_32_bit)split_points_set.size() < num_split_points)
+            {
+                natural_32_bit const index{ get_random_natural_32_bit_in_range(0U, (natural_32_bit)indices.size() - 1U, rnd_generator) };
+                split_points_set.insert(indices.at(index));
+                indices.at(index) = indices.back();
+                indices.pop_back();
+            }
+        }
+        std::vector<natural_32_bit>  split_points;
+        for (float_32_bit sp : split_points_set)
+            split_points.push_back(sp);
+        std::sort(split_points.begin(), split_points.end());
+        return std::move(split_points);
+    };
+
+    std::vector<natural_32_bit> const  split_points_1{ generate_split_points(input_1) };
+    std::vector<natural_32_bit> const  split_points_2{ generate_split_points(input_2) };
+
+    INVARIANT(
+        split_points_1.size() == split_points_2.size() &&
+        (natural_32_bit)split_points_1.size() == num_split_points &&
+        split_points_1.back() == (natural_32_bit)input_1->types()->size() - 1U &&
+        split_points_2.back() == (natural_32_bit)input_2->types()->size() - 1U
+        );
+
+    bits_ref.clear();
+    types_ref = make_shared_wrapper<input_types>();
+    metadata_ref = make_shared_wrapper<input_metadata>();
+
+    auto const&  store_input = [&bits_ref, &types_ref, &metadata_ref](
+            typed_input_ptr const  input,
+            natural_32_bit const  start_type_index,
+            natural_32_bit const  end_type_index
+            )
+    {
+        for (natural_32_bit  type_index = start_type_index; type_index <= end_type_index; ++type_index)
+        {
+            types_ref->push_back(input->types()->at(type_index));
+            for (natural_32_bit i = input->type_start_bit_index(type_index), e = input->type_end_bit_index(type_index); i <= e; ++i)
+                bits_ref.push_back(input->bits().at(i));
+            for (natural_32_bit i = input->type_start_metadata_byte_index(type_index), e = input->type_end_metadata_byte_index(type_index); i <= e; ++i)
+                metadata_ref->push_back(input->meta()->at(i));
+        }
+    };
+
+    for (natural_32_bit i = 0U, j = 0U, k = 0U; k != num_split_points; ++k)
+    {
+        natural_32_bit const  I = split_points_1.at(k);
+        natural_32_bit const  J = split_points_2.at(k);
+        INVARIANT(i <= I && j <= J);
+
+        switch (get_random_natural_32_bit_in_range(0U, 3U, rnd_generator))
+        {
+            case 0U:
+                store_input(input_1, i, I);
+                break;
+            case 1U:
+                store_input(input_2, j, J);
+                break;
+            case 2U:
+                store_input(input_1, i, I);
+                store_input(input_2, j, J);
+                break;
+            case 3U:
+                store_input(input_2, j, J);
+                store_input(input_1, i, I);
+                break;
+            default: UNREACHABLE(); break;
+        }
+
+        i = I + 1;
+        j = J + 1;
+    }
 }
 
 
@@ -221,6 +309,7 @@ bitflip_analysis::bitflip_analysis()
     , processed_inputs{}
     , rnd_generator{}
     , statistics{}
+    , statistics_markers{}
 {}
 
 
@@ -231,6 +320,8 @@ void  bitflip_analysis::start(branching_node* const  root_node)
     current_input = nullptr;
     node_ptr = nullptr;
     counter = 0U;
+
+    statistics_markers = {};
 
     search_for_current_input(root_node);
     if (current_input == nullptr)
@@ -253,7 +344,7 @@ void  bitflip_analysis::start(branching_node* const  root_node)
         generate_value_changes_random();
     }
 
-    // generate_crossovers();
+    generate_crossovers();
 
     ++statistics.start_calls;
     statistics.max_bits = std::max(statistics.max_bits, current_input->bits().size());
@@ -286,6 +377,7 @@ bool  bitflip_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  t
         for (auto const& i : bit_flips.back())
             bits_ref.at(i) = !bits_ref.at(i);
         bit_flips.pop_back();
+        statistics_markers.mutator = statistics_update_markers::MUTATOR::BITFLIPS;
     }
     else if (!value_changes.empty())
     {
@@ -296,11 +388,13 @@ bool  bitflip_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  t
                 std::next(bits_ref.begin(), value_changes.back().start_bit_index)
                 );
         value_changes.pop_back();
+        statistics_markers.mutator = statistics_update_markers::MUTATOR::VALUE_CHANGES;
     }
     else if (!crossover_others.empty())
     {
-        compute_crossover(current_input, crossover_others.back(), bits_ref, types_ref, metadata_ref);
+        compute_crossover(current_input, crossover_others.back(), bits_ref, types_ref, metadata_ref, rnd_generator);
         crossover_others.pop_back();
+        statistics_markers.mutator = statistics_update_markers::MUTATOR::CROSSOVERS;
         return true;
     }
     else
@@ -318,15 +412,46 @@ bool  bitflip_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  t
 }
 
 
+void  bitflip_analysis::process_execution_results(bool const  was_coverage_increased, bool const  was_location_discovered)
+{
+    if (!was_coverage_increased && !was_location_discovered)
+        return;
+
+    switch (statistics_markers.selection)
+    {
+        case statistics_update_markers::SELECTION::COVERAGE_INCREASED: ++statistics.successes_coverage_increased; break;
+        case statistics_update_markers::SELECTION::COVERAGE_FAILURES: ++statistics.successes_coverage_failures; break;
+        case statistics_update_markers::SELECTION::PROCESSED_INPUTS: ++statistics.successes_processed_inputs; break;
+        default: UNREACHABLE(); break;
+    }
+    switch (statistics_markers.mutator)
+    {
+        case statistics_update_markers::MUTATOR::BITFLIPS:
+            if (counter < 2U) ++statistics.successes_bitflips_regular; else ++statistics.successes_bitflips_random;
+            break;
+        case statistics_update_markers::MUTATOR::VALUE_CHANGES:
+            if (counter < 2U) ++statistics.successes_value_changes_regular; else ++statistics.successes_value_changes_random;
+            break;
+        case statistics_update_markers::MUTATOR::CROSSOVERS:
+            ++statistics.successes_crossovers;
+            break;
+        default: UNREACHABLE(); break;
+    }
+}
+
+
 void  bitflip_analysis::on_coverage_increase_or_location_discovery(typed_input_ptr const  input)
 {
-    coverage_increases[0].insert(input);
+    if (!input->types()->empty())
+        coverage_increases[0].insert(input);
 }
 
 
 void  bitflip_analysis::on_coverage_failure(typed_input_ptr const  input)
 {
-    // coverage_failures[0].insert(input); // Mutating these is not effective according to experiments.
+    // Commented, because mutating these inputs is not effective according to experiments.
+    // if (!input->types()->empty())
+    //     coverage_failures[0].insert(input);
 }
 
 
@@ -346,6 +471,7 @@ void  bitflip_analysis::search_for_current_input(branching_node* const  root)
                 coverage_increases.at(i + 1UL).insert(current_input);
 
             ++statistics.num_coverage_increased;
+            statistics_markers.selection = statistics_update_markers::SELECTION::COVERAGE_INCREASED;
 
             return;
         }
@@ -361,6 +487,7 @@ void  bitflip_analysis::search_for_current_input(branching_node* const  root)
                 coverage_failures.at(i + 1UL).insert(current_input);
 
             ++statistics.num_coverage_failures;
+            statistics_markers.selection = statistics_update_markers::SELECTION::COVERAGE_FAILURES;
 
             return;
         }
@@ -399,6 +526,7 @@ void  bitflip_analysis::search_for_current_input(branching_node* const  root)
                         current_input = top.first->get_best_stdin();
                         counter = 1U;
                         ++statistics.num_processed_inputs;
+                        statistics_markers.selection = statistics_update_markers::SELECTION::PROCESSED_INPUTS;
                         return;
                     }
                     else if (it->second <= min_count)
@@ -407,6 +535,7 @@ void  bitflip_analysis::search_for_current_input(branching_node* const  root)
                         current_input = top.first->get_best_stdin();
                         counter = it->second;
                         ++statistics.num_processed_inputs;
+                        statistics_markers.selection = statistics_update_markers::SELECTION::PROCESSED_INPUTS;
                         return;
                     }
                 }
@@ -503,7 +632,8 @@ void  bitflip_analysis::generate_crossovers()
     std::vector<typed_input_ptr>  others;
     for (std::size_t i = 0UL; i != coverage_increases.size(); ++i)
         for (typed_input_ptr input : coverage_increases.at(i))
-            others.push_back(input);
+            if (input != current_input)
+                others.push_back(input);
     natural_32_bit const  max_others = std::min((natural_32_bit)others.size(), MAX_CROSSOVERS);
     while ((natural_32_bit)crossover_others.size() < max_others)
     {

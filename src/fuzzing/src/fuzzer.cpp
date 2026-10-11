@@ -1657,6 +1657,7 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
 
         case BITFLIP:
             INVARIANT(bitflip.is_busy());
+            bitflip.process_execution_results(!construction_props.covered_locations.empty(), construction_props.any_location_discovered);
             recorder().on_execution_results_available(test, construction_props.leaf);
             break;
 
