@@ -11,6 +11,7 @@ namespace  fuzzing {
 
 static natural_32_bit constexpr  MAX_BIT_MUTATIONS = 8U * 16U;
 static natural_32_bit constexpr  MAX_TYPE_MUTATIONS = 8U;
+static natural_32_bit constexpr  MAX_CROSSOVERS = 8U * 8U;
 
 
 template<typename T, int N>
@@ -132,6 +133,18 @@ static std::unordered_map<data_type, std::vector<vecb> > const  SPECIAL_VALUES =
 }();
 
 
+static void  compute_crossover(
+        typed_input_ptr const  input_1,
+        typed_input_ptr const  input_2,
+        vecb&  bits_ref,
+        input_types_ptr&  types_ref,
+        input_metadata_ptr&  metadata_ref
+        )
+{
+    // TODO!
+}
+
+
 struct search_stack
 {
     enum struct command : natural_8_bit {
@@ -202,6 +215,7 @@ bitflip_analysis::bitflip_analysis()
     , counter{ 0U }
     , bit_flips{}
     , value_changes{}
+    , crossover_others{}
     , coverage_increases{}
     , coverage_failures{}
     , processed_inputs{}
@@ -226,6 +240,7 @@ void  bitflip_analysis::start(branching_node* const  root_node)
 
     bit_flips.clear();
     value_changes.clear();
+    crossover_others.clear();
 
     if (counter < 2U)
     {
@@ -237,6 +252,8 @@ void  bitflip_analysis::start(branching_node* const  root_node)
         generate_bit_flips_random();
         generate_value_changes_random();
     }
+
+    // generate_crossovers();
 
     ++statistics.start_calls;
     statistics.max_bits = std::max(statistics.max_bits, current_input->bits().size());
@@ -279,6 +296,12 @@ bool  bitflip_analysis::generate_next_input(vecb&  bits_ref, input_types_ptr&  t
                 std::next(bits_ref.begin(), value_changes.back().start_bit_index)
                 );
         value_changes.pop_back();
+    }
+    else if (!crossover_others.empty())
+    {
+        compute_crossover(current_input, crossover_others.back(), bits_ref, types_ref, metadata_ref);
+        crossover_others.pop_back();
+        return true;
     }
     else
     {
@@ -472,6 +495,24 @@ void  bitflip_analysis::generate_value_changes_random()
         value_changes.push_back({ current_input->type_start_bit_index(type_idx), *bits_ptr });
 
     statistics.num_value_changes_random += value_changes.size();
+}
+
+
+void  bitflip_analysis::generate_crossovers()
+{
+    std::vector<typed_input_ptr>  others;
+    for (std::size_t i = 0UL; i != coverage_increases.size(); ++i)
+        for (typed_input_ptr input : coverage_increases.at(i))
+            others.push_back(input);
+    natural_32_bit const  max_others = std::min((natural_32_bit)others.size(), MAX_CROSSOVERS);
+    while ((natural_32_bit)crossover_others.size() < max_others)
+    {
+        natural_32_bit const  idx = get_random_natural_32_bit_in_range(0U, (natural_32_bit)others.size() - 1U, rnd_generator);
+        crossover_others.push_back(others.at(idx));
+        others.at(idx) = others.back();
+        others.pop_back();
+    }
+    statistics.num_crossovers += crossover_others.size();
 }
 
 

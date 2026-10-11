@@ -26,6 +26,7 @@ struct  bitflip_analysis
         std::size_t  start_calls{ 0 };
         std::size_t  num_coverage_increased{ 0 };
         std::size_t  num_coverage_failures{ 0 };
+        std::size_t  num_crossovers{ 0 };
         std::size_t  num_processed_inputs{ 0 };
         std::size_t  num_bitflips_regular{ 0 };
         std::size_t  num_value_changes_regular{ 0 };
@@ -65,6 +66,7 @@ private:
     void  generate_bit_flips_random();
     void  generate_value_changes_regular();
     void  generate_value_changes_random();
+    void  generate_crossovers();
 
     STATE  state;
     branching_node*  node_ptr;
@@ -72,6 +74,7 @@ private:
     natural_32_bit  counter;
     std::vector<BitFlips>  bit_flips;
     std::vector<ValueChange>  value_changes;
+    std::vector<typed_input_ptr>  crossover_others;
     std::array<std::unordered_set<typed_input_ptr>, 8U>  coverage_increases;
     std::array<std::unordered_set<typed_input_ptr>, 8U>  coverage_failures;
     std::unordered_map<typed_input_ptr, natural_32_bit>  processed_inputs;
