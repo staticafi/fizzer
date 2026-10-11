@@ -176,8 +176,8 @@ com::target_termination  cmdline::on_char(char* const  c, connection::medium*  d
 natural_32_bit  cmdline_metadata_record_bytes_count(natural_8_bit const*  first_byte_ptr)
 {
     return com::from_type_id(*first_byte_ptr) == com::data_type::SINT8 ?
-        2U : // 1 byte for the data type (com::data_type) ID and actual byte (char) in an argv line.
-        1U ; // 1 byte for the data type (com::data_type) ID; corresponds to argc.
+        1U : // 1 byte (char) in an argv line.
+        0U ; // No data related to argc.
 }
 
 
