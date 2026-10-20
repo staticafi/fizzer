@@ -232,6 +232,7 @@ void  print_fuzzing_outcomes(std::ostream&  ostr, fuzzing_outcomes const&  resul
          << shift << shift << "\"nodes_created\": " << results.fuzzer_statistics.nodes_created << ",\n"
          << shift << shift << "\"nodes_destroyed\": " << results.fuzzer_statistics.nodes_destroyed << ",\n"
          << shift << shift << "\"max_leaf_nodes\": " << results.fuzzer_statistics.max_leaf_nodes << ",\n"
+         << shift << shift << "\"max_tree_nodes\": " << results.fuzzer_statistics.max_tree_nodes << ",\n"
          << shift << shift << "\"max_input_width\": " << results.fuzzer_statistics.max_input_width << ",\n"
          << shift << shift << "\"longest_branch\": " << results.fuzzer_statistics.longest_branch << ",\n"
          << shift << shift << "\"crashes\": " << results.fuzzer_statistics.crashes << ",\n"

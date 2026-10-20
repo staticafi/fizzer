@@ -44,6 +44,8 @@ struct  fuzzer final
         std::size_t  nodes_created{ 0 };
         std::size_t  nodes_destroyed{ 0 };
         std::size_t  max_leaf_nodes{ 0 };
+        std::size_t  num_tree_nodes{ 0 };
+        std::size_t  max_tree_nodes{ 0 };
         std::size_t  max_input_width{ 0 };
         std::size_t  longest_branch{ 0 };
         std::size_t  crashes{ 0 };

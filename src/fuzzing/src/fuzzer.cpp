@@ -1469,6 +1469,8 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
             construction_props.diverging_node = entry_branching;
 
             ++statistics.nodes_created;
+            ++statistics.num_tree_nodes;
+            statistics.max_tree_nodes = std::max(statistics.max_tree_nodes, statistics.num_tree_nodes);
         }
 
         construction_props.leaf = entry_branching;
@@ -1572,6 +1574,8 @@ bool  fuzzer::process_execution_results(test_suite_item&  test, execution_result
                 });
 
                 ++statistics.nodes_created;
+                ++statistics.num_tree_nodes;
+                statistics.max_tree_nodes = std::max(statistics.max_tree_nodes, statistics.num_tree_nodes);
 
                 if (construction_props.diverging_node == nullptr)
                     construction_props.diverging_node = construction_props.leaf->successor(info.direction).pointer;
@@ -2123,6 +2127,7 @@ void  fuzzer::remove_leaf_branching_node(branching_node*  node)
         delete node;
 
         ++statistics.nodes_destroyed;
+        --statistics.num_tree_nodes;
 
         if (pred == nullptr)
         {
