@@ -517,33 +517,35 @@ void  bitflip_analysis::search_for_current_input(branching_node* const  root)
             case search_stack::command::GO_TO_FALSE_CHILD: stack.push_child(top.first, false); break;
             case search_stack::command::GO_TO_TRUE_CHILD: stack.push_child(top.first, true); break;
             case search_stack::command::TRY_SELECT_FOR_CURRENT_INPUT:
-                if (top.first->get_best_stdin() != nullptr && !top.first->get_best_stdin()->bits().empty())
+                if (top.first->get_best_stdin() != nullptr)
                 {
-                    auto it = processed_inputs.find(top.first->get_best_stdin());
-                    if (it == processed_inputs.end())
+                    auto const it = processed_inputs.find(top.first->get_best_stdin());
+                    if (!top.first->get_best_stdin()->bits().empty())
                     {
-                        processed_inputs.insert({ top.first->get_best_stdin(), 1U });
-                        current_input = top.first->get_best_stdin();
-                        counter = 1U;
-                        ++statistics.num_processed_inputs;
-                        statistics_markers.selection = statistics_update_markers::SELECTION::PROCESSED_INPUTS;
-                        return;
+                        if (it == processed_inputs.end())
+                        {
+                            processed_inputs.insert({ top.first->get_best_stdin(), 1U });
+                            current_input = top.first->get_best_stdin();
+                            counter = 1U;
+                            ++statistics.num_processed_inputs;
+                            statistics_markers.selection = statistics_update_markers::SELECTION::PROCESSED_INPUTS;
+                            return;
+                        }
+                        else if (it->second <= min_count)
+                        {
+                            ++it->second;
+                            current_input = top.first->get_best_stdin();
+                            counter = it->second;
+                            ++statistics.num_processed_inputs;
+                            statistics_markers.selection = statistics_update_markers::SELECTION::PROCESSED_INPUTS;
+                            return;
+                        }
                     }
-                    else if (it->second <= min_count)
+                    else
                     {
-                        ++it->second;
-                        current_input = top.first->get_best_stdin();
-                        counter = it->second;
-                        ++statistics.num_processed_inputs;
-                        statistics_markers.selection = statistics_update_markers::SELECTION::PROCESSED_INPUTS;
-                        return;
+                        if (it != processed_inputs.end() && it->first.unique())
+                            processed_inputs.erase(it);
                     }
-                }
-                else
-                {
-                    auto it = processed_inputs.find(top.first->get_best_stdin());
-                    if (it == processed_inputs.end() && it->first.unique())
-                        processed_inputs.erase(it);
                 }
                 break;
         }
