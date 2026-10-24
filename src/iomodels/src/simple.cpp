@@ -99,10 +99,10 @@ com::target_termination  simple::on_bytes_requested(natural_8_bit* const  ptr, c
 }
 
 
-// Accepts a pointer to the first byte of metadata (right after the record type byte, which is assumed to be SIMPLE).
-natural_32_bit  simple_metadata_record_bytes_count(natural_8_bit const*  first_byte_ptr)
+// Accepts a pointer to the first byte of the considered metadata record and the type of actual data (the metadata are related to).
+natural_32_bit  simple_metadata_record_bytes_count(natural_8_bit const*, com::data_type)
 {
-    return 0U; // There are no data.
+    return 1U; // Just the leading byte encoding com::record_type::SIMPLE.
 }
 
 

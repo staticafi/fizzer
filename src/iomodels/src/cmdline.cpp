@@ -172,12 +172,18 @@ com::target_termination  cmdline::on_char(char* const  c, connection::medium*  d
 }
 
 
-// Accepts a pointer to the first byte of metadata (right after the record type byte, which is assumed to be CMDLINE).
-natural_32_bit  cmdline_metadata_record_bytes_count(natural_8_bit const*  first_byte_ptr)
+// Accepts a pointer to the first byte of the considered metadata record and the type of actual data (the metadata are related to).
+natural_32_bit  cmdline_metadata_record_bytes_count(natural_8_bit const*  first_byte_ptr, com::data_type const  type)
 {
-    return com::from_type_id(*first_byte_ptr) == com::data_type::SINT8 ?
-        1U : // 1 byte (char) in an argv line.
-        0U ; // No data related to argc.
+    return
+        1U // The leading byte encoding com::record_type::SIMPLE.
+        +
+        (
+            type == com::data_type::SINT8 ?
+                1U : // 1 byte (char) in an argv line.
+                0U   // No data related to argc.
+        ) 
+        ;
 }
 
 

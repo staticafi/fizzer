@@ -47,12 +47,12 @@ vecu32 const&  typed_input::get_metadata_indices() const
         m_metadata_start_indices = make_unique_wrapper<vecu32>();
         m_metadata_start_indices->reserve(m_types->size() + 1UL);
         m_metadata_start_indices->push_back(0U);
-        while (m_metadata_start_indices->size() < m_meta->size() + 1UL)
+        for (data_type const  type : *m_types)
         {
-            natural_32_bit const num_bytes{ iomodels::metadata_record_bytes_count(m_meta->data() + m_metadata_start_indices->back()) };
+            natural_32_bit const num_bytes{ iomodels::metadata_record_bytes_count(m_meta->data() + m_metadata_start_indices->back(), type) };
             m_metadata_start_indices->push_back(m_metadata_start_indices->back() + num_bytes);
         }
-        INVARIANT(m_metadata_start_indices->back() == (natural_32_bit)m_meta->size());
+        INVARIANT(m_metadata_start_indices->size() == m_types->size() + 1UL && m_metadata_start_indices->back() == (natural_32_bit)m_meta->size());
     }
     return *m_metadata_start_indices;
 }

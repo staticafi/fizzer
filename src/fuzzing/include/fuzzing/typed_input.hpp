@@ -28,7 +28,6 @@ struct  typed_input
 
     natural_32_bit  type_start_metadata_byte_index(natural_32_bit  type_index) const { return get_metadata_indices().at(type_index); }
     natural_32_bit  type_end_metadata_byte_index(natural_32_bit  type_index) const  { return get_metadata_indices().at(type_index + 1U) - 1U; }
-    //{ return type_index + 1U >= (natural_32_bit)m_types->size() ? (natural_32_bit)m_meta->size() - 1U : type_start_metadata_byte_index(type_index + 1U); }
 
 private:
 

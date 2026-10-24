@@ -13,7 +13,7 @@ using  cmdline_ptr = std::unique_ptr<cmdline>;
 
 struct  cmdline final : public iomodel
 {
-    // This value must be equal to enum value MAX_CHARS in data/fizzer_entry_function.c,
+    // This value must be equal to __FIZZER_PRIVATE_IO_MODEL_CMDLINE_MAX_NUM_CHARS in data/main_versions/c/cmdline_model.h,
     static constexpr natural_16_bit  MAX_NUM_CHARS{ 4095U };
 
     static cmdline_ptr  create();

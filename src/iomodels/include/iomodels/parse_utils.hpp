@@ -69,8 +69,8 @@ bool  append_typed_bytes(connection::medium&  dst, com::data_type  type, void*  
 /////////////////////////////////////////////////////////////////////////////////////
 // Miscellaneous utility functions.
 
-// Accepts a pointer to the first byte of metadata record (typically in an array of all metadata records).
-natural_32_bit  metadata_record_bytes_count(natural_8_bit const*  first_byte_ptr);
+// Accepts a pointer to the first byte of the considered metadata record and the type of actual data (the metadata are related to).
+natural_32_bit  metadata_record_bytes_count(natural_8_bit const*  first_byte_ptr, com::data_type  type);
 
 
 }
