@@ -264,6 +264,22 @@ void input_flow_analysis::input_flow::do_ret()
                 for (std::size_t j = 0ULL; j != 8ULL; ++j)
                     sensitive_bits.insert(8ULL * desc + j);
 
+        if (true)
+        {
+            sala::StackRecord const&  caller = state().stack_segment().at(state().stack_segment().size() - 2UL);
+            sala::Instruction const&  instr = program().functions().at(caller.function_index())
+                                                    .basic_blocks().at(caller.ip().block())
+                                                    .instructions().at(caller.ip().instr() - 1U);
+            INVARIANT(
+                    instr.opcode() == sala::Instruction::Opcode::CALL
+                    && instr.operands().size() == 6UL && 
+                    instr.descriptors().at(2UL) == sala::Instruction::Descriptor::LOCAL
+                    );
+            sala::MemBlock const&  local = caller.locals().at(instr.operands().at(2UL));
+            INVARIANT(local.count() == 1UL);
+            clear(local.start(), local.count());
+        }
+
         if (path_index + 1U == data().trace_size)
         {
             state().set_stage(sala::ExecState::Stage::FINISHED);
