@@ -5,6 +5,7 @@
 #    pragma warning(push)
 #    pragma warning(disable : 4624 4996 4146 4800 4996 4005 4355 4244 4267)
 #endif
+#include <llvm/Config/llvm-config.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Instruction.h>
@@ -238,9 +239,13 @@ void run(int argc, char* argv[])
 
     llvm::Linker  linker(*M);
 
+#if LLVM_VERSION_MAJOR <= 18
     //bool const  m32{ M->getDataLayout().getPointerSize() == 4 };
     std::string const  target_triple = M->getTargetTriple();
     llvm::Triple const  llvm_triple{ target_triple };
+#else
+    llvm::Triple const&  llvm_triple = M->getTargetTriple();
+#endif
     bool const  m32{ llvm_triple.isArch32Bit() };
 
     std::string const  model_ll_file{ get_or_build_model_file(
