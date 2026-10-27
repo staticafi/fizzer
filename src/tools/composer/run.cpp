@@ -19,6 +19,8 @@
 #include <llvm/DebugInfo/DIContext.h>
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/raw_os_ostream.h>
+#include <llvm/Transforms/IPO/GlobalDCE.h>
+#include <llvm/IR/PassManager.h>
 #if COMPILER() == COMPILER_VC()
 #    pragma warning(pop)
 #endif
@@ -169,19 +171,15 @@ static std::string  get_or_build_main_file(std::string const&  data_root_dir, st
 
 void  remove_unused_code(llvm::Module&  M)
 {
-    for (int i = 0; i < 2; ++i)
-        for (auto it = M.begin(), end = M.end(); it != end;)
-        {
-            llvm::Function &F = *it++;
-            if (!F.isDeclaration() && F.use_empty() && F.getName().starts_with(FIZZER_MODEL_PREFIX))
-                F.eraseFromParent();
-        }
-    for (auto it = M.global_begin(), end = M.global_end(); it != end;)
-    {
-        llvm::GlobalVariable &G = *it++;
-        if (!G.isDeclaration() && G.use_empty() && G.getName().starts_with(FIZZER_MODEL_PREFIX))
-            G.eraseFromParent();
-    }
+    for (auto &F : M)
+        if (!F.isDeclaration() && F.getName().starts_with(FIZZER_MODEL_PREFIX))
+            F.setLinkage(llvm::GlobalValue::InternalLinkage);
+    for (auto &G : M.globals())
+        if (!G.isDeclaration() && G.getName().starts_with(FIZZER_MODEL_PREFIX))
+            G.setLinkage(llvm::GlobalValue::InternalLinkage);
+    llvm::GlobalDCEPass GDCE;
+    llvm::ModuleAnalysisManager DummyMAM;
+    GDCE.run(M, DummyMAM);
 }
 
 
