@@ -71,7 +71,46 @@ def build(build_dir, build_config, vcpkg_toolchain_file, use_m32):
             ([] if vcpkg_toolchain_file is None else ["-DCMAKE_TOOLCHAIN_FILE:STRING=" + vcpkg_toolchain_file, "-DVCPKG_MANIFEST_MODE=ON"])
         )
     _execute(["cmake", "--build", ".", "--config", build_config, "--target", "install"])
-    
+
+
+def generate_ll_files_of_models(install_dir):
+    composer = None
+    for fname in os.listdir(os.path.join(install_dir, "tools")):
+        if fname.startswith("composer_"):
+            composer = os.path.join(install_dir, "tools", fname)
+            break
+    if composer is None:
+        raise Exception(f"Cannot find composer under: {os.path.join(install_dir, "tools")}")
+    print("Building .ll files for models...", end="", flush=True)
+    output_dir = os.path.join(install_dir, "output")
+    os.makedirs(output_dir, exist_ok=True)
+    benchmark_c = os.path.join(output_dir, "_.c")
+    with open(benchmark_c, "w") as f:
+        f.write("void main(void) {}")
+    benchmark_ll = os.path.join(output_dir, "_.ll")
+    cwd = os.getcwd()
+    try:
+        os.chdir(output_dir)
+        for opt in ["", "-m32"]:
+            _execute([
+                "clang",
+                "-O0", "-g", "-S", "-emit-llvm", "-Wno-everything", "-fbracket-depth=1024",
+                opt,
+                benchmark_c,
+                "-o",
+                benchmark_ll
+                ])
+            _execute([
+                composer,
+                "--input", os.path.join(output_dir, "_.ll"),
+                "--data", os.path.join(install_dir, "data"),
+                "--output", os.path.join(output_dir, "_res.ll")
+                ])
+        shutil.rmtree(output_dir)
+    finally:
+        os.chdir(cwd)
+        print("done.")
+
 
 def main():
     self_dir = os.path.normpath(os.path.abspath(os.path.dirname(__file__)))
@@ -131,6 +170,7 @@ def main():
     build(build_dir, build_config, vcpkg_toolchain_file, True)
     if only_m32 is False:
         build(build_dir, build_config, vcpkg_toolchain_file, False)
+        generate_ll_files_of_models(install_dir)
 
 
 if __name__ == "__main__":
