@@ -58,7 +58,8 @@ def build(self_dir, input_file, output_dir, options, use_m32, main_no_args, gene
     if _execute(
             [ "clang" ] +
                 (["-m32"] if use_m32 is True else []) +
-                [ "-O0", "-g", "-S", "-emit-llvm", "-Wno-everything", "-fbracket-depth=1024", benchmark_file, "-o", ll_file]
+                [ "-O0", "-g", "-S", "-emit-llvm", "-Wno-everything", "-fbracket-depth=1024", "-fstack-clash-protection",
+                  benchmark_file, "-o", ll_file]
             ).returncode:
         raise Exception("Compilation[C->LLVM] has failed: " + input_file)
     t1 = time.time()
